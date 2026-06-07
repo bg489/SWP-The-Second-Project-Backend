@@ -75,7 +75,7 @@ const options = {
                         plateNumber: { type: "string", example: "59A-12345" },
                         vehicleType: {
                             type: "string",
-                            enum: ["MOTORBIKE", "CAR", "BICYCLE"],
+                            enum: ["MOTORBIKE", "CAR"],
                             example: "CAR",
                         },
                         brand: { type: "string", example: "Toyota" },

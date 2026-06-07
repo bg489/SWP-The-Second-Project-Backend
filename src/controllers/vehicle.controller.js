@@ -10,12 +10,12 @@ const createVehicle = async (req, res) => {
             return errorResponse(res, "Vui lòng nhập biển số xe và loại xe", 400);
         }
 
-        const validTypes = ["MOTORBIKE", "CAR", "BICYCLE"];
+        const validTypes = ["MOTORBIKE", "CAR"];
 
         if (!validTypes.includes(vehicleType)) {
             return errorResponse(
                 res,
-                "Loại xe không hợp lệ. Chỉ nhận MOTORBIKE, CAR hoặc BICYCLE",
+                "Loại xe không hợp lệ. Chỉ nhận MOTORBIKE hoặc CAR",
                 400
             );
         }

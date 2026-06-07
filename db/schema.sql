@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
     user_id INT NOT NULL,
     building_id INT NULL,
     plate_number VARCHAR(30) NOT NULL UNIQUE,
-    vehicle_type ENUM('MOTORBIKE', 'CAR', 'BICYCLE') NOT NULL,
+    vehicle_type ENUM('MOTORBIKE', 'CAR') NOT NULL,
     brand VARCHAR(100) NULL,
     color VARCHAR(50) NULL,
     status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
