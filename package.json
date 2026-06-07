@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "seed:users": "node src/seed/seedUsers.js",
+    "seed:vehicles": "node src/seed/seedVehicles.js"
   },
   "repository": {
     "type": "git",
