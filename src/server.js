@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 
 const db = require("./config/db");
 const authRoutes = require("./routes/auth.routes");
@@ -17,6 +19,22 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+        explorer: true,
+        swaggerOptions: {
+            persistAuthorization: true,
+        },
+    })
+);
+
+app.get("/api-docs.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerSpec);
+});
 
 app.get("/", (req, res) => {
     return successResponse(res, "Backend Node.js đang chạy");
