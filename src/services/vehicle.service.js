@@ -118,11 +118,96 @@ const updateVehicleStatus = async (id, status) => {
     return getVehicleById(id);
 };
 
+const getVehicleByIdAndUserId = async (id, userId) => {
+    const [rows] = await db.query(
+        `SELECT
+            v.id,
+            v.user_id AS userId,
+            v.building_id AS buildingId,
+            v.plate_number AS plateNumber,
+            v.vehicle_type AS vehicleType,
+            v.brand,
+            v.color,
+            v.status,
+            v.created_at AS createdAt,
+            v.updated_at AS updatedAt,
+
+            b.name AS buildingName,
+            b.address AS buildingAddress
+         FROM vehicles v
+         LEFT JOIN buildings b ON v.building_id = b.id
+         WHERE v.id = ? AND v.user_id = ?
+         LIMIT 1`,
+        [id, userId]
+    );
+
+    return rows[0] || null;
+};
+
+const findVehicleByPlateNumberExceptId = async (plateNumber, id) => {
+    const [rows] = await db.query(
+        `SELECT *
+         FROM vehicles
+         WHERE plate_number = ? AND id <> ?
+         LIMIT 1`,
+        [plateNumber, id]
+    );
+
+    return rows[0] || null;
+};
+
+const updateVehicleByIdAndUserId = async ({
+    id,
+    userId,
+    plateNumber,
+    vehicleType,
+    brand,
+    color,
+    buildingId,
+}) => {
+    await db.query(
+        `UPDATE vehicles
+         SET
+            plate_number = ?,
+            vehicle_type = ?,
+            brand = ?,
+            color = ?,
+            building_id = ?,
+            updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND user_id = ?`,
+        [
+            plateNumber,
+            vehicleType,
+            brand || null,
+            color || null,
+            buildingId || null,
+            id,
+            userId,
+        ]
+    );
+
+    return getVehicleByIdAndUserId(id, userId);
+};
+
+const deleteVehicleByIdAndUserId = async (id, userId) => {
+    const [result] = await db.query(
+        `DELETE FROM vehicles
+         WHERE id = ? AND user_id = ?`,
+        [id, userId]
+    );
+
+    return result.affectedRows > 0;
+};
+
 module.exports = {
     createVehicle,
     getVehiclesByUserId,
     getAllVehicles,
     getVehicleById,
+    getVehicleByIdAndUserId,
     findVehicleByPlateNumber,
+    findVehicleByPlateNumberExceptId,
     updateVehicleStatus,
+    updateVehicleByIdAndUserId,
+    deleteVehicleByIdAndUserId,
 };
