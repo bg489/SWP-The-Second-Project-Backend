@@ -10,6 +10,10 @@ const userRoutes = require("./routes/user.routes");
 const buildingRoutes = require("./routes/building.routes");
 const floorRoutes = require("./routes/floor.routes");
 const slotRoutes = require("./routes/slot.routes");
+const slotRegistrationRoutes = require("./routes/slotRegistration.routes");
+const paymentRoutes = require("./routes/payment.routes");
+const parkingSessionRoutes = require("./routes/parkingSession.routes");
+const monthlyPassRoutes = require("./routes/monthlyPass.routes");
 const vehicleRoutes = require("./routes/vehicle.routes");
 const {
     notFoundMiddleware,
@@ -57,6 +61,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/buildings", buildingRoutes);
 app.use("/api/floors", floorRoutes);
 app.use("/api/slots", slotRoutes);
+app.use("/api/slot-registrations", slotRegistrationRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/parking-sessions", parkingSessionRoutes);
+app.use("/api/monthly-passes", monthlyPassRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

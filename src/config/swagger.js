@@ -217,6 +217,163 @@ const options = {
                         },
                     },
                 },
+                SlotRegistrationRequest: {
+                    type: "object",
+                    required: ["vehicleId", "slotId", "amount"],
+                    properties: {
+                        vehicleId: {
+                            type: "integer",
+                            example: 3,
+                            description: "Approved CAR vehicle owned by current USER.",
+                        },
+                        slotId: {
+                            type: "integer",
+                            example: 1,
+                            description: "AVAILABLE slot under a CAR floor.",
+                        },
+                        amount: {
+                            type: "integer",
+                            example: 100000,
+                            description: "Sandbox VND amount. Pricing module should replace this later.",
+                        },
+                        bankCode: {
+                            type: "string",
+                            nullable: true,
+                            example: "NCB",
+                            description: "Optional VNPay sandbox bank code.",
+                        },
+                        locale: {
+                            type: "string",
+                            nullable: true,
+                            enum: ["vn", "en"],
+                            example: "vn",
+                        },
+                        startDate: {
+                            type: "string",
+                            format: "date",
+                            nullable: true,
+                            example: "2026-06-11",
+                        },
+                        endDate: {
+                            type: "string",
+                            format: "date",
+                            nullable: true,
+                            example: "2026-07-11",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Dang ky slot thang dau tien",
+                        },
+                    },
+                },
+                ParkingSessionCheckInRequest: {
+                    type: "object",
+                    required: ["plateNumber", "vehicleType"],
+                    properties: {
+                        plateNumber: {
+                            type: "string",
+                            example: "59A-12345",
+                        },
+                        vehicleType: {
+                            type: "string",
+                            enum: ["MOTORBIKE", "CAR"],
+                            example: "CAR",
+                        },
+                        buildingId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 1,
+                            description: "Required for MOTORBIKE check-in.",
+                        },
+                        floorId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 1,
+                            description: "Optional MOTORBIKE floor. If omitted, first active motorbike floor is used.",
+                        },
+                        slotId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 1,
+                            description: "Required for CAR check-in unless car has an active monthly slot registration.",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Staff check-in at main gate",
+                        },
+                    },
+                },
+                ParkingSessionCheckOutRequest: {
+                    type: "object",
+                    properties: {
+                        violationFee: {
+                            type: "integer",
+                            example: 0,
+                            description: "Extra fine added on exit. Monthly pass users still pay this if present.",
+                        },
+                        violationNote: {
+                            type: "string",
+                            nullable: true,
+                            example: "Parked in wrong area",
+                        },
+                        paymentMethod: {
+                            type: "string",
+                            nullable: true,
+                            enum: ["CASH", "CARD", "VNPAY"],
+                            example: "CASH",
+                            description: "Required when totalAmount > 0. Omit when monthly pass has no violation fee.",
+                        },
+                        paidNote: {
+                            type: "string",
+                            nullable: true,
+                            example: "Staff confirmed cash payment",
+                        },
+                        bankCode: {
+                            type: "string",
+                            nullable: true,
+                            example: "NCB",
+                            description: "Optional for VNPay sandbox.",
+                        },
+                        locale: {
+                            type: "string",
+                            nullable: true,
+                            enum: ["vn", "en"],
+                            example: "vn",
+                        },
+                    },
+                },
+                MonthlyPassRequest: {
+                    type: "object",
+                    required: ["vehicleId", "startDate", "endDate"],
+                    properties: {
+                        vehicleId: {
+                            type: "integer",
+                            example: 3,
+                        },
+                        amount: {
+                            type: "integer",
+                            example: 120000,
+                            description: "Manual monthly pass amount. Can be 0 for test data.",
+                        },
+                        startDate: {
+                            type: "string",
+                            format: "date",
+                            example: "2026-06-11",
+                        },
+                        endDate: {
+                            type: "string",
+                            format: "date",
+                            example: "2026-07-11",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Manual monthly pass for testing gate flow",
+                        },
+                    },
+                },
                 VehicleRequest: {
                     type: "object",
                     required: ["plateNumber", "vehicleType"],
