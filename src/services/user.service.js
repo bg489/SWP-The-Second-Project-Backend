@@ -75,6 +75,38 @@ const getUserById = async (id) => {
     return rows[0] || null;
 };
 
+const getAllUsers = async () => {
+    const [rows] = await db.query(
+        `SELECT
+            u.id,
+            u.name,
+            u.email,
+            u.phone,
+            u.role,
+            u.building_id AS buildingId,
+            u.created_at AS createdAt,
+            u.updated_at AS updatedAt,
+            b.name AS buildingName,
+            b.address AS buildingAddress
+         FROM users u
+         LEFT JOIN buildings b ON u.building_id = b.id
+         ORDER BY u.id DESC`
+    );
+
+    return rows;
+};
+
+const updateUserRole = async (id, role) => {
+    await db.query(
+        `UPDATE users
+         SET role = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [role, id]
+    );
+
+    return getUserById(id);
+};
+
 const getVehiclesByUserId = async (userId) => {
     const [rows] = await db.query(
         `SELECT
@@ -99,5 +131,7 @@ module.exports = {
     findExistingUserForRegister,
     createUser,
     getUserById,
+    getAllUsers,
+    updateUserRole,
     getVehiclesByUserId,
 };

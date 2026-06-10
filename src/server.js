@@ -8,6 +8,8 @@ const db = require("./config/db");
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
 const buildingRoutes = require("./routes/building.routes");
+const floorRoutes = require("./routes/floor.routes");
+const slotRoutes = require("./routes/slot.routes");
 const vehicleRoutes = require("./routes/vehicle.routes");
 const {
     notFoundMiddleware,
@@ -53,6 +55,8 @@ app.get("/api/health", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/buildings", buildingRoutes);
+app.use("/api/floors", floorRoutes);
+app.use("/api/slots", slotRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
