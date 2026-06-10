@@ -1,0 +1,13 @@
+const ROLES = {
+    ADMIN: "ADMIN",
+    PARKING_MANAGER: "PARKING_MANAGER",
+    PARKING_STAFF: "PARKING_STAFF",
+    USER: "USER",
+};
+
+const AUTHENTICATED_ROLES = Object.values(ROLES);
+
+module.exports = {
+    ROLES,
+    AUTHENTICATED_ROLES,
+};

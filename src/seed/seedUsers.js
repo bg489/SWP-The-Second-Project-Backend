@@ -17,6 +17,18 @@ const testUsers = [
         role: "ADMIN",
     },
     {
+        name: "Parking Manager Test",
+        email: "manager@test.com",
+        phone: "0900000004",
+        role: "PARKING_MANAGER",
+    },
+    {
+        name: "Parking Staff Test",
+        email: "staff@test.com",
+        phone: "0900000005",
+        role: "PARKING_STAFF",
+    },
+    {
         name: "User No Vehicle",
         email: "novehicle@test.com",
         phone: "0900000001",
