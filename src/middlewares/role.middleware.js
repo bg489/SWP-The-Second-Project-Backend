@@ -1,17 +1,25 @@
-const { ROLES } = require("../constants/roles");
 const { errorResponse } = require("../utils/response");
+const { ROLES, normalizeRole } = require("../utils/constants");
 
-const requireRoles = (...allowedRoles) => {
+const allowRoles = (...allowedRoles) => {
+    const normalizedAllowedRoles = allowedRoles.map(normalizeRole);
+
     return (req, res, next) => {
         if (!req.user) {
-            return errorResponse(res, "Ban chua dang nhap", 401);
+            return errorResponse(res, "Bạn chưa đăng nhập", 401);
         }
 
-        if (!allowedRoles.includes(req.user.role)) {
+        const currentRole = normalizeRole(req.user.role);
+
+        if (!normalizedAllowedRoles.includes(currentRole)) {
             return errorResponse(
                 res,
-                `Ban khong co quyen. Can role: ${allowedRoles.join(", ")}`,
-                403
+                "Bạn không có quyền truy cập chức năng này",
+                403,
+                {
+                    requiredRoles: normalizedAllowedRoles,
+                    currentRole,
+                }
             );
         }
 
@@ -19,13 +27,23 @@ const requireRoles = (...allowedRoles) => {
     };
 };
 
-const adminMiddleware = requireRoles(ROLES.ADMIN);
-const parkingManagerMiddleware = requireRoles(ROLES.PARKING_MANAGER);
-const parkingStaffMiddleware = requireRoles(ROLES.PARKING_STAFF);
+// Backward-compatible name used across the older routes.
+const requireRoles = allowRoles;
+
+const adminMiddleware = allowRoles(ROLES.ADMIN);
+const managerOrAdminMiddleware = allowRoles(ROLES.ADMIN, ROLES.MANAGER);
+const parkingStaffOrAboveMiddleware = allowRoles(ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF);
+
+// Keep old exports used by existing teammate code, but map them to new RBAC roles.
+const parkingManagerMiddleware = managerOrAdminMiddleware;
+const parkingStaffMiddleware = parkingStaffOrAboveMiddleware;
 
 module.exports = {
+    allowRoles,
     requireRoles,
     adminMiddleware,
+    managerOrAdminMiddleware,
+    parkingStaffOrAboveMiddleware,
     parkingManagerMiddleware,
     parkingStaffMiddleware,
 };

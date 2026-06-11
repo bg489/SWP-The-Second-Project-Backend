@@ -20,13 +20,13 @@ const testUsers = [
         name: "Parking Manager Test",
         email: "manager@test.com",
         phone: "0900000004",
-        role: "PARKING_MANAGER",
+        role: "MANAGER",
     },
     {
         name: "Parking Staff Test",
         email: "staff@test.com",
         phone: "0900000005",
-        role: "PARKING_STAFF",
+        role: "STAFF",
     },
     {
         name: "User No Vehicle",
@@ -92,6 +92,7 @@ const upsertUser = async ({ name, email, phone, role, buildingId }) => {
                 phone = ?,
                 password_hash = ?,
                 role = ?,
+                status = 'ACTIVE',
                 building_id = ?,
                 updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
@@ -103,9 +104,9 @@ const upsertUser = async ({ name, email, phone, role, buildingId }) => {
 
     const [result] = await db.query(
         `INSERT INTO users
-            (name, email, phone, password_hash, role, building_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [name, email, phone, passwordHash, role, buildingId]
+            (name, email, phone, password_hash, role, status, building_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [name, email, phone, passwordHash, role, "ACTIVE", buildingId]
     );
 
     return result.insertId;

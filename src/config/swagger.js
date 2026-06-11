@@ -7,7 +7,7 @@ const options = {
         openapi: "3.0.0",
         info: {
             title: "Parking Building Backend API",
-            version: "1.0.0",
+            version: "1.2.0",
             description: "Swagger docs for SWP Parking Building Management System backend",
         },
         servers: [
@@ -72,11 +72,11 @@ const options = {
                             type: "string",
                             enum: [
                                 "ADMIN",
-                                "PARKING_MANAGER",
-                                "PARKING_STAFF",
+                                "MANAGER",
+                                "STAFF",
                                 "USER",
                             ],
-                            example: "PARKING_MANAGER",
+                            example: "MANAGER",
                             description: "WALK_IN_GUEST is a business role without login account.",
                         },
                     },
@@ -98,9 +98,11 @@ const options = {
                 },
                 FloorRequest: {
                     type: "object",
-                    required: ["name", "floorType"],
+                    required: ["buildingId", "name", "floorType"],
                     properties: {
+                        buildingId: { type: "integer", example: 1 },
                         name: { type: "string", example: "Floor 1 - Motorbike" },
+                        code: { type: "string", example: "B1", nullable: true },
                         floorType: {
                             type: "string",
                             enum: ["MOTORBIKE", "CAR"],
@@ -110,12 +112,29 @@ const options = {
                             type: "integer",
                             nullable: true,
                             example: 300,
-                            description: "Required for MOTORBIKE floors. CAR floors use slots instead.",
+                            description: "Required for MOTORBIKE floors. CAR floors use slotCount/slots instead.",
+                        },
+                        slotCount: {
+                            type: "integer",
+                            nullable: true,
+                            example: 5,
+                            description: "Required for CAR floors.",
+                        },
+                        slots: {
+                            type: "array",
+                            nullable: true,
+                            items: { type: "string" },
+                            example: ["C-101", "C-102", "C-103"],
                         },
                         status: {
                             type: "string",
                             enum: ["ACTIVE", "LOCKED", "MAINTENANCE", "INACTIVE"],
                             example: "ACTIVE",
+                        },
+                        operationNote: {
+                            type: "string",
+                            nullable: true,
+                            example: "Motorbike area near main gate",
                         },
                         note: {
                             type: "string",

@@ -1,13 +1,14 @@
 {
   "name": "backend",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Backend Node.js Express MySQL for apartment parking project",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed:users": "node src/seed/seedUsers.js",
-    "seed:vehicles": "node src/seed/seedVehicles.js"
+    "seed:vehicles": "node src/seed/seedVehicles.js",
+    "seed:floors": "node src/seed/seedFloors.js"
   },
   "repository": {
     "type": "git",
