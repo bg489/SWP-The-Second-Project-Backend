@@ -2,12 +2,14 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { successResponse, errorResponse } = require("../utils/response");
 const userService = require("../services/user.service");
+const { USER_STATUSES, normalizeRole } = require("../utils/constants");
 
 const generateToken = (user) => {
     return jwt.sign(
         {
             id: user.id,
-            role: user.role,
+            role: normalizeRole(user.role),
+            status: user.status,
         },
         process.env.JWT_SECRET,
         {
@@ -64,6 +66,15 @@ const login = async (req, res) => {
             return errorResponse(res, "Email/phone hoặc password không đúng", 401);
         }
 
+        if (user.status !== USER_STATUSES.ACTIVE) {
+            return errorResponse(
+                res,
+                "Tài khoản đã bị khóa hoặc không còn hoạt động",
+                403,
+                { status: user.status }
+            );
+        }
+
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
         if (!isPasswordValid) {
@@ -79,7 +90,8 @@ const login = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role,
+                role: normalizeRole(user.role),
+                status: user.status,
                 buildingId: user.building_id,
             },
         });

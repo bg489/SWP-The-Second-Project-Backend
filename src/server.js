@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
+require("dotenv").config({ override: true });
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./config/swagger");
 
@@ -15,6 +15,7 @@ const paymentRoutes = require("./routes/payment.routes");
 const parkingSessionRoutes = require("./routes/parkingSession.routes");
 const monthlyPassRoutes = require("./routes/monthlyPass.routes");
 const vehicleRoutes = require("./routes/vehicle.routes");
+const adminUserRoutes = require("./routes/adminUser.routes");
 const {
     notFoundMiddleware,
     errorMiddleware,
@@ -66,6 +67,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/parking-sessions", parkingSessionRoutes);
 app.use("/api/monthly-passes", monthlyPassRoutes);
 app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/admin/users", adminUserRoutes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
 

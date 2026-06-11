@@ -48,9 +48,9 @@ const ensureUser = async ({ name, email, phone, role, buildingId }) => {
 
     const [result] = await db.query(
         `INSERT INTO users
-            (name, email, phone, password_hash, role, building_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [name, email, phone, passwordHash, role, buildingId]
+            (name, email, phone, password_hash, role, status, building_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [name, email, phone, passwordHash, role, "ACTIVE", buildingId]
     );
 
     return result.insertId;

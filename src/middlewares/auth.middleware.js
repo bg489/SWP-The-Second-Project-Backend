@@ -1,7 +1,9 @@
 const jwt = require("jsonwebtoken");
+const db = require("../config/db");
 const { errorResponse } = require("../utils/response");
+const { USER_STATUSES, normalizeRole } = require("../utils/constants");
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -16,7 +18,36 @@ const authMiddleware = (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+
+        const [rows] = await db.query(
+            `SELECT id, role, status
+             FROM users
+             WHERE id = ?
+             LIMIT 1`,
+            [decoded.id]
+        );
+
+        const user = rows[0];
+
+        if (!user) {
+            return errorResponse(res, "Tài khoản không tồn tại", 401);
+        }
+
+        if (user.status !== USER_STATUSES.ACTIVE) {
+            return errorResponse(
+                res,
+                "Tài khoản đã bị khóa hoặc không còn hoạt động",
+                403,
+                { status: user.status }
+            );
+        }
+
+        req.user = {
+            id: user.id,
+            role: normalizeRole(user.role),
+            status: user.status,
+        };
+
         next();
     } catch (error) {
         return errorResponse(res, "Token không hợp lệ hoặc đã hết hạn", 401);

@@ -1,155 +1,235 @@
-const buildingService = require("../services/building.service");
 const floorService = require("../services/floor.service");
 const { successResponse, errorResponse } = require("../utils/response");
+const {
+    FLOOR_TYPES,
+    FLOOR_STATUSES,
+    normalizeEnum,
+    isValidEnumValue,
+} = require("../utils/constants");
 
-const VALID_FLOOR_TYPES = ["MOTORBIKE", "CAR"];
-const VALID_FLOOR_STATUSES = ["ACTIVE", "LOCKED", "MAINTENANCE", "INACTIVE"];
-
-const isValidId = (id) => {
-    const numberId = Number(id);
-
-    return Number.isInteger(numberId) && numberId > 0;
-};
-
-const parsePositiveInteger = (value) => {
-    const numberValue = Number(value);
-
-    if (!Number.isInteger(numberValue) || numberValue <= 0) {
+const toPositiveInteger = (value) => {
+    if (value === null || value === undefined || value === "") {
         return null;
     }
 
-    return numberValue;
-};
+    const number = Number(value);
 
-const normalizeEnum = (value) => {
-    if (!value || typeof value !== "string") {
+    if (!Number.isInteger(number) || number <= 0) {
         return null;
     }
 
-    return value.trim().toUpperCase();
+    return number;
 };
 
-const buildFloorPayload = (body, existingFloor = null) => {
-    const requestedFloorType =
-        body.floorType !== undefined
-            ? normalizeEnum(body.floorType)
-            : existingFloor.floorType;
-    const requestedStatus =
-        body.status !== undefined
-            ? normalizeEnum(body.status)
-            : existingFloor
-              ? existingFloor.status
-              : "ACTIVE";
-
-    if (!VALID_FLOOR_TYPES.includes(requestedFloorType)) {
-        return {
-            error: "floorType chi nhan MOTORBIKE hoac CAR",
-        };
+const normalizeSlots = ({ slots, slotList }) => {
+    if (Array.isArray(slots)) {
+        return slots.map((slot) => String(slot).trim().toUpperCase()).filter(Boolean);
     }
 
-    if (!VALID_FLOOR_STATUSES.includes(requestedStatus)) {
-        return {
-            error: "status khong hop le",
-        };
+    if (typeof slotList === "string") {
+        return slotList
+            .split(",")
+            .map((slot) => slot.trim().toUpperCase())
+            .filter(Boolean);
     }
 
-    const name =
-        body.name !== undefined
-            ? String(body.name).trim()
-            : existingFloor.name;
+    return [];
+};
+
+const generateCarSlots = (prefix, slotCount) => {
+    return Array.from({ length: slotCount }, (_, index) => {
+        const slotNumber = String(index + 1).padStart(2, "0");
+        return `${prefix}-${slotNumber}`;
+    });
+};
+
+const validateFloorPayload = (body, options = {}) => {
+    const buildingId = toPositiveInteger(options.buildingId || body.buildingId || body.building_id);
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
+    const floorType = normalizeEnum(body.floorType || body.floor_type);
+    const status = normalizeEnum(body.status || FLOOR_STATUSES.ACTIVE);
+    const operationNote =
+        typeof body.operationNote === "string"
+            ? body.operationNote.trim()
+            : typeof body.operation_note === "string"
+                ? body.operation_note.trim()
+                : typeof body.note === "string"
+                    ? body.note.trim()
+                    : null;
+
+    if (!buildingId) {
+        return { error: "buildingId là bắt buộc và phải là số nguyên dương" };
+    }
 
     if (!name) {
+        return { error: "Tên tầng không được để trống" };
+    }
+
+    if (!floorType || !isValidEnumValue(FLOOR_TYPES, floorType)) {
         return {
-            error: "Ten tang khong duoc de trong",
+            error: "Loại tầng không hợp lệ. Chỉ nhận MOTORBIKE hoặc CAR",
+            details: { allowedFloorTypes: Object.values(FLOOR_TYPES) },
         };
     }
 
-    let capacity = null;
+    if (!status || !isValidEnumValue(FLOOR_STATUSES, status)) {
+        return {
+            error: "Trạng thái tầng không hợp lệ",
+            details: { allowedStatuses: Object.values(FLOOR_STATUSES) },
+        };
+    }
 
-    if (requestedFloorType === "MOTORBIKE") {
-        const capacityValue =
-            body.capacity !== undefined ? body.capacity : existingFloor.capacity;
+    let capacity = toPositiveInteger(body.capacity);
+    let slotCount = toPositiveInteger(body.slotCount || body.slot_count);
+    let slots = normalizeSlots({ slots: body.slots, slotList: body.slotList || body.slot_list });
 
-        capacity = parsePositiveInteger(capacityValue);
-
+    if (floorType === FLOOR_TYPES.MOTORBIKE) {
         if (!capacity) {
+            return { error: "Tầng MOTORBIKE bắt buộc nhập capacity là số nguyên dương" };
+        }
+
+        slotCount = 0;
+        slots = [];
+    }
+
+    if (floorType === FLOOR_TYPES.CAR) {
+        if (!slotCount) {
+            return { error: "Tầng CAR bắt buộc nhập slotCount là số nguyên dương" };
+        }
+
+        capacity = null;
+
+        if (slots.length > 0 && slots.length !== slotCount) {
             return {
-                error: "Tang MOTORBIKE can capacity la so nguyen duong",
+                error: "Số lượng slot trong danh sách phải bằng slotCount",
+                details: {
+                    slotCount,
+                    slotsLength: slots.length,
+                },
             };
+        }
+
+        if (slots.length === 0) {
+            const prefix = code || name.replace(/\s+/g, "-").toUpperCase();
+            slots = generateCarSlots(prefix, slotCount);
+        }
+
+        const uniqueSlots = new Set(slots);
+
+        if (uniqueSlots.size !== slots.length) {
+            return { error: "Danh sách mã slot không được trùng nhau" };
         }
     }
 
     return {
-        payload: {
+        value: {
+            buildingId,
             name,
-            floorType: requestedFloorType,
+            code,
+            floorType,
             capacity,
-            status: requestedStatus,
-            note: body.note !== undefined ? body.note : existingFloor?.note,
+            slotCount,
+            slots,
+            status,
+            operationNote,
         },
     };
 };
 
 const createFloor = async (req, res) => {
     try {
-        const { buildingId } = req.params;
+        const validation = validateFloorPayload(req.body, {
+            buildingId: req.params.buildingId,
+        });
 
-        if (!isValidId(buildingId)) {
-            return errorResponse(res, "Building id khong hop le", 400);
+        if (validation.error) {
+            return errorResponse(res, validation.error, 400, validation.details || null);
         }
 
-        const building = await buildingService.getBuildingById(buildingId);
+        const building = await floorService.getBuildingById(validation.value.buildingId);
 
         if (!building) {
-            return errorResponse(res, "Khong tim thay toa nha", 404);
+            return errorResponse(res, "Không tìm thấy tòa nhà", 404);
         }
 
-        const { payload, error } = buildFloorPayload(req.body, {
-            floorType: null,
-            status: "ACTIVE",
-            name: "",
-            capacity: null,
-            note: null,
+        const existedFloor = await floorService.findFloorByNameAndBuilding({
+            name: validation.value.name,
+            buildingId: validation.value.buildingId,
         });
 
-        if (error) {
-            return errorResponse(res, error, 400);
+        if (existedFloor) {
+            return errorResponse(res, "Tên tầng đã tồn tại trong tòa nhà này", 400);
         }
 
-        const floor = await floorService.createFloor({
-            buildingId,
-            ...payload,
-        });
+        const floor = await floorService.createFloor(validation.value);
 
-        return successResponse(res, "Tao tang thanh cong", floor, 201);
+        return successResponse(res, "Tạo tầng gửi xe thành công", floor, 201);
     } catch (error) {
         if (error.code === "ER_DUP_ENTRY") {
-            return errorResponse(res, "Ten tang da ton tai trong toa nha nay", 400);
+            return errorResponse(res, "Tên tầng hoặc mã slot đã tồn tại", 400);
         }
 
-        return errorResponse(res, "Loi tao tang", 500, error.message);
+        return errorResponse(res, "Lỗi tạo tầng gửi xe", 500, error.message);
+    }
+};
+
+const getFloors = async (req, res) => {
+    try {
+        const floorType = req.query.floorType || req.query.floor_type
+            ? normalizeEnum(req.query.floorType || req.query.floor_type)
+            : undefined;
+        const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
+        const buildingId = req.query.buildingId || req.query.building_id
+            ? toPositiveInteger(req.query.buildingId || req.query.building_id)
+            : undefined;
+
+        if (floorType && !isValidEnumValue(FLOOR_TYPES, floorType)) {
+            return errorResponse(res, "Loại tầng không hợp lệ", 400, {
+                allowedFloorTypes: Object.values(FLOOR_TYPES),
+            });
+        }
+
+        if (status && !isValidEnumValue(FLOOR_STATUSES, status)) {
+            return errorResponse(res, "Trạng thái tầng không hợp lệ", 400, {
+                allowedStatuses: Object.values(FLOOR_STATUSES),
+            });
+        }
+
+        const result = await floorService.getFloors({
+            q: req.query.q,
+            buildingId,
+            floorType,
+            status,
+            page: req.query.page,
+            limit: req.query.limit,
+        });
+
+        return successResponse(res, "Lấy danh sách tầng gửi xe thành công", result);
+    } catch (error) {
+        return errorResponse(res, "Lỗi lấy danh sách tầng gửi xe", 500, error.message);
     }
 };
 
 const getFloorsByBuildingId = async (req, res) => {
     try {
-        const { buildingId } = req.params;
+        const buildingId = toPositiveInteger(req.params.buildingId);
 
-        if (!isValidId(buildingId)) {
-            return errorResponse(res, "Building id khong hop le", 400);
+        if (!buildingId) {
+            return errorResponse(res, "Building id không hợp lệ", 400);
         }
 
-        const building = await buildingService.getBuildingById(buildingId);
+        const building = await floorService.getBuildingById(buildingId);
 
         if (!building) {
-            return errorResponse(res, "Khong tim thay toa nha", 404);
+            return errorResponse(res, "Không tìm thấy tòa nhà", 404);
         }
 
         const floors = await floorService.getFloorsByBuildingId(buildingId);
 
-        return successResponse(res, "Lay danh sach tang thanh cong", floors);
+        return successResponse(res, "Lấy danh sách tầng gửi xe thành công", floors);
     } catch (error) {
-        return errorResponse(res, "Loi lay danh sach tang", 500, error.message);
+        return errorResponse(res, "Lỗi lấy danh sách tầng gửi xe", 500, error.message);
     }
 };
 
@@ -157,19 +237,19 @@ const getFloorById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isValidId(id)) {
-            return errorResponse(res, "Floor id khong hop le", 400);
+        if (!id || isNaN(Number(id))) {
+            return errorResponse(res, "Floor id không hợp lệ", 400);
         }
 
         const floor = await floorService.getFloorById(id);
 
         if (!floor) {
-            return errorResponse(res, "Khong tim thay tang", 404);
+            return errorResponse(res, "Không tìm thấy tầng gửi xe", 404);
         }
 
-        return successResponse(res, "Lay chi tiet tang thanh cong", floor);
+        return successResponse(res, "Lấy chi tiết tầng gửi xe thành công", floor);
     } catch (error) {
-        return errorResponse(res, "Loi lay chi tiet tang", 500, error.message);
+        return errorResponse(res, "Lỗi lấy chi tiết tầng gửi xe", 500, error.message);
     }
 };
 
@@ -177,46 +257,52 @@ const updateFloor = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isValidId(id)) {
-            return errorResponse(res, "Floor id khong hop le", 400);
+        if (!id || isNaN(Number(id))) {
+            return errorResponse(res, "Floor id không hợp lệ", 400);
         }
 
         const floor = await floorService.getFloorById(id);
 
         if (!floor) {
-            return errorResponse(res, "Khong tim thay tang", 404);
+            return errorResponse(res, "Không tìm thấy tầng gửi xe", 404);
         }
 
-        const { payload, error } = buildFloorPayload(req.body, floor);
+        const validation = validateFloorPayload(req.body, {
+            buildingId: req.body.buildingId || req.body.building_id || floor.buildingId,
+        });
 
-        if (error) {
-            return errorResponse(res, error, 400);
+        if (validation.error) {
+            return errorResponse(res, validation.error, 400, validation.details || null);
         }
 
-        if (payload.floorType !== "CAR") {
-            const slotCount = await floorService.countSlotsByFloorId(id);
+        const building = await floorService.getBuildingById(validation.value.buildingId);
 
-            if (slotCount > 0) {
-                return errorResponse(
-                    res,
-                    "Tang dang co slot oto, hay xoa slot truoc khi doi sang MOTORBIKE",
-                    400
-                );
-            }
+        if (!building) {
+            return errorResponse(res, "Không tìm thấy tòa nhà", 404);
+        }
+
+        const existedFloor = await floorService.findFloorByNameAndBuildingExceptId({
+            name: validation.value.name,
+            buildingId: validation.value.buildingId,
+            id,
+        });
+
+        if (existedFloor) {
+            return errorResponse(res, "Tên tầng đã tồn tại trong tòa nhà này", 400);
         }
 
         const updatedFloor = await floorService.updateFloor({
             id,
-            ...payload,
+            ...validation.value,
         });
 
-        return successResponse(res, "Cap nhat tang thanh cong", updatedFloor);
+        return successResponse(res, "Cập nhật tầng gửi xe thành công", updatedFloor);
     } catch (error) {
         if (error.code === "ER_DUP_ENTRY") {
-            return errorResponse(res, "Ten tang da ton tai trong toa nha nay", 400);
+            return errorResponse(res, "Tên tầng hoặc mã slot đã tồn tại", 400);
         }
 
-        return errorResponse(res, "Loi cap nhat tang", 500, error.message);
+        return errorResponse(res, "Lỗi cập nhật tầng gửi xe", 500, error.message);
     }
 };
 
@@ -224,28 +310,34 @@ const deleteFloor = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isValidId(id)) {
-            return errorResponse(res, "Floor id khong hop le", 400);
+        if (!id || isNaN(Number(id))) {
+            return errorResponse(res, "Floor id không hợp lệ", 400);
         }
 
         const floor = await floorService.getFloorById(id);
 
         if (!floor) {
-            return errorResponse(res, "Khong tim thay tang", 404);
+            return errorResponse(res, "Không tìm thấy tầng gửi xe", 404);
         }
 
         await floorService.deleteFloor(id);
 
-        return successResponse(res, "Xoa tang thanh cong", {
+        return successResponse(res, "Xóa tầng gửi xe thành công", {
             id: Number(id),
         });
     } catch (error) {
-        return errorResponse(res, "Loi xoa tang", 500, error.message);
+        return errorResponse(
+            res,
+            error.statusCode === 400 ? error.message : "Lỗi xóa tầng gửi xe",
+            error.statusCode || 500,
+            error.statusCode === 400 ? null : error.message
+        );
     }
 };
 
 module.exports = {
     createFloor,
+    getFloors,
     getFloorsByBuildingId,
     getFloorById,
     updateFloor,

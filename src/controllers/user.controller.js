@@ -10,12 +10,12 @@ const BUSINESS_ROLES = [
         description: "Duyet tai khoan/xe va gan role cho tai khoan.",
     },
     {
-        role: ROLES.PARKING_MANAGER,
+        role: ROLES.MANAGER,
         accountRole: true,
         description: "Cau hinh toa nha, tang, suc chua, slot oto, gia va bao cao.",
     },
     {
-        role: ROLES.PARKING_STAFF,
+        role: ROLES.STAFF,
         accountRole: true,
         description: "Van hanh cong, quet QR, nhap bien so, xu ly vao/ra va vi pham.",
     },
