@@ -1,0 +1,468 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 4155 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 1 of 7) Tj ET
+BT /F2 20 Tf 0.05 0.15 0.28 rg 54.00 738.00 Td (Backend New Routes Test Guide) Tj ET
+BT /F2 13 Tf 0.05 0.15 0.28 rg 54.00 710.00 Td (Parking Building Management System) Tj ET
+BT /F1 10.5 Tf 0 0 0 rg 54.00 688.00 Td (Swagger checklist for all newly implemented backend routes: roles, building/floor/slot,) Tj ET
+BT /F1 10.5 Tf 0 0 0 rg 54.00 673.00 Td (monthly passes, slot registration with VNPay, parking sessions, checkout fees and) Tj ET
+BT /F1 10.5 Tf 0 0 0 rg 54.00 658.00 Td (penalties.) Tj ET
+BT /F3 9 Tf 0.35 0.35 0.35 rg 54.00 637.00 Td (Generated for repository backend/SWP-The-Second-Project-Backend) Tj ET
+BT /F3 9 Tf 0.35 0.35 0.35 rg 54.00 625.00 Td (Use after applying db/schema.sql and starting npm run dev.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 595.00 Td (0. Preconditions) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 573.00 Td (1. Run database schema. Open MySQL and run db/schema.sql. If an ALTER TABLE line) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 560.50 Td (   fails because a column already exists, skip that duplicate ALTER and continue.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 547.00 Td (2. Update .env for VNPay sandbox if testing VNPay flows.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 531.50 Td (VNPAY_TMN_CODE=your_sandbox_tmn_code) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 521.00 Td (VNPAY_HASH_SECRET=your_sandbox_hash_secret) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 510.50 Td (VNPAY_PAYMENT_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 500.00 Td (VNPAY_RETURN_URL=http://localhost:5000/api/payments/vnpay-return) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 486.50 Td (3. Seed users and vehicles.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 471.00 Td (npm run seed:users) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 460.50 Td (npm run seed:vehicles) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 447.00 Td (4. Start backend.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 431.50 Td (npm run dev) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 418.00 Td (5. Open Swagger UI.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 402.50 Td (http://localhost:5000/api-docs) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 389.00 Td (NOTE: Known test accounts after seed: admin@test.com / 123456, manager@test.com /) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 377.00 Td (123456, staff@test.com / 123456, user1@test.com / 123456, user2@test.com / 123456.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 357.00 Td (1. Auth and Role Tokens) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 331.00 Td (1.1 Login admin) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 315.00 Td (6. Swagger > Auth > POST /api/auth/login) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 299.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 289.00 Td (  "emailOrPhone": "admin@test.com",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 278.50 Td (  "password": "123456") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 268.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 254.50 Td (7. Copy data.token. Click Authorize and enter: Bearer <admin_token>.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 241.00 Td (8. Expected: response success=true, user.role=ADMIN.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 223.50 Td (1.2 Login parking manager) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 207.50 Td (9. POST /api/auth/login) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 192.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 181.50 Td (  "emailOrPhone": "manager@test.com",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 171.00 Td (  "password": "123456") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 160.50 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 147.00 Td (10. Authorize with Bearer <manager_token>.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 133.50 Td (11. Expected: user.role=PARKING_MANAGER.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 116.00 Td (1.3 Login parking staff) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 100.00 Td (12. POST /api/auth/login) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 84.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 74.00 Td (  "emailOrPhone": "staff@test.com",) Tj ET
+Q
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 4373 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 2 of 7) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 738.00 Td (  "password": "123456") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 727.50 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 714.00 Td (13. Authorize with Bearer <staff_token>.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 700.50 Td (14. Expected: user.role=PARKING_STAFF.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 683.00 Td (1.4 Login registered user) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 667.00 Td (15. POST /api/auth/login) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 651.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 641.00 Td (  "emailOrPhone": "user1@test.com",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 630.50 Td (  "password": "123456") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 620.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 606.50 Td (16. Authorize with Bearer <user_token>.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 593.00 Td (17. Expected: user.role=USER.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 573.50 Td (2. Admin User and Role Routes) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 551.50 Td (NOTE: Use ADMIN token for this section. These routes verify role management added for) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 539.50 Td (business roles.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 525.50 Td (18. GET /api/users/roles) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 512.00 Td (19. Expected: accountRoles includes ADMIN, PARKING_MANAGER, PARKING_STAFF, USER.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 499.50 Td (   businessRoles also lists WALK_IN_GUEST as non-account role.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 486.00 Td (20. GET /api/users) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 472.50 Td (21. Expected: list of seeded users including admin, manager, staff, and normal users.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 459.00 Td (22. GET /api/users/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 445.50 Td (23. Use a real user id from GET /api/users. Expected: user detail with role and) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 433.00 Td (   building info.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 419.50 Td (24. PATCH /api/users/{id}/role) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 404.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 393.50 Td (  "role": "PARKING_MANAGER") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 383.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 369.50 Td (25. Expected: role updated. Important: that user must login again to receive a JWT) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 357.00 Td (   with the new role.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 343.50 Td (26. Negative test: call PATCH /api/users/{id}/role with USER token. Expected: 403.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 324.00 Td (3. Parking Manager - Building CRUD) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 302.00 Td (NOTE: Use PARKING_MANAGER token. Admin token should not be accepted for manager-only) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 290.00 Td (CRUD unless code is changed later.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 276.00 Td (27. POST /api/buildings) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 260.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 250.00 Td (  "name": "Building Test A",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 239.50 Td (  "address": "Thu Duc, HCMC") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 229.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 215.50 Td (28. Expected: 201. Save data.id as buildingId.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 202.00 Td (29. GET /api/buildings) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 188.50 Td (30. Expected: list includes Building Test A and count fields: floorCount,) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 176.00 Td (   motorbikeFloorCount, carFloorCount, carSlotCount.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 162.50 Td (31. GET /api/buildings/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 149.00 Td (32. Expected: detail of created building.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 135.50 Td (33. PATCH /api/buildings/{id}) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 120.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 109.50 Td (  "name": "Building Test A Updated",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 99.00 Td (  "address": "District 9, HCMC") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 88.50 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 75.00 Td (34. Expected: name/address updated.) Tj ET
+Q
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 4367 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 3 of 7) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 738.00 Td (35. DELETE /api/buildings/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 724.50 Td (36. Use only on a temporary building with no test data you still need. Expected:) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 712.00 Td (   deleted id returned. For the rest of this guide, create/keep one building.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 692.50 Td (4. Parking Manager - Floors) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 670.50 Td (NOTE: Use PARKING_MANAGER token. Floors belong to a building. Motorbike floors use) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 658.50 Td (capacity. Car floors use slots.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 640.50 Td (4.1 Create motorbike floor) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 624.50 Td (37. POST /api/buildings/{buildingId}/floors) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 609.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 598.50 Td (  "name": "B1 - Motorbike",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 588.00 Td (  "floorType": "MOTORBIKE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 577.50 Td (  "capacity": 300,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 567.00 Td (  "status": "ACTIVE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 556.50 Td (  "note": "Motorbike capacity floor") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 546.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 532.50 Td (38. Expected: 201. Save data.id as motorbikeFloorId. capacity=300, currentCount=0.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 515.00 Td (4.2 Create car floor) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 499.00 Td (39. POST /api/buildings/{buildingId}/floors) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 483.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 473.00 Td (  "name": "B2 - Car",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 462.50 Td (  "floorType": "CAR",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 452.00 Td (  "status": "ACTIVE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 441.50 Td (  "note": "Car slot floor") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 431.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 417.50 Td (40. Expected: 201. Save data.id as carFloorId. capacity is null.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 400.00 Td (4.3 List/detail/update/delete floors) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 384.00 Td (41. GET /api/buildings/{buildingId}/floors) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 370.50 Td (42. Expected: returns both motorbike and car floors. Car floor has slotCount fields.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 357.00 Td (43. GET /api/floors/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 343.50 Td (44. Expected: floor detail.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 330.00 Td (45. PATCH /api/floors/{id}) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 314.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 304.00 Td (  "status": "MAINTENANCE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 293.50 Td (  "note": "Temporarily locked for repair") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 283.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 269.50 Td (46. Expected: status updated. Set it back to ACTIVE before check-in tests.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 254.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 243.50 Td (  "status": "ACTIVE") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 233.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 219.50 Td (47. DELETE /api/floors/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 206.00 Td (48. Expected: floor deleted. Use this only for temporary test floors.) Tj ET
+BT /F2 12 Tf 0.10 0.28 0.50 rg 54.00 188.50 Td (4.4 Floor negative tests) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 172.50 Td (49. Create MOTORBIKE floor without capacity. Expected: 400.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 159.00 Td (50. Change a CAR floor with existing slots to MOTORBIKE. Expected: 400 until slots are) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 146.50 Td (   deleted.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 127.00 Td (5. Parking Manager - Car Slots) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 105.00 Td (NOTE: Use PARKING_MANAGER token. Slots can only be created under CAR floors.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 91.00 Td (51. POST /api/floors/{carFloorId}/slots) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 75.50 Td ({) Tj ET
+Q
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 4650 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 4 of 7) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 738.00 Td (  "slotCode": "C-01",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 727.50 Td (  "status": "AVAILABLE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 717.00 Td (  "sizeLabel": "STANDARD",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 706.50 Td (  "positionDescription": "Near gate",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 696.00 Td (  "note": "First test slot") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 685.50 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 672.00 Td (52. Expected: 201. Save data.id as slotId.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 658.50 Td (53. Create more slots for later tests: C-02 and C-03 with status AVAILABLE.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 645.00 Td (54. GET /api/floors/{carFloorId}/slots) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 631.50 Td (55. Expected: list of slots for the car floor.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 618.00 Td (56. GET /api/slots/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 604.50 Td (57. Expected: slot detail with floor/building info.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 591.00 Td (58. PATCH /api/slots/{id}) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 575.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 565.00 Td (  "status": "MAINTENANCE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 554.50 Td (  "note": "Testing maintenance status") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 544.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 530.50 Td (59. Expected: status updated. Set back to AVAILABLE before session tests.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 515.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 504.50 Td (  "status": "AVAILABLE") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 494.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 480.50 Td (60. DELETE /api/slots/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 467.00 Td (61. Expected: slot deleted. Use this only for temporary slot, not the main test slot.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 453.50 Td (62. Negative test: POST /api/floors/{motorbikeFloorId}/slots. Expected: 400 because) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 441.00 Td (   motorbike floors use capacity, not slots.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 421.50 Td (6. Admin + User Vehicle Prerequisites) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 399.50 Td (NOTE: Some new routes require an approved CAR or MOTORBIKE. Use existing vehicle ids) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 387.50 Td (from seed or create new ones.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 373.50 Td (63. Authorize as USER. POST /api/vehicles) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 358.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 347.50 Td (  "plateNumber": "59A-TEST99",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 337.00 Td (  "vehicleType": "CAR",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 326.50 Td (  "brand": "Toyota",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 316.00 Td (  "color": "White",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 305.50 Td (  "buildingId": 1) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 295.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 281.50 Td (64. Expected: vehicle status PENDING. Save vehicleId.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 268.00 Td (65. Authorize as ADMIN. PATCH /api/vehicles/{vehicleId}/approve) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 254.50 Td (66. Expected: vehicle status APPROVED.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 241.00 Td (67. Repeat with a MOTORBIKE if you need monthly pass tests for motorbike.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 221.50 Td (7. Parking Manager - Monthly Passes) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 199.50 Td (NOTE: Use PARKING_MANAGER token. This manually creates monthly passes for testing gate) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 187.50 Td (flow. Slot registration payment can also act as an active car monthly slot registration.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 173.50 Td (68. POST /api/monthly-passes) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 158.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 147.50 Td (  "vehicleId": 3,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 137.00 Td (  "amount": 120000,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 126.50 Td (  "startDate": "2026-06-11",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 116.00 Td (  "endDate": "2026-07-11",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 105.50 Td (  "note": "Monthly pass test") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 95.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 81.50 Td (69. Expected: 201. Save monthlyPassId.) Tj ET
+Q
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 4571 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 5 of 7) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 738.00 Td (70. GET /api/monthly-passes) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 724.50 Td (71. Expected: list includes the new pass.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 711.00 Td (72. GET /api/monthly-passes/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 697.50 Td (73. Expected: monthly pass detail.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 684.00 Td (74. Negative test: create monthly pass for PENDING/REJECTED vehicle. Expected: 400.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 664.50 Td (8. User - Slot Registration + VNPay Sandbox) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 642.50 Td (NOTE: Use USER token. This flow registers an approved CAR into an available CAR slot and) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 630.50 Td (creates a VNPay sandbox payment URL.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 616.50 Td (75. POST /api/slot-registrations) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 601.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 590.50 Td (  "vehicleId": 3,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 580.00 Td (  "slotId": 1,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 569.50 Td (  "amount": 100000,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 559.00 Td (  "bankCode": "NCB",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 548.50 Td (  "locale": "vn",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 538.00 Td (  "startDate": "2026-06-11",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 527.50 Td (  "endDate": "2026-07-11",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 517.00 Td (  "note": "Register car slot with VNPay sandbox") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 506.50 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 493.00 Td (76. Expected: 201. Response contains registration and payment.paymentUrl. Slot becomes) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 480.50 Td (   RESERVED.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 467.00 Td (77. Open payment.paymentUrl in browser and complete VNPay sandbox payment.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 453.50 Td (78. VNPay redirects to GET /api/payments/vnpay-return. Expected after success: payment) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 441.00 Td (   SUCCESS, registration PAID.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 427.50 Td (79. GET /api/slot-registrations/my) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 414.00 Td (80. Expected: list includes the registration.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 400.50 Td (81. GET /api/slot-registrations/{id}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 387.00 Td (82. Expected: detail of your registration.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 373.50 Td (83. Negative tests: use MOTORBIKE vehicle, unapproved vehicle, non-owned vehicle, or) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 361.00 Td (   unavailable slot. Expected: 400/404.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 341.50 Td (9. Payment Callback Routes) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 319.50 Td (NOTE: Usually these are hit by VNPay. Manual Swagger execution is hard because it) Tj ET
+BT /F1 9 Tf 0.45 0.30 0.00 rg 54.00 307.50 Td (requires a valid vnp_SecureHash.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 293.50 Td (84. GET /api/payments/vnpay-return) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 280.00 Td (85. Expected when called by VNPay with valid query: backend verifies checksum and) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 267.50 Td (   updates payment/result.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 254.00 Td (86. GET /api/payments/vnpay-ipn) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 240.50 Td (87. Expected when called by VNPay with valid query: returns JSON with RspCode and) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 228.00 Td (   Message.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 214.50 Td (88. Negative test: call either callback without valid VNPay params. Expected: invalid) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 202.00 Td (   checksum or VNPay-style RspCode 97 for IPN.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 182.50 Td (10. Parking Staff - Active Sessions) Tj ET
+BT /F2 9 Tf 0.45 0.30 0.00 rg 54.00 160.50 Td (NOTE: Use PARKING_STAFF token for all parking session routes.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 146.50 Td (89. GET /api/parking-sessions/active) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 133.00 Td (90. Expected: active and pending-payment sessions. Initially may be empty.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 113.50 Td (11. Parking Staff - Walk-in Motorbike Flow) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 91.50 Td (91. POST /api/parking-sessions/check-in) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 76.00 Td ({) Tj ET
+Q
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 4779 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 6 of 7) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 738.00 Td (  "plateNumber": "59M-WALK01",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 727.50 Td (  "vehicleType": "MOTORBIKE",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 717.00 Td (  "buildingId": 1,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 706.50 Td (  "note": "Walk-in motorbike") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 696.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 682.50 Td (92. Expected: 201. pricingType=TURN, customerType=WALK_IN_GUEST, status=ACTIVE.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 670.00 Td (   Motorbike floor currentCount increases by 1. Save sessionId.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 656.50 Td (93. POST /api/parking-sessions/{sessionId}/check-out) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 641.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 630.50 Td (  "violationFee": 0,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 620.00 Td (  "paymentMethod": "CASH",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 609.50 Td (  "paidNote": "Staff collected cash") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 599.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 585.50 Td (94. Expected: baseFee=4000, totalAmount=4000, status=COMPLETED, paymentStatus=PAID.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 573.00 Td (   Motorbike floor currentCount decreases by 1.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 559.50 Td (95. Repeat checkout with violationFee=50000. Expected: totalAmount=54000.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 540.00 Td (12. Parking Staff - Walk-in Car Flow) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 518.00 Td (96. POST /api/parking-sessions/check-in) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 502.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 492.00 Td (  "plateNumber": "59A-WALK01",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 481.50 Td (  "vehicleType": "CAR",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 471.00 Td (  "slotId": 2,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 460.50 Td (  "note": "Walk-in car") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 450.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 436.50 Td (97. Expected: 201. pricingType=HOURLY, customerType=WALK_IN_GUEST, slot status becomes) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 424.00 Td (   OCCUPIED. Save sessionId.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 410.50 Td (98. POST /api/parking-sessions/{sessionId}/check-out) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 395.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 384.50 Td (  "violationFee": 0,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 374.00 Td (  "paymentMethod": "CARD",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 363.50 Td (  "paidNote": "Staff confirmed card payment") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 353.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 339.50 Td (99. Expected: baseFee at least 20000, totalAmount=baseFee, status=COMPLETED, slot) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 327.00 Td (   returns AVAILABLE.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 313.50 Td (100. VNPay checkout example:) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 298.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 287.50 Td (  "violationFee": 50000,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 277.00 Td (  "violationNote": "Parked in wrong area",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 266.50 Td (  "paymentMethod": "VNPAY",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 256.00 Td (  "bankCode": "NCB",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 245.50 Td (  "locale": "vn") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 235.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 221.50 Td (101. Expected: response contains payment.paymentUrl and session status PENDING_PAYMENT.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 209.00 Td (   After VNPay success, session becomes COMPLETED and slot returns AVAILABLE.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 189.50 Td (13. Parking Staff - Registered User With Monthly Pass) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 167.50 Td (102. Create/ensure an APPROVED vehicle has an active monthly pass or paid slot) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 155.00 Td (   registration.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 141.50 Td (103. POST /api/parking-sessions/check-in with that vehicle plate.) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 126.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 115.50 Td (  "plateNumber": "59A-12345",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 105.00 Td (  "vehicleType": "CAR",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 94.50 Td (  "slotId": 1,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 84.00 Td (  "note": "Registered car with monthly pass") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 73.50 Td (}) Tj ET
+Q
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 4301 >>
+stream
+q
+0.75 0.75 0.75 RG 0.5 w 54 42 m 558 42 l S
+BT /F1 8 Tf 0.35 0.35 0.35 rg 500 28 Td (Page 7 of 7) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 738.00 Td (104. Expected: pricingType=MONTHLY_PASS, customerType=REGISTERED_USER, base fee will be) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 725.50 Td (   0 at checkout.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 712.00 Td (105. Checkout with no violation:) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 696.50 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 686.00 Td (  "violationFee": 0) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 675.50 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 662.00 Td (106. Expected: totalAmount=0, paymentMethod=MONTHLY_PASS, status=COMPLETED.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 648.50 Td (107. Checkout with violation:) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 633.00 Td ({) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 622.50 Td (  "violationFee": 50000,) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 612.00 Td (  "violationNote": "Violation still charged despite monthly pass",) Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 601.50 Td (  "paymentMethod": "CASH") Tj ET
+BT /F3 8.2 Tf 0.12 0.12 0.12 rg 72.00 591.00 Td (}) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 577.50 Td (108. Expected: baseFee=0, violationFee=50000, totalAmount=50000, status=COMPLETED.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 558.00 Td (14. Permission Matrix Tests) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 536.00 Td (109. USER calls POST /api/buildings. Expected: 403.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 522.50 Td (110. ADMIN calls POST /api/buildings. Expected: 403 with current role design; manager) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 510.00 Td (   owns building/floor/slot config.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 496.50 Td (111. PARKING_MANAGER calls POST /api/parking-sessions/check-in. Expected: 403.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 483.00 Td (112. PARKING_STAFF calls GET /api/users. Expected: 403.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 469.50 Td (113. No token calls protected route. Expected: 401.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 450.00 Td (15. Final E2E Demo Flow) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 428.00 Td (114. Admin login and verify roles/users.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 414.50 Td (115. Manager creates building, motorbike floor, car floor, and several available slots.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 401.00 Td (116. User creates a CAR vehicle; admin approves it.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 387.50 Td (117. Manager creates a monthly pass OR user registers a slot and pays by VNPay sandbox.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 374.00 Td (118. Staff check-in registered car. If monthly pass/paid slot is valid, base fee is 0.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 360.50 Td (119. Staff check-out car with violationFee to prove penalties still apply.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 347.00 Td (120. Staff check-in walk-in motorbike and checkout cash: expected 4000 VND.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 333.50 Td (121. Staff check-in walk-in car and checkout card/VNPay: expected 20000 VND per started) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 321.00 Td (   hour plus violations.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 307.50 Td (122. Verify list endpoints after each flow: buildings, floors, slots, monthly passes,) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 64.00 295.00 Td (   active sessions, slot registrations.) Tj ET
+BT /F2 15 Tf 0.05 0.20 0.40 rg 54.00 275.50 Td (16. Current Limitations To Remember) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 253.50 Td (- Temporary QR/session card pool routes are not implemented yet.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 240.00 Td (- QR digital pass generation/validation route is not implemented yet.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 226.50 Td (- Violation CRUD table/API is not implemented yet; checkout accepts violationFee) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 214.00 Td (  directly.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 200.50 Td (- Package plan/pricing policy CRUD is not implemented yet; fees are hard-coded:) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 188.00 Td (  motorbike 4000/turn, car 20000/hour.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 174.50 Td (- Reports endpoints are not implemented yet.) Tj ET
+BT /F1 9.2 Tf 0 0 0 rg 66.00 161.00 Td (- VNPay live testing requires real sandbox credentials in .env.) Tj ET
+Q
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 18 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 16 0 R >>
+endobj
+18 0 obj
+<< /Type /Pages /Kids [ 5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R ] /Count 7 >>
+endobj
+19 0 obj
+<< /Type /Catalog /Pages 18 0 R >>
+endobj
+xref
+0 20
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000160 00000 n 
+0000000228 00000 n 
+0000004435 00000 n 
+0000004582 00000 n 
+0000009007 00000 n 
+0000009154 00000 n 
+0000013573 00000 n 
+0000013720 00000 n 
+0000018423 00000 n 
+0000018572 00000 n 
+0000023196 00000 n 
+0000023345 00000 n 
+0000028177 00000 n 
+0000028326 00000 n 
+0000032680 00000 n 
+0000032829 00000 n 
+0000032929 00000 n 
+trailer
+<< /Size 20 /Root 19 0 R >>
+startxref
+32980
+%%EOF

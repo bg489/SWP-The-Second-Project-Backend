@@ -10,6 +10,8 @@ const monthlyPassSelect = `
         mp.building_id AS buildingId,
         b.name AS buildingName,
         mp.slot_registration_id AS slotRegistrationId,
+        mp.package_plan_id AS packagePlanId,
+        pp.name AS packagePlanName,
         mp.vehicle_type AS vehicleType,
         mp.amount,
         mp.status,
@@ -22,6 +24,7 @@ const monthlyPassSelect = `
     INNER JOIN vehicles v ON mp.vehicle_id = v.id
     LEFT JOIN users u ON mp.user_id = u.id
     LEFT JOIN buildings b ON mp.building_id = b.id
+    LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
 `;
 
 const getVehicleForMonthlyPass = async (vehicleId) => {
@@ -46,21 +49,36 @@ const createMonthlyPass = async ({
     buildingId,
     endDate,
     note,
+    packagePlanId,
     startDate,
+    status,
     userId,
     vehicleId,
     vehicleType,
 }) => {
     const [result] = await db.query(
         `INSERT INTO monthly_passes
-            (user_id, vehicle_id, building_id, vehicle_type, amount, start_date, end_date, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            (
+                user_id,
+                vehicle_id,
+                building_id,
+                package_plan_id,
+                vehicle_type,
+                amount,
+                status,
+                start_date,
+                end_date,
+                note
+            )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             userId || null,
             vehicleId,
             buildingId || null,
+            packagePlanId || null,
             vehicleType,
             amount || 0,
+            status || "ACTIVE",
             startDate,
             endDate,
             note || null,

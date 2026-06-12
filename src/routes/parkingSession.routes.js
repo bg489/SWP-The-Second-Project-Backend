@@ -64,6 +64,35 @@ router.get(
 
 /**
  * @swagger
+ * /api/parking-sessions/check-out-by-qr:
+ *   post:
+ *     summary: Staff checks a vehicle out by scanned QR code
+ *     tags: [Parking Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             allOf:
+ *               - $ref: '#/components/schemas/QrValidateRequest'
+ *               - $ref: '#/components/schemas/ParkingSessionCheckOutRequest'
+ *     responses:
+ *       200:
+ *         description: Session checked out by QR
+ *       404:
+ *         description: Active session not found for QR
+ */
+router.post(
+    "/check-out-by-qr",
+    authMiddleware,
+    parkingStaffMiddleware,
+    parkingSessionController.checkOutByQr
+);
+
+/**
+ * @swagger
  * /api/parking-sessions/{id}:
  *   get:
  *     summary: Staff gets parking session by id

@@ -1,4 +1,5 @@
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
+const packagePlanService = require("../services/packagePlan.service");
 const slotRegistrationService = require("../services/slotRegistration.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
@@ -26,11 +27,11 @@ const isValidDateString = (date) => {
     return typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date);
 };
 
-const buildRegistrationDates = ({ startDate, endDate }) => {
+const buildRegistrationDates = ({ durationDays = 30, startDate, endDate }) => {
     const now = new Date();
     const defaultStartDate = formatSqlDate(now);
     const defaultEndDate = formatSqlDate(
-        new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+        new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
     );
 
     if (startDate && !isValidDateString(startDate)) {
@@ -68,6 +69,7 @@ const createSlotRegistration = async (req, res) => {
             endDate,
             locale,
             note,
+            packagePlanId,
             slotId,
             startDate,
             vehicleId,
@@ -81,13 +83,40 @@ const createSlotRegistration = async (req, res) => {
             return errorResponse(res, "slotId khong hop le", 400);
         }
 
-        const parsedAmount = parsePositiveAmount(amount);
+        let parsedAmount = parsePositiveAmount(amount);
+        let packagePlan = null;
 
-        if (!parsedAmount) {
-            return errorResponse(res, "amount phai la so nguyen duong", 400);
+        if (packagePlanId !== undefined && packagePlanId !== null) {
+            if (!isValidId(packagePlanId)) {
+                return errorResponse(res, "packagePlanId khong hop le", 400);
+            }
+
+            packagePlan = await packagePlanService.getPackagePlanById(packagePlanId);
+
+            if (!packagePlan || packagePlan.status !== "ACTIVE") {
+                return errorResponse(res, "Khong tim thay goi thang dang mo ban", 404);
+            }
+
+            if (packagePlan.vehicleType !== "CAR") {
+                return errorResponse(res, "Dang ky slot oto chi nhan goi CAR", 400);
+            }
+
+            parsedAmount = Number(packagePlan.price);
         }
 
-        const datePayload = buildRegistrationDates({ startDate, endDate });
+        if (!parsedAmount) {
+            return errorResponse(
+                res,
+                "amount phai la so nguyen duong hoac truyen packagePlanId",
+                400
+            );
+        }
+
+        const datePayload = buildRegistrationDates({
+            durationDays: packagePlan ? Number(packagePlan.durationDays) : 30,
+            startDate,
+            endDate,
+        });
 
         if (datePayload.error) {
             return errorResponse(res, datePayload.error, 400);

@@ -7,7 +7,7 @@ const options = {
         openapi: "3.0.0",
         info: {
             title: "Parking Building Backend API",
-            version: "1.2.0",
+            version: "1.3.0",
             description: "Swagger docs for SWP Parking Building Management System backend",
         },
         servers: [
@@ -78,6 +78,23 @@ const options = {
                             ],
                             example: "MANAGER",
                             description: "WALK_IN_GUEST is a business role without login account.",
+                        },
+                    },
+                },
+                UserStatusUpdateRequest: {
+                    type: "object",
+                    required: ["role", "status"],
+                    properties: {
+                        role: {
+                            type: "string",
+                            enum: ["ADMIN", "MANAGER", "STAFF", "USER"],
+                            example: "USER",
+                        },
+                        status: {
+                            type: "string",
+                            enum: ["PENDING", "ACTIVE", "LOCKED", "INACTIVE"],
+                            example: "ACTIVE",
+                            description: "Admin sets ACTIVE to approve a registered account.",
                         },
                     },
                 },
@@ -236,9 +253,74 @@ const options = {
                         },
                     },
                 },
+                PackagePlanRequest: {
+                    type: "object",
+                    required: ["name", "vehicleType", "price", "durationDays"],
+                    properties: {
+                        name: { type: "string", example: "Goi xe may 30 ngay" },
+                        vehicleType: {
+                            type: "string",
+                            enum: ["MOTORBIKE", "CAR"],
+                            example: "MOTORBIKE",
+                        },
+                        price: { type: "integer", example: 120000 },
+                        durationDays: { type: "integer", example: 30 },
+                        status: {
+                            type: "string",
+                            enum: ["ACTIVE", "INACTIVE"],
+                            example: "ACTIVE",
+                        },
+                        description: {
+                            type: "string",
+                            nullable: true,
+                            example: "Goi thang theo xe",
+                        },
+                    },
+                },
+                BuyPackagePlanRequest: {
+                    type: "object",
+                    required: ["vehicleId"],
+                    properties: {
+                        vehicleId: { type: "integer", example: 1 },
+                        bankCode: { type: "string", nullable: true, example: "NCB" },
+                        locale: {
+                            type: "string",
+                            nullable: true,
+                            enum: ["vn", "en"],
+                            example: "vn",
+                        },
+                    },
+                },
+                PricingPolicyRequest: {
+                    type: "object",
+                    required: ["vehicleType", "pricingType", "amount"],
+                    properties: {
+                        vehicleType: {
+                            type: "string",
+                            enum: ["MOTORBIKE", "CAR"],
+                            example: "MOTORBIKE",
+                        },
+                        pricingType: {
+                            type: "string",
+                            enum: ["TURN", "HOURLY"],
+                            example: "TURN",
+                        },
+                        amount: { type: "integer", example: 4000 },
+                        status: {
+                            type: "string",
+                            enum: ["ACTIVE", "INACTIVE"],
+                            example: "ACTIVE",
+                        },
+                        description: {
+                            type: "string",
+                            nullable: true,
+                            example: "Xe may tinh theo luot",
+                        },
+                    },
+                },
                 SlotRegistrationRequest: {
                     type: "object",
-                    required: ["vehicleId", "slotId", "amount"],
+                    required: ["vehicleId", "slotId"],
                     properties: {
                         vehicleId: {
                             type: "integer",
@@ -253,7 +335,13 @@ const options = {
                         amount: {
                             type: "integer",
                             example: 100000,
-                            description: "Sandbox VND amount. Pricing module should replace this later.",
+                            description: "Optional when packagePlanId is provided.",
+                        },
+                        packagePlanId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 2,
+                            description: "Optional active CAR monthly package plan.",
                         },
                         bankCode: {
                             type: "string",
@@ -290,6 +378,12 @@ const options = {
                     type: "object",
                     required: ["plateNumber", "vehicleType"],
                     properties: {
+                        qrCode: {
+                            type: "string",
+                            nullable: true,
+                            example: "MONTHLY-1760000000000-AB12CD34",
+                            description: "Required for vehicles with active monthly pass.",
+                        },
                         plateNumber: {
                             type: "string",
                             example: "59A-12345",
@@ -316,6 +410,18 @@ const options = {
                             nullable: true,
                             example: 1,
                             description: "Required for CAR check-in unless car has an active monthly slot registration.",
+                        },
+                        tempQrCardId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 1,
+                            description: "Required for walk-in/by-session parking unless tempQrCardCode is used.",
+                        },
+                        tempQrCardCode: {
+                            type: "string",
+                            nullable: true,
+                            example: "TEMP-001",
+                            description: "Required for walk-in/by-session parking unless tempQrCardId is used.",
                         },
                         note: {
                             type: "string",
@@ -390,6 +496,125 @@ const options = {
                             type: "string",
                             nullable: true,
                             example: "Manual monthly pass for testing gate flow",
+                        },
+                    },
+                },
+                QrValidateRequest: {
+                    type: "object",
+                    required: ["qrCode"],
+                    properties: {
+                        qrCode: {
+                            type: "string",
+                            example: "MONTHLY-1760000000000-AB12CD34",
+                        },
+                    },
+                },
+                QrPassStatusRequest: {
+                    type: "object",
+                    required: ["status"],
+                    properties: {
+                        status: {
+                            type: "string",
+                            enum: ["ACTIVE", "EXPIRED", "LOCKED", "CANCELLED"],
+                            example: "LOCKED",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Lost phone reported",
+                        },
+                    },
+                },
+                TempQrCardRequest: {
+                    type: "object",
+                    required: ["cardCode"],
+                    properties: {
+                        cardCode: { type: "string", example: "TEMP-001" },
+                        status: {
+                            type: "string",
+                            enum: ["READY", "IN_USE", "COMPLETED", "LOST", "LOCKED"],
+                            example: "READY",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Reusable guest QR card",
+                        },
+                    },
+                },
+                TempQrCardStatusRequest: {
+                    type: "object",
+                    required: ["status"],
+                    properties: {
+                        status: {
+                            type: "string",
+                            enum: ["READY", "IN_USE", "COMPLETED", "LOST", "LOCKED"],
+                            example: "READY",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Returned by guest",
+                        },
+                    },
+                },
+                ViolationRequest: {
+                    type: "object",
+                    required: ["violationType", "penaltyFee"],
+                    properties: {
+                        parkingSessionId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 1,
+                        },
+                        plateNumber: {
+                            type: "string",
+                            nullable: true,
+                            example: "59A-12345",
+                            description: "Required if parkingSessionId is omitted.",
+                        },
+                        vehicleType: {
+                            type: "string",
+                            nullable: true,
+                            enum: ["MOTORBIKE", "CAR"],
+                            example: "CAR",
+                            description: "Required if parkingSessionId is omitted.",
+                        },
+                        violationType: {
+                            type: "string",
+                            example: "WRONG_SLOT",
+                        },
+                        penaltyFee: { type: "integer", example: 50000 },
+                        detectedAt: {
+                            type: "string",
+                            nullable: true,
+                            example: "2026-06-12 10:30:00",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Staff confirmed violation manually",
+                        },
+                        evidenceUrl: {
+                            type: "string",
+                            nullable: true,
+                            example: "https://example.com/evidence.jpg",
+                        },
+                    },
+                },
+                ViolationStatusRequest: {
+                    type: "object",
+                    required: ["status"],
+                    properties: {
+                        status: {
+                            type: "string",
+                            enum: ["OPEN", "RESOLVED", "COLLECTED", "CANCELLED"],
+                            example: "RESOLVED",
+                        },
+                        note: {
+                            type: "string",
+                            nullable: true,
+                            example: "Manager reviewed",
                         },
                     },
                 },

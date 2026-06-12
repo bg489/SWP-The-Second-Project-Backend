@@ -1,4 +1,6 @@
 const db = require("../config/db");
+const tempQrCardService = require("./tempQrCard.service");
+const violationService = require("./violation.service");
 
 const sessionSelect = `
     SELECT
@@ -12,6 +14,9 @@ const sessionSelect = `
         ps.slot_id AS slotId,
         s.slot_code AS slotCode,
         ps.monthly_pass_id AS monthlyPassId,
+        ps.temp_qr_card_id AS tempQrCardId,
+        tq.card_code AS tempQrCardCode,
+        ps.session_qr_code AS sessionQrCode,
         ps.plate_number AS plateNumber,
         ps.vehicle_type AS vehicleType,
         ps.customer_type AS customerType,
@@ -35,6 +40,7 @@ const sessionSelect = `
     INNER JOIN buildings b ON ps.building_id = b.id
     INNER JOIN parking_floors f ON ps.floor_id = f.id
     LEFT JOIN parking_slots s ON ps.slot_id = s.id
+    LEFT JOIN temporary_qr_cards tq ON ps.temp_qr_card_id = tq.id
 `;
 
 const getVehicleByPlateNumber = async (plateNumber) => {
@@ -175,8 +181,10 @@ const createSession = async ({
     note,
     plateNumber,
     pricingType,
+    sessionQrCode,
     slotId,
     staffId,
+    tempQrCardId,
     userId,
     vehicleId,
     vehicleType,
@@ -235,6 +243,8 @@ const createSession = async ({
                     floor_id,
                     slot_id,
                     monthly_pass_id,
+                    temp_qr_card_id,
+                    session_qr_code,
                     plate_number,
                     vehicle_type,
                     customer_type,
@@ -242,7 +252,7 @@ const createSession = async ({
                     check_in_staff_id,
                     note
                 )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 userId || null,
                 vehicleId || null,
@@ -250,6 +260,8 @@ const createSession = async ({
                 floorId,
                 slotId || null,
                 monthlyPass?.id || null,
+                tempQrCardId || null,
+                sessionQrCode || null,
                 plateNumber,
                 vehicleType,
                 customerType,
@@ -258,6 +270,14 @@ const createSession = async ({
                 note || null,
             ]
         );
+
+        if (tempQrCardId) {
+            await tempQrCardService.markCardInUse({
+                cardId: tempQrCardId,
+                connection,
+                sessionId: result.insertId,
+            });
+        }
 
         await connection.commit();
 
@@ -291,6 +311,19 @@ const getActiveSessions = async () => {
     return rows;
 };
 
+const getActiveSessionByQrCode = async (qrCode) => {
+    const [rows] = await db.query(
+        `${sessionSelect}
+         WHERE ps.session_qr_code = ?
+            AND ps.status IN ('ACTIVE', 'PENDING_PAYMENT')
+         ORDER BY ps.id DESC
+         LIMIT 1`,
+        [qrCode]
+    );
+
+    return rows[0] || null;
+};
+
 const releaseSessionParkingResource = async (connection, session) => {
     if (session.vehicleType === "MOTORBIKE") {
         await connection.query(
@@ -314,6 +347,13 @@ const releaseSessionParkingResource = async (connection, session) => {
             [nextSlotStatus, session.slotId]
         );
     }
+
+    if (session.tempQrCardId) {
+        await tempQrCardService.completeCardSession({
+            cardId: session.tempQrCardId,
+            connection,
+        });
+    }
 };
 
 const completeSessionWithManualPayment = async ({
@@ -335,7 +375,7 @@ const completeSessionWithManualPayment = async ({
         const paymentStatus = totalAmount > 0 ? "SUCCESS" : "SUCCESS";
         const finalPaymentMethod = totalAmount > 0 ? paymentMethod : "MONTHLY_PASS";
 
-        await connection.query(
+        const [paymentResult] = await connection.query(
             `INSERT INTO payments
                 (parking_session_id, provider, amount, status, transaction_ref)
              VALUES (?, ?, ?, ?, ?)`,
@@ -371,6 +411,11 @@ const completeSessionWithManualPayment = async ({
         );
 
         await releaseSessionParkingResource(connection, session);
+        await violationService.markViolationsCollected({
+            connection,
+            paymentId: paymentResult.insertId,
+            session,
+        });
         await connection.commit();
 
         return transactionRef;
@@ -484,6 +529,7 @@ module.exports = {
     createSession,
     getActiveMonthlyPassByVehicleId,
     getActiveSessionByPlateNumber,
+    getActiveSessionByQrCode,
     getActiveSessions,
     getCarSlotForCheckIn,
     getMotorbikeFloorForCheckIn,
