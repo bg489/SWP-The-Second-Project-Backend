@@ -11,6 +11,7 @@ const ROLE_ALIASES = {
 };
 
 const USER_STATUSES = {
+    PENDING: "PENDING",
     ACTIVE: "ACTIVE",
     LOCKED: "LOCKED",
     INACTIVE: "INACTIVE",
@@ -39,6 +40,43 @@ const VEHICLE_STATUSES = {
     REJECTED: "REJECTED",
 };
 
+const PACKAGE_PLAN_STATUSES = {
+    ACTIVE: "ACTIVE",
+    INACTIVE: "INACTIVE",
+};
+
+const PRICING_TYPES = {
+    TURN: "TURN",
+    HOURLY: "HOURLY",
+};
+
+const QR_PASS_TYPES = {
+    MONTHLY: "MONTHLY",
+    SLOT_REGISTRATION: "SLOT_REGISTRATION",
+};
+
+const QR_PASS_STATUSES = {
+    ACTIVE: "ACTIVE",
+    EXPIRED: "EXPIRED",
+    LOCKED: "LOCKED",
+    CANCELLED: "CANCELLED",
+};
+
+const TEMP_QR_CARD_STATUSES = {
+    READY: "READY",
+    IN_USE: "IN_USE",
+    COMPLETED: "COMPLETED",
+    LOST: "LOST",
+    LOCKED: "LOCKED",
+};
+
+const VIOLATION_STATUSES = {
+    OPEN: "OPEN",
+    RESOLVED: "RESOLVED",
+    COLLECTED: "COLLECTED",
+    CANCELLED: "CANCELLED",
+};
+
 const normalizeEnum = (value) => {
     if (typeof value !== "string") {
         return value;
@@ -64,6 +102,12 @@ module.exports = {
     FLOOR_STATUSES,
     VEHICLE_TYPES,
     VEHICLE_STATUSES,
+    PACKAGE_PLAN_STATUSES,
+    PRICING_TYPES,
+    QR_PASS_TYPES,
+    QR_PASS_STATUSES,
+    TEMP_QR_CARD_STATUSES,
+    VIOLATION_STATUSES,
     normalizeEnum,
     normalizeRole,
     isValidEnumValue,

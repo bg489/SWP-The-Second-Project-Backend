@@ -35,7 +35,7 @@ const { adminMiddleware } = require("../middlewares/role.middleware");
  *         name: status
  *         schema:
  *           type: string
- *           enum: [ACTIVE, LOCKED, INACTIVE]
+ *           enum: [PENDING, ACTIVE, LOCKED, INACTIVE]
  *       - in: query
  *         name: page
  *         schema:
@@ -93,17 +93,7 @@ router.get("/:id", authMiddleware, adminMiddleware, adminUserController.getUserB
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [role, status]
- *             properties:
- *               role:
- *                 type: string
- *                 enum: [ADMIN, MANAGER, STAFF, USER]
- *                 example: "MANAGER"
- *               status:
- *                 type: string
- *                 enum: [ACTIVE, LOCKED, INACTIVE]
- *                 example: "ACTIVE"
+ *             $ref: '#/components/schemas/UserStatusUpdateRequest'
  *     responses:
  *       200:
  *         description: Cập nhật role/trạng thái user thành công

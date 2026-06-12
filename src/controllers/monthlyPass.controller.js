@@ -1,4 +1,5 @@
 const monthlyPassService = require("../services/monthlyPass.service");
+const qrPassService = require("../services/qrPass.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
 const isValidId = (id) => {
@@ -71,8 +72,21 @@ const createMonthlyPass = async (req, res) => {
             vehicleId,
             vehicleType: vehicle.vehicleType,
         });
+        const qrPass = await qrPassService.createQrPassForMonthlyPass({
+            createdBy: req.user.id,
+            monthlyPassId: monthlyPass.id,
+            note: "Auto generated for manual monthly pass",
+        });
 
-        return successResponse(res, "Tao the thang thanh cong", monthlyPass, 201);
+        return successResponse(
+            res,
+            "Tao the thang thanh cong",
+            {
+                monthlyPass,
+                qrPass,
+            },
+            201
+        );
     } catch (error) {
         return errorResponse(res, "Loi tao the thang", 500, error.message);
     }

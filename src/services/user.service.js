@@ -48,7 +48,7 @@ const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
             phone || null,
             passwordHash,
             ROLES.USER,
-            USER_STATUSES.ACTIVE,
+            USER_STATUSES.PENDING,
             buildingId || null,
         ]
     );
@@ -59,7 +59,7 @@ const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
         email,
         phone: phone || null,
         role: ROLES.USER,
-        status: USER_STATUSES.ACTIVE,
+        status: USER_STATUSES.PENDING,
         buildingId: buildingId || null,
     };
 };

@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { generateQrCode } = require("./qrPass.service");
 
 const registrationSelect = `
     SELECT
@@ -221,19 +222,32 @@ const getPaymentByTransactionRef = async (transactionRef) => {
             p.id,
             p.slot_registration_id AS slotRegistrationId,
             p.parking_session_id AS parkingSessionId,
+            p.monthly_pass_id AS monthlyPassId,
             p.amount,
             p.status,
             p.transaction_ref AS transactionRef,
             r.slot_id AS registrationSlotId,
+            r.user_id AS registrationUserId,
+            r.vehicle_id AS registrationVehicleId,
+            r.start_date AS registrationStartDate,
+            r.end_date AS registrationEndDate,
             r.status AS registrationStatus,
             ps.floor_id AS sessionFloorId,
             ps.slot_id AS sessionSlotId,
+            ps.temp_qr_card_id AS sessionTempQrCardId,
+            ps.plate_number AS sessionPlateNumber,
             ps.vehicle_type AS sessionVehicleType,
             ps.pricing_type AS sessionPricingType,
-            ps.status AS sessionStatus
+            ps.status AS sessionStatus,
+            mp.user_id AS monthlyPassUserId,
+            mp.vehicle_id AS monthlyPassVehicleId,
+            mp.start_date AS monthlyPassStartDate,
+            mp.end_date AS monthlyPassEndDate,
+            mp.status AS monthlyPassStatus
          FROM payments p
          LEFT JOIN slot_registrations r ON p.slot_registration_id = r.id
          LEFT JOIN parking_sessions ps ON p.parking_session_id = ps.id
+         LEFT JOIN monthly_passes mp ON p.monthly_pass_id = mp.id
          WHERE p.transaction_ref = ?
          LIMIT 1`,
         [transactionRef]
@@ -245,7 +259,9 @@ const getPaymentByTransactionRef = async (transactionRef) => {
 const markPaymentResult = async ({
     bankCode,
     payDate,
+    paymentId,
     providerTransactionNo,
+    monthlyPassId,
     registrationId,
     parkingSessionId,
     responseCode,
@@ -300,6 +316,40 @@ const markPaymentResult = async ({
                      WHERE id = ?`,
                     [slotId]
                 );
+
+                await connection.query(
+                    `INSERT INTO qr_passes
+                        (
+                            user_id,
+                            vehicle_id,
+                            slot_registration_id,
+                            qr_code,
+                            pass_type,
+                            status,
+                            valid_from,
+                            valid_to,
+                            note
+                        )
+                     SELECT
+                        user_id,
+                        vehicle_id,
+                        id,
+                        ?,
+                        'SLOT_REGISTRATION',
+                        'ACTIVE',
+                        CONCAT(COALESCE(start_date, CURRENT_DATE), ' 00:00:00'),
+                        CONCAT(COALESCE(end_date, DATE_ADD(CURRENT_DATE, INTERVAL 30 DAY)), ' 23:59:59'),
+                        'Auto generated after slot registration payment'
+                     FROM slot_registrations
+                     WHERE id = ?
+                     ON DUPLICATE KEY UPDATE
+                        status = 'ACTIVE',
+                        valid_from = VALUES(valid_from),
+                        valid_to = VALUES(valid_to),
+                        note = VALUES(note),
+                        updated_at = CURRENT_TIMESTAMP`,
+                    [generateQrCode("SLOT"), registrationId]
+                );
             } else {
                 await connection.query(
                     `UPDATE slot_registrations
@@ -313,6 +363,60 @@ const markPaymentResult = async ({
                      SET status = 'AVAILABLE', updated_at = CURRENT_TIMESTAMP
                      WHERE id = ?`,
                     [slotId]
+                );
+            }
+        }
+
+        if (monthlyPassId) {
+            if (status === "SUCCESS") {
+                await connection.query(
+                    `UPDATE monthly_passes
+                     SET status = 'ACTIVE',
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?`,
+                    [monthlyPassId]
+                );
+
+                await connection.query(
+                    `INSERT INTO qr_passes
+                        (
+                            user_id,
+                            vehicle_id,
+                            monthly_pass_id,
+                            qr_code,
+                            pass_type,
+                            status,
+                            valid_from,
+                            valid_to,
+                            note
+                        )
+                     SELECT
+                        user_id,
+                        vehicle_id,
+                        id,
+                        ?,
+                        'MONTHLY',
+                        'ACTIVE',
+                        CONCAT(start_date, ' 00:00:00'),
+                        CONCAT(end_date, ' 23:59:59'),
+                        'Auto generated after monthly package payment'
+                     FROM monthly_passes
+                     WHERE id = ?
+                     ON DUPLICATE KEY UPDATE
+                        status = 'ACTIVE',
+                        valid_from = VALUES(valid_from),
+                        valid_to = VALUES(valid_to),
+                        note = VALUES(note),
+                        updated_at = CURRENT_TIMESTAMP`,
+                    [generateQrCode("MONTHLY"), monthlyPassId]
+                );
+            } else {
+                await connection.query(
+                    `UPDATE monthly_passes
+                     SET status = 'CANCELLED',
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ? AND status = 'PENDING_PAYMENT'`,
+                    [monthlyPassId]
                 );
             }
         }
@@ -353,6 +457,40 @@ const markPaymentResult = async ({
                         [nextSlotStatus, sessionStatus.slotId]
                     );
                 }
+
+                if (sessionStatus?.tempQrCardId) {
+                    await connection.query(
+                        `UPDATE temporary_qr_cards
+                         SET status = 'COMPLETED',
+                             current_session_id = NULL,
+                             returned_at = CURRENT_TIMESTAMP,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = ?`,
+                        [sessionStatus.tempQrCardId]
+                    );
+                }
+
+                await connection.query(
+                    `UPDATE violations
+                     SET status = 'COLLECTED',
+                         collected_payment_id = ?,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE status IN ('OPEN', 'RESOLVED')
+                        AND (
+                            parking_session_id = ?
+                            OR (
+                                parking_session_id IS NULL
+                                AND plate_number = ?
+                                AND vehicle_type = ?
+                            )
+                        )`,
+                    [
+                        paymentId || null,
+                        parkingSessionId,
+                        sessionStatus?.plateNumber || null,
+                        sessionStatus?.vehicleType || null,
+                    ]
+                );
             } else {
                 await connection.query(
                     `UPDATE parking_sessions

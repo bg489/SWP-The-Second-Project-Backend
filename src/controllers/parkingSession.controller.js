@@ -1,5 +1,9 @@
 const { PARKING_FEES } = require("../constants/pricing");
 const parkingSessionService = require("../services/parkingSession.service");
+const pricingPolicyService = require("../services/pricingPolicy.service");
+const qrPassService = require("../services/qrPass.service");
+const tempQrCardService = require("../services/tempQrCard.service");
+const violationService = require("../services/violation.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
@@ -34,7 +38,16 @@ const parseNonNegativeAmount = (value) => {
     return parsed;
 };
 
-const calculateBaseFee = (session) => {
+const getPolicyAmount = async ({ fallbackAmount, pricingType, vehicleType }) => {
+    const policy = await pricingPolicyService.getActivePricingPolicy({
+        pricingType,
+        vehicleType,
+    });
+
+    return policy ? Number(policy.amount) : fallbackAmount;
+};
+
+const calculateBaseFee = async (session) => {
     if (session.pricingType === "MONTHLY_PASS") {
         return {
             baseFee: 0,
@@ -43,33 +56,71 @@ const calculateBaseFee = (session) => {
     }
 
     if (session.vehicleType === "MOTORBIKE") {
+        const amount = await getPolicyAmount({
+            fallbackAmount: PARKING_FEES.MOTORBIKE_TURN,
+            pricingType: "TURN",
+            vehicleType: "MOTORBIKE",
+        });
+
         return {
-            baseFee: PARKING_FEES.MOTORBIKE_TURN,
+            baseFee: amount,
             durationHours: null,
         };
     }
 
+    const hourlyAmount = await getPolicyAmount({
+        fallbackAmount: PARKING_FEES.CAR_HOURLY,
+        pricingType: "HOURLY",
+        vehicleType: "CAR",
+    });
     const checkInAt = new Date(session.checkInAt);
     const now = new Date();
     const durationMs = Math.max(now.getTime() - checkInAt.getTime(), 0);
     const durationHours = Math.max(1, Math.ceil(durationMs / (60 * 60 * 1000)));
 
     return {
-        baseFee: durationHours * PARKING_FEES.CAR_HOURLY,
+        baseFee: durationHours * hourlyAmount,
         durationHours,
     };
 };
 
 const checkIn = async (req, res) => {
     try {
-        const vehicleType = normalizeEnum(req.body.vehicleType);
-        const plateNumber =
+        let vehicleType = normalizeEnum(req.body.vehicleType);
+        let plateNumber =
             typeof req.body.plateNumber === "string"
                 ? req.body.plateNumber.trim().toUpperCase()
                 : "";
         const buildingId = req.body.buildingId;
         let floorId = req.body.floorId;
         let slotId = req.body.slotId;
+        const qrCode =
+            typeof req.body.qrCode === "string" ? req.body.qrCode.trim() : "";
+        let qrValidation = null;
+
+        if (qrCode) {
+            qrValidation = await qrPassService.validateQrPass(qrCode);
+
+            if (!qrValidation.isValid) {
+                return errorResponse(res, qrValidation.message, 400, qrValidation);
+            }
+
+            if (!plateNumber) {
+                plateNumber = qrValidation.qrPass.plateNumber;
+            }
+
+            if (!vehicleType) {
+                vehicleType = qrValidation.qrPass.vehicleType;
+            }
+
+            if (plateNumber !== qrValidation.qrPass.plateNumber) {
+                return errorResponse(res, "QR pass khong khop bien so xe", 400);
+            }
+
+            if (vehicleType !== qrValidation.qrPass.vehicleType) {
+                return errorResponse(res, "QR pass khong khop loai xe", 400);
+            }
+        }
 
         if (!plateNumber) {
             return errorResponse(res, "Bien so xe khong duoc de trong", 400);
@@ -96,6 +147,11 @@ const checkIn = async (req, res) => {
         const monthlyPass = isApprovedRegisteredVehicle
             ? await parkingSessionService.getActiveMonthlyPassByVehicleId(vehicle.id)
             : null;
+        const tempQrCardId = req.body.tempQrCardId;
+        const tempQrCardCode =
+            typeof req.body.tempQrCardCode === "string"
+                ? req.body.tempQrCardCode.trim().toUpperCase()
+                : "";
         const pricingType =
             monthlyPass !== null
                 ? "MONTHLY_PASS"
@@ -105,6 +161,37 @@ const checkIn = async (req, res) => {
         const customerType = isApprovedRegisteredVehicle
             ? "REGISTERED_USER"
             : "WALK_IN_GUEST";
+        let tempQrCard = null;
+
+        if (qrValidation?.qrPass && vehicle && qrValidation.qrPass.vehicleId !== vehicle.id) {
+            return errorResponse(res, "QR pass khong thuoc xe dang check-in", 400);
+        }
+
+        if (pricingType === "MONTHLY_PASS" && !qrCode) {
+            return errorResponse(res, "Xe co the thang hop le can quet qrCode de check-in", 400);
+        }
+
+        if (pricingType !== "MONTHLY_PASS") {
+            if (!isValidId(tempQrCardId) && !tempQrCardCode) {
+                return errorResponse(
+                    res,
+                    "Can tempQrCardId hoac tempQrCardCode cho khach vang lai/gui theo luot",
+                    400
+                );
+            }
+
+            tempQrCard = isValidId(tempQrCardId)
+                ? await tempQrCardService.getTempQrCardById(tempQrCardId)
+                : await tempQrCardService.getTempQrCardByCode(tempQrCardCode);
+
+            if (!tempQrCard) {
+                return errorResponse(res, "Khong tim thay the QR tam", 404);
+            }
+
+            if (tempQrCard.status !== "READY") {
+                return errorResponse(res, "The QR tam khong o trang thai READY", 400);
+            }
+        }
 
         if (vehicleType === "MOTORBIKE") {
             if (!isValidId(buildingId)) {
@@ -189,8 +276,13 @@ const checkIn = async (req, res) => {
             note: req.body.note,
             plateNumber,
             pricingType,
+            sessionQrCode:
+                pricingType === "MONTHLY_PASS"
+                    ? qrCode || null
+                    : tempQrCard.cardCode,
             slotId: vehicleType === "CAR" ? slotId : null,
             staffId: req.user.id,
+            tempQrCardId: tempQrCard?.id || null,
             userId: isApprovedRegisteredVehicle ? vehicle.userId : null,
             vehicleId: isApprovedRegisteredVehicle ? vehicle.id : null,
             vehicleType,
@@ -234,13 +326,17 @@ const checkOut = async (req, res) => {
             return errorResponse(res, "Phien dang cho thanh toan VNPay", 400);
         }
 
-        const violationFee = parseNonNegativeAmount(req.body.violationFee);
+        const manualViolationFee = parseNonNegativeAmount(req.body.violationFee);
 
-        if (violationFee === null) {
+        if (manualViolationFee === null) {
             return errorResponse(res, "violationFee phai la so nguyen khong am", 400);
         }
 
-        const { baseFee, durationHours } = calculateBaseFee(session);
+        const violationSummary =
+            await violationService.getCollectableViolationsForSession(session);
+        const recordedViolationFee = violationSummary.totalFee;
+        const violationFee = recordedViolationFee + manualViolationFee;
+        const { baseFee, durationHours } = await calculateBaseFee(session);
         const totalAmount = baseFee + violationFee;
         const paymentMethod = normalizeEnum(req.body.paymentMethod);
 
@@ -289,7 +385,10 @@ const checkOut = async (req, res) => {
                 },
                 feeDetail: {
                     baseFee,
+                    manualViolationFee,
+                    recordedViolationFee,
                     violationFee,
+                    violations: violationSummary.violations,
                     totalAmount,
                     durationHours,
                 },
@@ -331,7 +430,10 @@ const checkOut = async (req, res) => {
                 },
                 feeDetail: {
                     baseFee,
+                    manualViolationFee,
+                    recordedViolationFee,
                     violationFee,
+                    violations: violationSummary.violations,
                     totalAmount,
                     durationHours,
                 },
@@ -361,7 +463,10 @@ const checkOut = async (req, res) => {
             },
             feeDetail: {
                 baseFee,
+                manualViolationFee,
+                recordedViolationFee,
                 violationFee,
+                violations: violationSummary.violations,
                 totalAmount,
                 durationHours,
             },
@@ -390,6 +495,28 @@ const getActiveSessions = async (req, res) => {
     }
 };
 
+const checkOutByQr = async (req, res) => {
+    try {
+        const qrCode =
+            typeof req.body.qrCode === "string" ? req.body.qrCode.trim() : "";
+
+        if (!qrCode) {
+            return errorResponse(res, "qrCode khong duoc de trong", 400);
+        }
+
+        const session = await parkingSessionService.getActiveSessionByQrCode(qrCode);
+
+        if (!session) {
+            return errorResponse(res, "Khong tim thay phien gui xe dang hoat dong theo QR", 404);
+        }
+
+        req.params.id = session.id;
+        return checkOut(req, res);
+    } catch (error) {
+        return errorResponse(res, "Loi check-out bang QR", 500, error.message);
+    }
+};
+
 const getSessionById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -413,6 +540,7 @@ const getSessionById = async (req, res) => {
 module.exports = {
     checkIn,
     checkOut,
+    checkOutByQr,
     getActiveSessions,
     getSessionById,
 };

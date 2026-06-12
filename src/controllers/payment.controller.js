@@ -1,5 +1,6 @@
 const slotRegistrationService = require("../services/slotRegistration.service");
 const parkingSessionService = require("../services/parkingSession.service");
+const monthlyPassService = require("../services/monthlyPass.service");
 const { verifyReturnParams } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
@@ -59,6 +60,9 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
         const session = payment.parkingSessionId
             ? await parkingSessionService.getSessionById(payment.parkingSessionId)
             : null;
+        const monthlyPass = payment.monthlyPassId
+            ? await monthlyPassService.getMonthlyPassById(payment.monthlyPassId)
+            : null;
 
         return {
             alreadyConfirmed: true,
@@ -71,19 +75,24 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
                 },
                 registration,
                 session,
+                monthlyPass,
             },
         };
     }
 
     await slotRegistrationService.markPaymentResult({
         ...paymentResult,
+        monthlyPassId: payment.monthlyPassId,
+        paymentId: payment.id,
         parkingSessionId: payment.parkingSessionId,
         registrationId: payment.slotRegistrationId,
         sessionStatus: payment.parkingSessionId
             ? {
                   floorId: payment.sessionFloorId,
+                  plateNumber: payment.sessionPlateNumber,
                   pricingType: payment.sessionPricingType,
                   slotId: payment.sessionSlotId,
+                  tempQrCardId: payment.sessionTempQrCardId,
                   vehicleType: payment.sessionVehicleType,
               }
             : null,
@@ -95,6 +104,9 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
         : null;
     const session = payment.parkingSessionId
         ? await parkingSessionService.getSessionById(payment.parkingSessionId)
+        : null;
+    const monthlyPass = payment.monthlyPassId
+        ? await monthlyPassService.getMonthlyPassById(payment.monthlyPassId)
         : null;
 
     return {
@@ -111,6 +123,7 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
             },
             registration,
             session,
+            monthlyPass,
         },
     };
 };
