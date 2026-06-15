@@ -1,0 +1,184 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 3659 >>
+stream
+BT /F2 16 Tf 54 738 Td (Huong dan bat dau test routes Swagger) Tj ET
+BT /F1 10 Tf 54 716 Td (Parking Building Management System Backend - cap nhat 2026-06-15) Tj ET
+BT /F1 10 Tf 54 698 Td (Base URL mac dinh: http://localhost:5000. Swagger UI: http://localhost:5000/api-docs.) Tj ET
+BT /F2 16 Tf 54 678 Td (1. Chuan bi truoc khi vao Swagger) Tj ET
+BT /F1 10 Tf 66 656 Td (Step: Chay SQL. Neu tao DB moi, chay db/schema.sql. Neu DB da co, chay) Tj ET
+BT /F1 10 Tf 84 643 Td (db/migration_20260612_mvp_completion.sql mot lan.) Tj ET
+BT /F1 10 Tf 66 629 Td (Step: Seed du lieu demo: npm run seed:users, npm run seed:floors, npm run seed:vehicles.) Tj ET
+BT /F1 10 Tf 66 615 Td (Step: Start server: npm run dev. Kiem tra GET /api/health truoc.) Tj ET
+BT /F1 10 Tf 66 601 Td (Step: Mo /api-docs, bam Authorize va dan token theo tung role dang test.) Tj ET
+BT /F2 10 Tf 66 587 Td (NOTE: Tai khoan seed: admin@test.com, manager@test.com, staff@test.com,) Tj ET
+BT /F2 10 Tf 66 574 Td (user1@test.com. Mat khau mac dinh: 123456.) Tj ET
+BT /F2 16 Tf 54 552 Td (2. Thu tu lay token) Tj ET
+BT /F1 10 Tf 66 530 Td (Step: Login ADMIN: POST /api/auth/login voi admin@test.com. Dung token nay de duyet) Tj ET
+BT /F1 10 Tf 84 517 Td (user/vehicle.) Tj ET
+BT /F1 10 Tf 66 503 Td (Step: Login MANAGER: manager@test.com. Dung token nay de cau hinh toa nha, tang, slot,) Tj ET
+BT /F1 10 Tf 84 490 Td (gia, goi thang, bao cao.) Tj ET
+BT /F1 10 Tf 66 476 Td (Step: Login STAFF: staff@test.com. Dung token nay de check-in, check-out, validate QR,) Tj ET
+BT /F1 10 Tf 84 463 Td (ghi vi pham.) Tj ET
+BT /F1 10 Tf 66 449 Td (Step: Login USER: user1@test.com. Dung token nay de dang ky xe, mua goi, xem QR cua) Tj ET
+BT /F1 10 Tf 84 436 Td (minh.) Tj ET
+BT /F2 10 Tf 66 422 Td (NOTE: User moi dang ky bang /api/auth/register se co status PENDING. Admin can cap) Tj ET
+BT /F2 10 Tf 66 409 Td (nhat sang ACTIVE truoc khi user login.) Tj ET
+BT /F2 16 Tf 54 387 Td (3. Test theo dung luong nghiep vu MVP) Tj ET
+BT /F2 12 Tf 54 361 Td (A. Health, Auth, Account) Tj ET
+BT /F1 10 Tf 66 344 Td (Step: GET /api/health de chac DB ket noi.) Tj ET
+BT /F1 10 Tf 66 330 Td (Step: POST /api/auth/register tao user moi neu can.) Tj ET
+BT /F1 10 Tf 66 316 Td (Step: ADMIN: GET /api/admin/users?status=PENDING.) Tj ET
+BT /F1 10 Tf 66 302 Td (Step: ADMIN: PATCH /api/admin/users/{id}/role-status body { role: 'USER', status:) Tj ET
+BT /F1 10 Tf 84 289 Td ('ACTIVE' } de duyet tai khoan.) Tj ET
+BT /F2 12 Tf 54 271 Td (B. Building, Floor, Slot) Tj ET
+BT /F1 10 Tf 66 254 Td (Step: MANAGER: GET /api/buildings. Neu chua co, POST /api/buildings.) Tj ET
+BT /F1 10 Tf 66 240 Td (Step: MANAGER: POST /api/floors tao tang MOTORBIKE voi capacity, khong tao slot le.) Tj ET
+BT /F1 10 Tf 66 226 Td (Step: MANAGER: POST /api/floors tao tang CAR voi slotCount hoac danh sach slots.) Tj ET
+BT /F1 10 Tf 66 212 Td (Step: MANAGER: GET /api/floors?buildingId=1 de xem tang va slot da sinh.) Tj ET
+BT /F1 10 Tf 66 198 Td (Step: MANAGER: GET /api/slots/floor/{floorId}, PUT/PATCH slot neu can doi) Tj ET
+BT /F1 10 Tf 84 185 Td (AVAILABLE/MAINTENANCE/LOCKED.) Tj ET
+BT /F2 12 Tf 54 167 Td (C. Gia va goi thang) Tj ET
+BT /F1 10 Tf 66 150 Td (Step: MANAGER: POST /api/pricing-policies tao gia MOTORBIKE/TURN amount 4000.) Tj ET
+BT /F1 10 Tf 66 136 Td (Step: MANAGER: POST /api/pricing-policies tao gia CAR/HOURLY amount 20000.) Tj ET
+BT /F1 10 Tf 66 122 Td (Step: MANAGER: POST /api/package-plans tao goi MOTORBIKE 30 ngay.) Tj ET
+BT /F1 10 Tf 66 108 Td (Step: MANAGER: POST /api/package-plans tao goi CAR 30 ngay. Goi CAR se dung khi dang ky) Tj ET
+BT /F1 10 Tf 84 95 Td (slot oto.) Tj ET
+BT /F1 8 Tf 522 32 Td (Trang 1) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Length 3944 >>
+stream
+BT /F2 12 Tf 54 734 Td (D. The QR tam) Tj ET
+BT /F1 10 Tf 66 717 Td (Step: MANAGER: POST /api/temp-qr-cards voi cardCode TEMP-001, status READY.) Tj ET
+BT /F1 10 Tf 66 703 Td (Step: STAFF: GET /api/temp-qr-cards?status=READY de chon the cho khach vang lai/gui theo) Tj ET
+BT /F1 10 Tf 84 690 Td (luot.) Tj ET
+BT /F2 12 Tf 54 672 Td (E. Vehicle va duyet xe) Tj ET
+BT /F1 10 Tf 66 655 Td (Step: USER: POST /api/vehicles dang ky xe MOTORBIKE hoac CAR.) Tj ET
+BT /F1 10 Tf 66 641 Td (Step: ADMIN: GET /api/vehicles/admin?status=PENDING neu route nay dang co trong Swagger.) Tj ET
+BT /F1 10 Tf 66 627 Td (Step: ADMIN: approve/reject vehicle theo route Vehicles Admin trong Swagger.) Tj ET
+BT /F2 12 Tf 54 609 Td (F. Mua goi/QR pass) Tj ET
+BT /F1 10 Tf 66 592 Td (Step: Xe may co the mua goi: USER POST /api/package-plans/{id}/buy body { vehicleId,) Tj ET
+BT /F1 10 Tf 84 579 Td (bankCode: 'NCB', locale: 'vn' }.) Tj ET
+BT /F1 10 Tf 66 565 Td (Step: Sau khi co paymentUrl, test VNPay sandbox hoac goi /api/payments/vnpay-return voi) Tj ET
+BT /F1 10 Tf 84 552 Td (query VNPay hop le.) Tj ET
+BT /F1 10 Tf 66 538 Td (Step: Oto phai dang ky slot: USER POST /api/slot-registrations body { vehicleId, slotId,) Tj ET
+BT /F1 10 Tf 84 525 Td (packagePlanId, bankCode: 'NCB' }.) Tj ET
+BT /F1 10 Tf 66 511 Td (Step: Khi payment SUCCESS, backend tu tao QR pass. USER xem bang GET /api/qr-passes/my.) Tj ET
+BT /F2 12 Tf 54 493 Td (G. Check-in) Tj ET
+BT /F1 10 Tf 66 476 Td (Step: The thang hop le: STAFF POST /api/qr-passes/validate body { qrCode }.) Tj ET
+BT /F1 10 Tf 66 462 Td (Step: The thang xe may: STAFF POST /api/parking-sessions/check-in body { qrCode,) Tj ET
+BT /F1 10 Tf 84 449 Td (plateNumber, vehicleType: 'MOTORBIKE', buildingId }.) Tj ET
+BT /F1 10 Tf 66 435 Td (Step: The thang oto: STAFF POST /api/parking-sessions/check-in body { qrCode,) Tj ET
+BT /F1 10 Tf 84 422 Td (plateNumber, vehicleType: 'CAR', slotId }.) Tj ET
+BT /F1 10 Tf 66 408 Td (Step: Gui theo luot/khach vang lai xe may: STAFF check-in body { plateNumber,) Tj ET
+BT /F1 10 Tf 84 395 Td (vehicleType: 'MOTORBIKE', buildingId, tempQrCardCode: 'TEMP-001' }.) Tj ET
+BT /F1 10 Tf 66 381 Td (Step: Gui theo gio/khach vang lai oto: STAFF check-in body { plateNumber, vehicleType:) Tj ET
+BT /F1 10 Tf 84 368 Td ('CAR', slotId, tempQrCardCode: 'TEMP-001' }.) Tj ET
+BT /F2 10 Tf 66 354 Td (NOTE: Neu khong co the thang, backend bat buoc co tempQrCardId hoac tempQrCardCode.) Tj ET
+BT /F2 12 Tf 54 334 Td (H. Vi pham va phi phat) Tj ET
+BT /F1 10 Tf 66 317 Td (Step: STAFF: POST /api/violations body { parkingSessionId, violationType: 'WRONG_SLOT',) Tj ET
+BT /F1 10 Tf 84 304 Td (penaltyFee: 50000, note }.) Tj ET
+BT /F1 10 Tf 66 290 Td (Step: STAFF: GET /api/violations?parkingSessionId={id} de kiem tra vi pham dang) Tj ET
+BT /F1 10 Tf 84 277 Td (OPEN/RESOLVED.) Tj ET
+BT /F2 10 Tf 66 263 Td (NOTE: Khi check-out, backend tu cong cac vi pham OPEN/RESOLVED vao tong tien. The) Tj ET
+BT /F2 10 Tf 66 250 Td (thang van phai tra phi phat.) Tj ET
+BT /F2 12 Tf 54 230 Td (I. Check-out va thanh toan) Tj ET
+BT /F1 10 Tf 66 213 Td (Step: STAFF: POST /api/parking-sessions/{id}/check-out. Neu co tien, truyen) Tj ET
+BT /F1 10 Tf 84 200 Td (paymentMethod CASH, CARD hoac VNPAY.) Tj ET
+BT /F1 10 Tf 66 186 Td (Step: STAFF: POST /api/parking-sessions/check-out-by-qr body { qrCode, paymentMethod:) Tj ET
+BT /F1 10 Tf 84 173 Td ('CASH' } neu muon quet QR luc ra.) Tj ET
+BT /F1 10 Tf 66 159 Td (Step: Xe may vang lai tinh 4000/luot neu pricing policy khong bi doi.) Tj ET
+BT /F1 10 Tf 66 145 Td (Step: Oto vang lai tinh 20000/gio, lam tron len toi thieu 1 gio.) Tj ET
+BT /F1 10 Tf 66 131 Td (Step: VNPay checkout tao paymentUrl va session sang PENDING_PAYMENT. Callback SUCCESS) Tj ET
+BT /F1 10 Tf 84 118 Td (moi dong session va tra slot/capacity.) Tj ET
+BT /F2 12 Tf 54 100 Td (J. Bao cao) Tj ET
+BT /F1 10 Tf 66 83 Td (Step: MANAGER: GET /api/reports/traffic.) Tj ET
+BT /F1 8 Tf 522 32 Td (Trang 2) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Length 2853 >>
+stream
+BT /F1 10 Tf 66 738 Td (Step: MANAGER: GET /api/reports/motorbike-capacity.) Tj ET
+BT /F1 10 Tf 66 724 Td (Step: MANAGER: GET /api/reports/car-slots.) Tj ET
+BT /F1 10 Tf 66 710 Td (Step: MANAGER: GET /api/reports/revenue.) Tj ET
+BT /F1 10 Tf 66 696 Td (Step: MANAGER: GET /api/reports/qr-passes.) Tj ET
+BT /F1 10 Tf 66 682 Td (Step: MANAGER: GET /api/reports/violations.) Tj ET
+BT /F2 16 Tf 54 662 Td (4. Payload mau nhanh) Tj ET
+BT /F3 9 Tf 66 640 Td (Pricing xe may: { "vehicleType": "MOTORBIKE", "pricingType": "TURN", "amount": 4000) Tj ET
+BT /F3 9 Tf 66 628 Td (}) Tj ET
+BT /F3 9 Tf 66 613 Td (Pricing oto: { "vehicleType": "CAR", "pricingType": "HOURLY", "amount": 20000 }) Tj ET
+BT /F3 9 Tf 66 598 Td (Temp QR: { "cardCode": "TEMP-001", "status": "READY" }) Tj ET
+BT /F3 9 Tf 66 583 Td (Goi xe may: { "name": "Goi xe may 30 ngay", "vehicleType": "MOTORBIKE", "price":) Tj ET
+BT /F3 9 Tf 66 571 Td (120000, "durationDays": 30 }) Tj ET
+BT /F3 9 Tf 66 556 Td (Goi oto: { "name": "Goi oto 30 ngay", "vehicleType": "CAR", "price": 1500000,) Tj ET
+BT /F3 9 Tf 66 544 Td ("durationDays": 30 }) Tj ET
+BT /F3 9 Tf 66 529 Td (Violation: { "parkingSessionId": 1, "violationType": "WRONG_SLOT", "penaltyFee":) Tj ET
+BT /F3 9 Tf 66 517 Td (50000 }) Tj ET
+BT /F2 16 Tf 54 496 Td (5. Loi hay gap) Tj ET
+BT /F1 10 Tf 66 474 Td (- 403: dang dung sai token role, hoac user moi van PENDING.) Tj ET
+BT /F1 10 Tf 66 460 Td (- Check-in the thang bao loi qrCode: can tao/lay QR pass bang /api/qr-passes/my hoac) Tj ET
+BT /F1 10 Tf 84 447 Td (validate truoc.) Tj ET
+BT /F1 10 Tf 66 433 Td (- Check-in luot bao loi temp QR: the QR tam phai ton tai va status READY.) Tj ET
+BT /F1 10 Tf 66 419 Td (- Slot oto khong vao duoc: slot phai AVAILABLE, rieng xe co slot thang co the vao slot) Tj ET
+BT /F1 10 Tf 84 406 Td (RESERVED cua minh.) Tj ET
+BT /F1 10 Tf 66 392 Td (- VNPay PENDING: session/registration chi hoan tat khi /api/payments/vnpay-return hoac) Tj ET
+BT /F1 10 Tf 84 379 Td (/api/payments/vnpay-ipn SUCCESS.) Tj ET
+BT /F1 10 Tf 66 365 Td (- Migration bao duplicate column: DB da co mot phan thay doi; bo cac dong ALTER da co) Tj ET
+BT /F1 10 Tf 84 352 Td (san hoac tao DB fresh bang schema.sql.) Tj ET
+BT /F2 16 Tf 54 332 Td (6. Checklist ket thuc) Tj ET
+BT /F1 10 Tf 66 310 Td (- Admin duyet account va vehicle.) Tj ET
+BT /F1 10 Tf 66 296 Td (- Manager tao floor MOTORBIKE theo capacity, floor CAR theo slot.) Tj ET
+BT /F1 10 Tf 66 282 Td (- Manager tao pricing policy va package plan.) Tj ET
+BT /F1 10 Tf 66 268 Td (- Staff co the QR tam READY.) Tj ET
+BT /F1 10 Tf 66 254 Td (- User co QR pass cho monthly/slot registration sau thanh toan.) Tj ET
+BT /F1 10 Tf 66 240 Td (- Staff check-in, ghi vi pham, check-out va thu phi thanh cong.) Tj ET
+BT /F1 10 Tf 66 226 Td (- Bao cao hien so lieu thay doi sau cac luong test.) Tj ET
+BT /F1 8 Tf 522 32 Td (Trang 3) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 10 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+8 0 obj
+<< /Type /Page /Parent 10 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 5 0 R >>
+endobj
+9 0 obj
+<< /Type /Page /Parent 10 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
+endobj
+10 0 obj
+<< /Type /Pages /Kids [7 0 R 8 0 R 9 0 R] /Count 3 >>
+endobj
+11 0 obj
+<< /Type /Catalog /Pages 10 0 R >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000222 00000 n 
+0000003933 00000 n 
+0000007929 00000 n 
+0000010834 00000 n 
+0000010981 00000 n 
+0000011128 00000 n 
+0000011275 00000 n 
+0000011345 00000 n 
+trailer
+<< /Size 12 /Root 11 0 R >>
+startxref
+11396
+%%EOF
