@@ -162,10 +162,43 @@ const unlockUser = async (req, res) => {
     }
 };
 
+const updateUserBuilding = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { buildingId } = req.body;
+
+        if (!Number.isInteger(Number(id)) || Number(id) <= 0) {
+            return errorResponse(res, "User id khong hop le", 400);
+        }
+
+        if (!Number.isInteger(Number(buildingId)) || Number(buildingId) <= 0) {
+            return errorResponse(res, "buildingId khong hop le", 400);
+        }
+
+        const updatedUser = await userService.updateUserBuilding({
+            id: Number(id),
+            buildingId: Number(buildingId),
+        });
+
+        return successResponse(
+            res,
+            "Cap nhat toa nha cua user thanh cong",
+            updatedUser
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.message || "Loi cap nhat toa nha cua user",
+            error.statusCode || 500
+        );
+    }
+};
+
 module.exports = {
     getUsers,
     getUserById,
     updateUserRoleStatus,
     lockUser,
     unlockUser,
+    updateUserBuilding,
 };

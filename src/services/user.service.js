@@ -227,6 +227,61 @@ const updateUserStatus = async ({ id, status }) => {
     return getUserById(id);
 };
 
+const updateUserBuilding = async ({ id, buildingId }) => {
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [buildingRows] = await connection.query(
+            `SELECT id FROM buildings WHERE id = ? LIMIT 1`,
+            [buildingId]
+        );
+
+        if (buildingRows.length === 0) {
+            const error = new Error("Khong tim thay toa nha");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const [userRows] = await connection.query(
+            `SELECT id FROM users WHERE id = ? LIMIT 1`,
+            [id]
+        );
+
+        if (userRows.length === 0) {
+            const error = new Error("Khong tim thay user");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        await connection.query(
+            `UPDATE users
+             SET building_id = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [buildingId, id]
+        );
+
+        await connection.query(
+            `UPDATE vehicles
+             SET building_id = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE user_id = ?`,
+            [buildingId, id]
+        );
+
+        await connection.commit();
+
+        return getUserById(id);
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
 module.exports = {
     findUserByEmailOrPhone,
     findExistingUserForRegister,
@@ -238,4 +293,5 @@ module.exports = {
     updateUserRole,
     updateUserRoleStatus,
     updateUserStatus,
+    updateUserBuilding,
 };

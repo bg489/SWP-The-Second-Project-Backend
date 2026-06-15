@@ -77,6 +77,13 @@ const VIOLATION_STATUSES = {
     CANCELLED: "CANCELLED",
 };
 
+const BUILDING_CHANGE_REQUEST_STATUSES = {
+    PENDING: "PENDING",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    CANCELLED: "CANCELLED",
+};
+
 const normalizeEnum = (value) => {
     if (typeof value !== "string") {
         return value;
@@ -108,6 +115,7 @@ module.exports = {
     QR_PASS_STATUSES,
     TEMP_QR_CARD_STATUSES,
     VIOLATION_STATUSES,
+    BUILDING_CHANGE_REQUEST_STATUSES,
     normalizeEnum,
     normalizeRole,
     isValidEnumValue,
