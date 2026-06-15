@@ -257,52 +257,64 @@ const updateFloor = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!id || isNaN(Number(id))) {
+        if (!isValidId(id)) {
             return errorResponse(res, "Floor id không hợp lệ", 400);
         }
 
-        const floor = await floorService.getFloorById(id);
+        const existingFloor = await floorService.getFloorById(id);
 
-        if (!floor) {
-            return errorResponse(res, "Không tìm thấy tầng gửi xe", 404);
+        if (!existingFloor) {
+            return errorResponse(res, "Không tìm thấy tầng", 404);
         }
 
-        const validation = validateFloorPayload(req.body, {
-            buildingId: req.body.buildingId || req.body.building_id || floor.buildingId,
-        });
+        const payload = {
+            buildingId: req.body.buildingId,
+            name: req.body.name,
+            status: req.body.status,
+            operationNote: req.body.operationNote,
+        };
 
-        if (validation.error) {
-            return errorResponse(res, validation.error, 400, validation.details || null);
+        if (req.body.floorType !== undefined) {
+            const floorType = String(req.body.floorType).trim().toUpperCase();
+
+            if (!["MOTORBIKE", "CAR"].includes(floorType)) {
+                return errorResponse(
+                    res,
+                    "Loại tầng không hợp lệ. Chỉ nhận MOTORBIKE hoặc CAR",
+                    400
+                );
+            }
+
+            payload.floorType = floorType;
         }
 
-        const building = await floorService.getBuildingById(validation.value.buildingId);
+        if (existingFloor.floorType === "MOTORBIKE" || payload.floorType === "MOTORBIKE") {
+            if (req.body.capacity !== undefined) {
+                const capacity = Number(req.body.capacity);
 
-        if (!building) {
-            return errorResponse(res, "Không tìm thấy tòa nhà", 404);
+                if (!Number.isInteger(capacity) || capacity <= 0) {
+                    return errorResponse(
+                        res,
+                        "Tầng MOTORBIKE bắt buộc nhập capacity là số nguyên dương",
+                        400
+                    );
+                }
+
+                payload.capacity = capacity;
+            }
         }
 
-        const existedFloor = await floorService.findFloorByNameAndBuildingExceptId({
-            name: validation.value.name,
-            buildingId: validation.value.buildingId,
-            id,
-        });
+        // Quan trọng:
+        // Không xử lý req.body.slots ở updateFloor nữa.
+        // Slot ô tô quản lý bằng /api/slots và /api/floors/:floorId/slots.
+        delete payload.slots;
+        delete payload.slotCount;
 
-        if (existedFloor) {
-            return errorResponse(res, "Tên tầng đã tồn tại trong tòa nhà này", 400);
-        }
+        const updatedFloor = await floorService.updateFloor(id, payload);
 
-        const updatedFloor = await floorService.updateFloor({
-            id,
-            ...validation.value,
-        });
-
-        return successResponse(res, "Cập nhật tầng gửi xe thành công", updatedFloor);
+        return successResponse(res, "Cập nhật tầng thành công", updatedFloor);
     } catch (error) {
-        if (error.code === "ER_DUP_ENTRY") {
-            return errorResponse(res, "Tên tầng hoặc mã slot đã tồn tại", 400);
-        }
-
-        return errorResponse(res, "Lỗi cập nhật tầng gửi xe", 500, error.message);
+        return errorResponse(res, "Lỗi cập nhật tầng", 500, error.message);
     }
 };
 
