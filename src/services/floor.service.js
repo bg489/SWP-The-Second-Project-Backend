@@ -122,13 +122,15 @@ const createSlotsForCarFloor = async ({ connection, buildingId, floorId, slotCod
     );
 };
 
-const createSlot = async ({
+const createFloor = async ({
     buildingId,
-    floorId,
-    slotCode,
+    name,
+    floorType,
+    capacity,
+    slotCount,
+    slots,
     status,
-    sizeLabel,
-    positionDescription,
+    operationNote,
     note,
 }) => {
     const connection = await db.getConnection();
@@ -137,31 +139,33 @@ const createSlot = async ({
         await connection.beginTransaction();
 
         const [result] = await connection.query(
-            `INSERT INTO parking_slots
-                (building_id, floor_id, slot_code, status, size_label, position_description, note)
+            `INSERT INTO parking_floors
+                (building_id, name, floor_type, capacity, status, note, slot_count)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
                 buildingId,
-                floorId,
-                slotCode,
-                status || "AVAILABLE",
-                sizeLabel || null,
-                positionDescription || null,
-                note || null,
+                name,
+                floorType,
+                capacity || null,
+                status || "ACTIVE",
+                operationNote || note || null,
+                slotCount || 0,
             ]
         );
 
-        await connection.query(
-            `UPDATE parking_floors
-             SET slot_count = slot_count + 1,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = ? AND floor_type = 'CAR'`,
-            [floorId]
-        );
+        const floorId = result.insertId;
+
+        if (floorType === "CAR") {
+            await createSlotsForCarFloor({
+                connection,
+                buildingId,
+                floorId,
+                slotCodes: slots,
+            });
+        }
 
         await connection.commit();
-
-        return getSlotById(result.insertId);
+        return getFloorById(floorId);
     } catch (error) {
         await connection.rollback();
         throw error;
@@ -390,46 +394,38 @@ const updateFloor = async (id, payload) => {
     return getFloorById(id);
 };
 
-const deleteSlot = async (id) => {
+const deleteFloor = async (id) => {
     const connection = await db.getConnection();
 
     try {
         await connection.beginTransaction();
 
-        const [slotRows] = await connection.query(
-            `SELECT id, floor_id AS floorId, status
+        const [usedSlots] = await connection.query(
+            `SELECT COUNT(*) AS total
              FROM parking_slots
-             WHERE id = ?
-             LIMIT 1
-             FOR UPDATE`,
+             WHERE floor_id = ? AND status <> 'AVAILABLE'`,
             [id]
         );
 
-        const slot = slotRows[0];
-
-        if (!slot) {
-            await connection.rollback();
-            return false;
+        if (usedSlots[0].total > 0) {
+            const error = new Error("Không thể xóa tầng vì có slot đang được sử dụng hoặc đã được giữ chỗ");
+            error.statusCode = 400;
+            throw error;
         }
 
-        const [result] = await connection.query(
+        await connection.query(
             `DELETE FROM parking_slots
+             WHERE floor_id = ?`,
+            [id]
+        );
+
+        const [result] = await connection.query(
+            `DELETE FROM parking_floors
              WHERE id = ?`,
             [id]
         );
 
-        if (result.affectedRows > 0) {
-            await connection.query(
-                `UPDATE parking_floors
-                 SET slot_count = GREATEST(slot_count - 1, 0),
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ? AND floor_type = 'CAR'`,
-                [slot.floorId]
-            );
-        }
-
         await connection.commit();
-
         return result.affectedRows > 0;
     } catch (error) {
         await connection.rollback();
