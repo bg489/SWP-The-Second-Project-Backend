@@ -257,7 +257,7 @@ const updateFloor = async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (!isValidId(id)) {
+        if (!id || isNaN(Number(id)) || Number(id) <= 0) {
             return errorResponse(res, "Floor id không hợp lệ", 400);
         }
 
@@ -267,17 +267,60 @@ const updateFloor = async (req, res) => {
             return errorResponse(res, "Không tìm thấy tầng", 404);
         }
 
-        const payload = {
-            buildingId: req.body.buildingId,
-            name: req.body.name,
-            status: req.body.status,
-            operationNote: req.body.operationNote,
-        };
+        const payload = {};
 
+        if (req.body.buildingId !== undefined) {
+            const buildingId = Number(req.body.buildingId);
+
+            if (!Number.isInteger(buildingId) || buildingId <= 0) {
+                return errorResponse(res, "buildingId không hợp lệ", 400);
+            }
+
+            payload.buildingId = buildingId;
+        }
+
+        if (req.body.name !== undefined) {
+            const name = String(req.body.name).trim();
+
+            if (!name) {
+                return errorResponse(res, "Tên tầng không được để trống", 400);
+            }
+
+            payload.name = name;
+        }
+
+        if (req.body.status !== undefined) {
+            const status = String(req.body.status).trim().toUpperCase();
+            const validStatuses = ["ACTIVE", "LOCKED", "MAINTENANCE", "INACTIVE"];
+
+            if (!validStatuses.includes(status)) {
+                return errorResponse(
+                    res,
+                    "Trạng thái tầng không hợp lệ",
+                    400
+                );
+            }
+
+            payload.status = status;
+        }
+
+        if (req.body.operationNote !== undefined) {
+            payload.operationNote = req.body.operationNote || null;
+        }
+
+        if (req.body.note !== undefined) {
+            payload.note = req.body.note || null;
+        }
+
+        /**
+         * PATCH chỉ cho đổi floorType nếu gửi floorType hợp lệ.
+         * Nếu frontend không gửi floorType thì giữ nguyên loại tầng cũ.
+         */
         if (req.body.floorType !== undefined) {
             const floorType = String(req.body.floorType).trim().toUpperCase();
+            const validFloorTypes = ["MOTORBIKE", "CAR"];
 
-            if (!["MOTORBIKE", "CAR"].includes(floorType)) {
+            if (!validFloorTypes.includes(floorType)) {
                 return errorResponse(
                     res,
                     "Loại tầng không hợp lệ. Chỉ nhận MOTORBIKE hoặc CAR",
@@ -288,33 +331,48 @@ const updateFloor = async (req, res) => {
             payload.floorType = floorType;
         }
 
-        if (existingFloor.floorType === "MOTORBIKE" || payload.floorType === "MOTORBIKE") {
-            if (req.body.capacity !== undefined) {
-                const capacity = Number(req.body.capacity);
+        const finalFloorType =
+            payload.floorType || existingFloor.floorType || existingFloor.floor_type;
 
-                if (!Number.isInteger(capacity) || capacity <= 0) {
-                    return errorResponse(
-                        res,
-                        "Tầng MOTORBIKE bắt buộc nhập capacity là số nguyên dương",
-                        400
-                    );
-                }
+        /**
+         * MOTORBIKE quản lý bằng capacity.
+         * Chỉ validate capacity nếu request có gửi capacity.
+         */
+        if (finalFloorType === "MOTORBIKE" && req.body.capacity !== undefined) {
+            const capacity = Number(req.body.capacity);
 
-                payload.capacity = capacity;
+            if (!Number.isInteger(capacity) || capacity <= 0) {
+                return errorResponse(
+                    res,
+                    "Tầng MOTORBIKE bắt buộc nhập capacity là số nguyên dương",
+                    400
+                );
             }
+
+            payload.capacity = capacity;
         }
 
-        // Quan trọng:
-        // Không xử lý req.body.slots ở updateFloor nữa.
-        // Slot ô tô quản lý bằng /api/slots và /api/floors/:floorId/slots.
-        delete payload.slots;
+        /**
+         * CAR quản lý slot bằng API slot riêng:
+         * POST /api/floors/:floorId/slots
+         * PATCH /api/slots/:id
+         * DELETE /api/slots/:id
+         *
+         * Vì vậy PATCH /api/floors/:id KHÔNG xử lý slotCount/slots nữa.
+         * Tránh lỗi thiếu slotCount và tránh đổi mã slot kiểu CAR-B06 -> B2-06.
+         */
         delete payload.slotCount;
+        delete payload.slots;
 
         const updatedFloor = await floorService.updateFloor(id, payload);
 
         return successResponse(res, "Cập nhật tầng thành công", updatedFloor);
     } catch (error) {
-        return errorResponse(res, "Lỗi cập nhật tầng", 500, error.message);
+        return errorResponse(
+            res,
+            error.message || "Lỗi cập nhật tầng",
+            error.statusCode || 500
+        );
     }
 };
 
