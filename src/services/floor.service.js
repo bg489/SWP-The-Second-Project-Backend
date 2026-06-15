@@ -333,102 +333,55 @@ const getFloorById = async (id) => {
     return mapFloorRow(rows[0], slots);
 };
 
-const updateFloor = async ({
-    id,
-    buildingId,
-    name,
-    floorType,
-    capacity,
-    slotCount,
-    slots,
-    status,
-    operationNote,
-    note,
-}) => {
-    const connection = await db.getConnection();
+const updateFloor = async (id, payload) => {
+    const fields = [];
+    const params = [];
 
-    try {
-        await connection.beginTransaction();
-
-        await connection.query(
-            `UPDATE parking_floors
-             SET
-                building_id = ?,
-                name = ?,
-                floor_type = ?,
-                capacity = ?,
-                status = ?,
-                note = ?,
-                slot_count = ?,
-                updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            [
-                buildingId,
-                name,
-                floorType,
-                capacity || null,
-                status,
-                operationNote || note || null,
-                slotCount || 0,
-                id,
-            ]
-        );
-
-        if (floorType === "CAR") {
-            await connection.query(
-                `DELETE FROM parking_slots
-                 WHERE floor_id = ? AND status = 'AVAILABLE'`,
-                [id]
-            );
-
-            const [reservedRows] = await connection.query(
-                `SELECT COUNT(*) AS reservedCount
-                 FROM parking_slots
-                 WHERE floor_id = ?`,
-                [id]
-            );
-
-            if (reservedRows[0].reservedCount > 0) {
-                const [existingSlotRows] = await connection.query(
-                    `SELECT slot_code AS code
-                     FROM parking_slots
-                     WHERE floor_id = ?`,
-                    [id]
-                );
-
-                const existingCodes = new Set(existingSlotRows.map((slot) => slot.code));
-                const newCodes = slots.filter((slotCode) => !existingCodes.has(slotCode));
-
-                await createSlotsForCarFloor({
-                    connection,
-                    buildingId,
-                    floorId: id,
-                    slotCodes: newCodes,
-                });
-            } else {
-                await createSlotsForCarFloor({
-                    connection,
-                    buildingId,
-                    floorId: id,
-                    slotCodes: slots,
-                });
-            }
-        } else {
-            await connection.query(
-                `DELETE FROM parking_slots
-                 WHERE floor_id = ? AND status = 'AVAILABLE'`,
-                [id]
-            );
-        }
-
-        await connection.commit();
-        return getFloorById(id);
-    } catch (error) {
-        await connection.rollback();
-        throw error;
-    } finally {
-        connection.release();
+    if (payload.buildingId !== undefined) {
+        fields.push("building_id = ?");
+        params.push(payload.buildingId);
     }
+
+    if (payload.name !== undefined) {
+        fields.push("name = ?");
+        params.push(payload.name);
+    }
+
+    if (payload.floorType !== undefined) {
+        fields.push("floor_type = ?");
+        params.push(payload.floorType);
+    }
+
+    if (payload.capacity !== undefined) {
+        fields.push("capacity = ?");
+        params.push(payload.capacity);
+    }
+
+    if (payload.status !== undefined) {
+        fields.push("status = ?");
+        params.push(payload.status);
+    }
+
+    if (payload.operationNote !== undefined) {
+        fields.push("operation_note = ?");
+        params.push(payload.operationNote || null);
+    }
+
+    if (fields.length === 0) {
+        return getFloorById(id);
+    }
+
+    fields.push("updated_at = CURRENT_TIMESTAMP");
+    params.push(id);
+
+    await db.query(
+        `UPDATE parking_floors
+         SET ${fields.join(", ")}
+         WHERE id = ?`,
+        params
+    );
+
+    return getFloorById(id);
 };
 
 const deleteFloor = async (id) => {
