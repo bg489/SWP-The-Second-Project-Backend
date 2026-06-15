@@ -107,6 +107,98 @@ router.patch(
 
 /**
  * @swagger
+ * /api/admin/users/{id}/building:
+ *   patch:
+ *     summary: Admin updates user's building
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Admin đổi tòa nhà của user. Backend sẽ cập nhật users.building_id và có thể đồng bộ building_id cho vehicles của user đó.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 5
+ *         description: ID của user cần đổi tòa nhà
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - buildingId
+ *             properties:
+ *               buildingId:
+ *                 type: integer
+ *                 example: 2
+ *                 description: ID của tòa nhà mới
+ *     responses:
+ *       200:
+ *         description: Cập nhật tòa nhà của user thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Cap nhat toa nha cua user thanh cong"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 5
+ *                     name:
+ *                       type: string
+ *                       example: "Nguyễn Văn A"
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *                     phone:
+ *                       type: string
+ *                       example: "0901234567"
+ *                     role:
+ *                       type: string
+ *                       example: "USER"
+ *                     status:
+ *                       type: string
+ *                       example: "ACTIVE"
+ *                     buildingId:
+ *                       type: integer
+ *                       example: 2
+ *                     buildingName:
+ *                       type: string
+ *                       example: "Sunrise Residence Parking"
+ *                     buildingAddress:
+ *                       type: string
+ *                       example: "Quận 7, TP.HCM"
+ *       400:
+ *         description: User id hoặc buildingId không hợp lệ
+ *       401:
+ *         description: Chưa đăng nhập hoặc token không hợp lệ
+ *       403:
+ *         description: Chỉ ADMIN được đổi tòa nhà của user
+ *       404:
+ *         description: Không tìm thấy user hoặc tòa nhà
+ *       500:
+ *         description: Lỗi server
+ */
+router.patch(
+    "/:id/building",
+    authMiddleware,
+    adminMiddleware,
+    adminUserController.updateUserBuilding
+);
+
+/**
+ * @swagger
  * /api/admin/users/{id}/lock:
  *   patch:
  *     summary: Admin locks user account

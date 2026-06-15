@@ -22,6 +22,7 @@ const violationRoutes = require("./routes/violation.routes");
 const reportRoutes = require("./routes/report.routes");
 const vehicleRoutes = require("./routes/vehicle.routes");
 const adminUserRoutes = require("./routes/adminUser.routes");
+const buildingChangeRequestRoutes = require("./routes/buildingChangeRequest.routes");
 const {
     notFoundMiddleware,
     errorMiddleware,
@@ -80,6 +81,7 @@ app.use("/api/violations", violationRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/building-change-requests", buildingChangeRequestRoutes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
 
