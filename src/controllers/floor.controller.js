@@ -305,7 +305,7 @@ const updateFloor = async (req, res) => {
         }
 
         if (req.body.operationNote !== undefined) {
-            payload.operationNote = req.body.operationNote || null;
+            payload.note = req.body.operationNote || null;
         }
 
         if (req.body.note !== undefined) {

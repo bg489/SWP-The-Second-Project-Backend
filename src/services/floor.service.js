@@ -362,9 +362,9 @@ const updateFloor = async (id, payload) => {
         params.push(payload.status);
     }
 
-    if (payload.operationNote !== undefined) {
-        fields.push("operation_note = ?");
-        params.push(payload.operationNote || null);
+    if (payload.note !== undefined) {
+        fields.push("note = ?");
+        params.push(payload.note || null);
     }
 
     if (payload.note !== undefined) {
