@@ -41,8 +41,8 @@ const buildSlotPayload = (body, existingSlot = null) => {
         body.status !== undefined
             ? normalizeEnum(body.status)
             : existingSlot
-              ? existingSlot.status
-              : "AVAILABLE";
+                ? existingSlot.status
+                : "AVAILABLE";
 
     if (!VALID_SLOT_STATUSES.includes(status)) {
         return {
@@ -220,6 +220,14 @@ const deleteSlot = async (req, res) => {
 
         if (!slot) {
             return errorResponse(res, "Khong tim thay slot", 404);
+        }
+
+        if (["OCCUPIED", "RESERVED"].includes(slot.status)) {
+            return errorResponse(
+                res,
+                "Khong the xoa slot dang co xe hoac dang duoc dat cho",
+                400
+            );
         }
 
         await slotService.deleteSlot(id);
