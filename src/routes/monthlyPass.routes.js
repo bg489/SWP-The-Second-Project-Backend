@@ -60,6 +60,18 @@ router.get(
     monthlyPassController.getMonthlyPasses
 );
 
+router.get(
+    "/my",
+    authMiddleware,
+    monthlyPassController.getMyMonthlyPasses
+);
+
+router.post(
+    "/:id/payment-url",
+    authMiddleware,
+    monthlyPassController.createMyMonthlyPassPaymentUrl
+);
+
 /**
  * @swagger
  * /api/monthly-passes/{id}:

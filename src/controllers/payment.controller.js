@@ -8,16 +8,16 @@ const buildPaymentResult = (query, secureHash) => {
     const responseCode = query.vnp_ResponseCode;
     const transactionStatus = query.vnp_TransactionStatus;
 
+    const isSuccess =
+        responseCode === "00" && (!transactionStatus || transactionStatus === "00");
+
     return {
         bankCode: query.vnp_BankCode,
         payDate: query.vnp_PayDate,
         providerTransactionNo: query.vnp_TransactionNo,
         responseCode,
         secureHash: query.vnp_SecureHash || secureHash,
-        status:
-            responseCode === "00" && transactionStatus === "00"
-                ? "SUCCESS"
-                : "FAILED",
+        status: isSuccess ? "SUCCESS" : "FAILED",
         transactionRef: query.vnp_TxnRef,
         transactionStatus,
     };

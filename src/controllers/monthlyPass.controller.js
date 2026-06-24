@@ -1,5 +1,6 @@
 const monthlyPassService = require("../services/monthlyPass.service");
 const qrPassService = require("../services/qrPass.service");
+const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
 const isValidId = (id) => {
@@ -102,6 +103,27 @@ const getMonthlyPasses = async (req, res) => {
     }
 };
 
+const getMyMonthlyPasses = async (req, res) => {
+    try {
+        const monthlyPasses = await monthlyPassService.getMyMonthlyPasses(
+            req.user.id
+        );
+
+        return successResponse(
+            res,
+            "Lay danh sach the thang cua ban thanh cong",
+            monthlyPasses
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            "Loi lay danh sach the thang cua ban",
+            500,
+            error.message
+        );
+    }
+};
+
 const getMonthlyPassById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -122,8 +144,80 @@ const getMonthlyPassById = async (req, res) => {
     }
 };
 
+const createMyMonthlyPassPaymentUrl = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!isValidId(id)) {
+            return errorResponse(res, "Monthly pass id khong hop le", 400);
+        }
+
+        const monthlyPass = await monthlyPassService.getMonthlyPassByIdAndUserId({
+            id,
+            userId: req.user.id,
+        });
+
+        if (!monthlyPass) {
+            return errorResponse(res, "Khong tim thay the thang cua ban", 404);
+        }
+
+        if (monthlyPass.status !== "PENDING_PAYMENT") {
+            return errorResponse(res, "The thang nay khong cho thanh toan", 400);
+        }
+
+        if (!monthlyPass.paymentId || !monthlyPass.transactionRef) {
+            return errorResponse(res, "Khong tim thay yeu cau thanh toan", 404);
+        }
+
+        const transactionRef = `PLAN${Date.now()}U${req.user.id}V${
+            monthlyPass.vehicleId
+        }`;
+        const orderInfo = `Thanh toan goi thang ${
+            monthlyPass.packagePlanName || "goi thang"
+        } cho xe ${monthlyPass.plateNumber}`;
+        const paymentUrl = createPaymentUrl({
+            amount: Number(monthlyPass.amount),
+            bankCode: req.body.bankCode,
+            clientIp: getClientIp(req),
+            locale: req.body.locale,
+            orderInfo,
+            transactionRef,
+        });
+
+        await monthlyPassService.updateMonthlyPassPaymentUrl({
+            paymentId: monthlyPass.paymentId,
+            paymentUrl,
+            transactionRef,
+        });
+
+        return successResponse(res, "Tao lai yeu cau thanh toan thanh cong", {
+            monthlyPass: {
+                ...monthlyPass,
+                paymentUrl,
+                transactionRef,
+            },
+            payment: {
+                id: monthlyPass.paymentId,
+                transactionRef,
+                amount: Number(monthlyPass.amount),
+                provider: monthlyPass.paymentProvider || "VNPAY",
+                paymentUrl,
+            },
+        });
+    } catch (error) {
+        return errorResponse(
+            res,
+            "Loi tao lai yeu cau thanh toan",
+            500,
+            error.message
+        );
+    }
+};
+
 module.exports = {
+    createMyMonthlyPassPaymentUrl,
     createMonthlyPass,
+    getMyMonthlyPasses,
     getMonthlyPassById,
     getMonthlyPasses,
 };
