@@ -15,6 +15,15 @@ const qrPassSelect = `
         qp.qr_code AS qrCode,
         qp.pass_type AS passType,
         qp.status,
+        mp.package_plan_id AS packagePlanId,
+        pp.name AS packagePlanName,
+        COALESCE(mp.amount, sr.amount) AS amount,
+        COALESCE(mp.building_id, sr.building_id) AS buildingId,
+        b.name AS buildingName,
+        mp.start_date AS monthlyPassStartDate,
+        mp.end_date AS monthlyPassEndDate,
+        sr.slot_id AS slotId,
+        ps.slot_code AS slotCode,
         qp.valid_from AS validFrom,
         qp.valid_to AS validTo,
         qp.created_by AS createdBy,
@@ -24,6 +33,11 @@ const qrPassSelect = `
     FROM qr_passes qp
     INNER JOIN vehicles v ON qp.vehicle_id = v.id
     LEFT JOIN users u ON qp.user_id = u.id
+    LEFT JOIN monthly_passes mp ON qp.monthly_pass_id = mp.id
+    LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
+    LEFT JOIN slot_registrations sr ON qp.slot_registration_id = sr.id
+    LEFT JOIN parking_slots ps ON sr.slot_id = ps.id
+    LEFT JOIN buildings b ON COALESCE(mp.building_id, sr.building_id) = b.id
 `;
 
 const generateQrCode = (prefix = "QR") => {
@@ -281,6 +295,48 @@ const getQrPasses = async ({ passType, status, userId, vehicleId } = {}) => {
     return rows;
 };
 
+const ensureQrPassesForUser = async (userId) => {
+    const [monthlyRows] = await db.query(
+        `SELECT mp.id
+         FROM monthly_passes mp
+         INNER JOIN vehicles v ON mp.vehicle_id = v.id
+         LEFT JOIN qr_passes qp ON qp.monthly_pass_id = mp.id
+         WHERE mp.user_id = ?
+            AND mp.status = 'ACTIVE'
+            AND v.status = 'APPROVED'
+            AND qp.id IS NULL`,
+        [userId]
+    );
+
+    for (const row of monthlyRows) {
+        await createQrPassForMonthlyPass({
+            createdBy: userId,
+            monthlyPassId: row.id,
+            note: "Auto generated when user opens monthly pass QR page",
+        });
+    }
+
+    const [slotRows] = await db.query(
+        `SELECT sr.id
+         FROM slot_registrations sr
+         INNER JOIN vehicles v ON sr.vehicle_id = v.id
+         LEFT JOIN qr_passes qp ON qp.slot_registration_id = sr.id
+         WHERE sr.user_id = ?
+            AND sr.status = 'PAID'
+            AND v.status = 'APPROVED'
+            AND qp.id IS NULL`,
+        [userId]
+    );
+
+    for (const row of slotRows) {
+        await createQrPassForSlotRegistration({
+            createdBy: userId,
+            note: "Auto generated when user opens monthly pass QR page",
+            slotRegistrationId: row.id,
+        });
+    }
+};
+
 const getQrPassByCode = async (qrCode) => {
     const [rows] = await db.query(
         `${qrPassSelect}
@@ -384,6 +440,7 @@ const updateQrPassStatus = async ({ id, note, status }) => {
 module.exports = {
     createQrPassForMonthlyPass,
     createQrPassForSlotRegistration,
+    ensureQrPassesForUser,
     generateQrCode,
     getMonthlyPassForQr,
     getQrPassByCode,
