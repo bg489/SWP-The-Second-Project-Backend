@@ -27,6 +27,33 @@ const isAmountMatched = (payment, queryAmount) => {
     return Number(queryAmount) === Math.round(Number(payment.amount) * 100);
 };
 
+const appendQuery = (url, params) => {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}${new URLSearchParams(params).toString()}`;
+};
+
+const getFrontendPaymentReturnUrl = (result) => {
+    const exactReturnUrl = process.env.FRONTEND_PAYMENT_RETURN_URL;
+    const appUrl =
+        exactReturnUrl ||
+        process.env.FRONTEND_URL ||
+        process.env.CLIENT_URL ||
+        "http://localhost:5173";
+    const payment = result.data?.payment || {};
+    const targetPath = result.data?.session ? "/staff/check-out" : "/user/qr-pass";
+    const appUrlAlreadyHasPath = /\/user\/qr-pass|\/staff\/check-out/.test(appUrl);
+    const returnUrl =
+        (exactReturnUrl || appUrlAlreadyHasPath)
+            ? appUrl
+            : `${appUrl.replace(/\/$/, "")}${targetPath}`;
+
+    return appendQuery(returnUrl, {
+        paymentStatus: payment.status || "FAILED",
+        responseCode: payment.responseCode || "",
+        transactionRef: payment.transactionRef || "",
+    });
+};
+
 const handleVerifiedVnpayResult = async (query, secureHash) => {
     const paymentResult = buildPaymentResult(query, secureHash);
     const payment = await slotRegistrationService.getPaymentByTransactionRef(
@@ -142,13 +169,17 @@ const handleVnpayReturn = async (req, res) => {
             return errorResponse(res, result.error, result.statusCode);
         }
 
-        return successResponse(
-            res,
-            result.data.payment.status === "SUCCESS"
-                ? "Thanh toan VNPay thanh cong"
-                : "Thanh toan VNPay that bai",
-            result.data
-        );
+        if (req.query.json === "true") {
+            return successResponse(
+                res,
+                result.data.payment.status === "SUCCESS"
+                    ? "Thanh toan VNPay thanh cong"
+                    : "Thanh toan VNPay that bai",
+                result.data
+            );
+        }
+
+        return res.redirect(getFrontendPaymentReturnUrl(result));
     } catch (error) {
         if (error.statusCode) {
             return errorResponse(res, error.message, error.statusCode);
