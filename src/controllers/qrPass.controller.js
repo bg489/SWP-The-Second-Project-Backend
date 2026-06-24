@@ -39,6 +39,8 @@ const getQrPasses = async (req, res) => {
 
 const getMyQrPasses = async (req, res) => {
     try {
+        await qrPassService.ensureQrPassesForUser(req.user.id);
+
         const qrPasses = await qrPassService.getQrPasses({
             userId: req.user.id,
         });
