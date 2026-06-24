@@ -18,6 +18,14 @@ const monthlyPassSelect = `
         mp.start_date AS startDate,
         mp.end_date AS endDate,
         mp.note,
+        p.id AS paymentId,
+        p.provider AS paymentProvider,
+        p.status AS paymentStatus,
+        p.transaction_ref AS transactionRef,
+        p.payment_url AS paymentUrl,
+        p.provider_transaction_no AS providerTransactionNo,
+        p.response_code AS paymentResponseCode,
+        p.transaction_status AS paymentTransactionStatus,
         mp.created_at AS createdAt,
         mp.updated_at AS updatedAt
     FROM monthly_passes mp
@@ -25,6 +33,7 @@ const monthlyPassSelect = `
     LEFT JOIN users u ON mp.user_id = u.id
     LEFT JOIN buildings b ON mp.building_id = b.id
     LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
+    LEFT JOIN payments p ON p.monthly_pass_id = mp.id
 `;
 
 const getVehicleForMonthlyPass = async (vehicleId) => {
@@ -97,6 +106,17 @@ const getMonthlyPasses = async () => {
     return rows;
 };
 
+const getMyMonthlyPasses = async (userId) => {
+    const [rows] = await db.query(
+        `${monthlyPassSelect}
+         WHERE mp.user_id = ?
+         ORDER BY mp.id DESC`,
+        [userId]
+    );
+
+    return rows;
+};
+
 const getMonthlyPassById = async (id) => {
     const [rows] = await db.query(
         `${monthlyPassSelect}
@@ -108,9 +128,38 @@ const getMonthlyPassById = async (id) => {
     return rows[0] || null;
 };
 
+const getMonthlyPassByIdAndUserId = async ({ id, userId }) => {
+    const [rows] = await db.query(
+        `${monthlyPassSelect}
+         WHERE mp.id = ? AND mp.user_id = ?
+         LIMIT 1`,
+        [id, userId]
+    );
+
+    return rows[0] || null;
+};
+
+const updateMonthlyPassPaymentUrl = async ({
+    paymentId,
+    paymentUrl,
+    transactionRef,
+}) => {
+    await db.query(
+        `UPDATE payments
+         SET payment_url = ?,
+             transaction_ref = COALESCE(?, transaction_ref),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [paymentUrl, transactionRef || null, paymentId]
+    );
+};
+
 module.exports = {
     createMonthlyPass,
+    getMyMonthlyPasses,
     getMonthlyPassById,
+    getMonthlyPassByIdAndUserId,
     getMonthlyPasses,
     getVehicleForMonthlyPass,
+    updateMonthlyPassPaymentUrl,
 };

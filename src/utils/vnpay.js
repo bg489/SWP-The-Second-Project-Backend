@@ -2,6 +2,7 @@ const crypto = require("crypto");
 
 const DEFAULT_VNPAY_PAYMENT_URL =
     "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+const VNPAY_RETURN_PATH = "/api/payments/vnpay-return";
 
 const pad = (value) => String(value).padStart(2, "0");
 
@@ -65,14 +66,45 @@ const getClientIp = (req) => {
     );
 };
 
+const trimTrailingSlash = (value) => String(value || "").replace(/\/+$/, "");
+
+const isLocalUrl = (value) => {
+    return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(
+        String(value || "")
+    );
+};
+
+const isVnpayBackendReturnUrl = (value) =>
+    String(value || "").includes(VNPAY_RETURN_PATH);
+
+const buildReturnUrlFromBase = (baseUrl) =>
+    `${trimTrailingSlash(baseUrl)}${VNPAY_RETURN_PATH}`;
+
+const getVnpayReturnUrl = () => {
+    const configuredReturnUrl = process.env.VNPAY_RETURN_URL;
+    const serverUrl = process.env.SERVER_URL;
+
+    if (
+        configuredReturnUrl &&
+        isVnpayBackendReturnUrl(configuredReturnUrl) &&
+        (!isLocalUrl(configuredReturnUrl) || !serverUrl || isLocalUrl(serverUrl))
+    ) {
+        return configuredReturnUrl;
+    }
+
+    if (serverUrl) {
+        return buildReturnUrlFromBase(serverUrl);
+    }
+
+    return `http://localhost:${process.env.PORT || 5000}${VNPAY_RETURN_PATH}`;
+};
+
 const getVnpayConfig = () => {
     return {
         tmnCode: process.env.VNPAY_TMN_CODE,
         hashSecret: process.env.VNPAY_HASH_SECRET,
         paymentUrl: process.env.VNPAY_PAYMENT_URL || DEFAULT_VNPAY_PAYMENT_URL,
-        returnUrl:
-            process.env.VNPAY_RETURN_URL ||
-            `http://localhost:${process.env.PORT || 5000}/api/payments/vnpay-return`,
+        returnUrl: getVnpayReturnUrl(),
     };
 };
 
@@ -160,5 +192,6 @@ const verifyReturnParams = (query) => {
 module.exports = {
     createPaymentUrl,
     getClientIp,
+    getVnpayReturnUrl,
     verifyReturnParams,
 };
