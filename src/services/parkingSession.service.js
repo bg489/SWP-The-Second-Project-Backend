@@ -301,11 +301,20 @@ const getSessionById = async (id) => {
     return rows[0] || null;
 };
 
-const getActiveSessions = async () => {
+const getActiveSessions = async ({ buildingId } = {}) => {
+    const conditions = ["ps.status IN ('ACTIVE', 'PENDING_PAYMENT')"];
+    const params = [];
+
+    if (buildingId) {
+        conditions.push("ps.building_id = ?");
+        params.push(buildingId);
+    }
+
     const [rows] = await db.query(
         `${sessionSelect}
-         WHERE ps.status IN ('ACTIVE', 'PENDING_PAYMENT')
-         ORDER BY ps.id DESC`
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY ps.id DESC`,
+        params
     );
 
     return rows;

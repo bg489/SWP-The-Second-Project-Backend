@@ -3,6 +3,7 @@ const parkingSessionService = require("../services/parkingSession.service");
 const pricingPolicyService = require("../services/pricingPolicy.service");
 const qrPassService = require("../services/qrPass.service");
 const tempQrCardService = require("../services/tempQrCard.service");
+const userService = require("../services/user.service");
 const violationService = require("../services/violation.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
@@ -91,7 +92,10 @@ const checkIn = async (req, res) => {
             typeof req.body.plateNumber === "string"
                 ? req.body.plateNumber.trim().toUpperCase()
                 : "";
-        const buildingId = req.body.buildingId;
+        const staffUser = await userService.getUserById(req.user.id);
+        const staffBuildingId = staffUser?.buildingId;
+        const requestedBuildingId = req.body.buildingId;
+        const buildingId = staffBuildingId || requestedBuildingId;
         let floorId = req.body.floorId;
         let slotId = req.body.slotId;
         const qrCode =
@@ -122,6 +126,21 @@ const checkIn = async (req, res) => {
             }
         }
 
+        if (!isValidId(buildingId)) {
+            return errorResponse(res, "Tai khoan nhan vien chua gan toa nha", 400);
+        }
+
+        if (
+            requestedBuildingId &&
+            Number(requestedBuildingId) !== Number(buildingId)
+        ) {
+            return errorResponse(
+                res,
+                "Nhan vien chi duoc check-in trong toa nha dang phu trach",
+                403
+            );
+        }
+
         if (!plateNumber) {
             return errorResponse(res, "Bien so xe khong duoc de trong", 400);
         }
@@ -144,6 +163,18 @@ const checkIn = async (req, res) => {
             vehicle &&
             vehicle.status === "APPROVED" &&
             vehicle.vehicleType === vehicleType;
+
+        if (
+            isApprovedRegisteredVehicle &&
+            vehicle.buildingId &&
+            Number(vehicle.buildingId) !== Number(buildingId)
+        ) {
+            return errorResponse(
+                res,
+                "Xe dang thuoc toa nha khac, khong the check-in tai toa nha nay",
+                400
+            );
+        }
         const monthlyPass = isApprovedRegisteredVehicle
             ? await parkingSessionService.getActiveMonthlyPassByVehicleId(vehicle.id)
             : null;
@@ -241,6 +272,14 @@ const checkIn = async (req, res) => {
                 return errorResponse(res, "Khong tim thay slot oto", 404);
             }
 
+            if (Number(slot.buildingId) !== Number(buildingId)) {
+                return errorResponse(
+                    res,
+                    "Slot oto khong thuoc toa nha nhan vien dang phu trach",
+                    403
+                );
+            }
+
             if (slot.floorStatus !== "ACTIVE") {
                 return errorResponse(res, "Tang cua slot dang khong hoat dong", 400);
             }
@@ -267,8 +306,7 @@ const checkIn = async (req, res) => {
                 Boolean(monthlyPass?.slotId),
             buildingId:
                 vehicleType === "CAR"
-                    ? (await parkingSessionService.getCarSlotForCheckIn(slotId))
-                          .buildingId
+                    ? buildingId
                     : buildingId,
             customerType,
             floorId,
@@ -482,7 +520,11 @@ const checkOut = async (req, res) => {
 
 const getActiveSessions = async (req, res) => {
     try {
-        const sessions = await parkingSessionService.getActiveSessions();
+        const staffUser = await userService.getUserById(req.user.id);
+        const buildingId = staffUser?.buildingId || req.query.buildingId;
+        const sessions = await parkingSessionService.getActiveSessions({
+            buildingId,
+        });
 
         return successResponse(res, "Lay danh sach phien dang gui thanh cong", sessions);
     } catch (error) {
