@@ -1,5 +1,6 @@
 const parkingSessionService = require("../services/parkingSession.service");
 const violationService = require("../services/violation.service");
+const violationTypeService = require("../services/violationType.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     VEHICLE_TYPES,
@@ -16,6 +17,10 @@ const isValidId = (id) => {
 const parseNonNegativeAmount = (value) => {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const hasBodyValue = (value) => {
+    return value !== undefined && value !== null && value !== "";
 };
 
 const createViolation = async (req, res) => {
@@ -43,12 +48,42 @@ const createViolation = async (req, res) => {
         const vehicleType = session
             ? session.vehicleType
             : normalizeEnum(req.body.vehicleType);
-        const violationType =
+        const violationTypeId = req.body.violationTypeId;
+        let violationTypeRecord = null;
+        let violationType =
             typeof req.body.violationType === "string"
                 ? req.body.violationType.trim()
                 : "";
-        const penaltyFee = parseNonNegativeAmount(req.body.penaltyFee);
+        let penaltyFee = hasBodyValue(req.body.penaltyFee)
+            ? parseNonNegativeAmount(req.body.penaltyFee)
+            : null;
         const status = req.body.status ? normalizeEnum(req.body.status) : "OPEN";
+
+        if (hasBodyValue(violationTypeId)) {
+            if (!isValidId(violationTypeId)) {
+                return errorResponse(res, "violationTypeId khong hop le", 400);
+            }
+
+            violationTypeRecord = await violationTypeService.getViolationTypeById(
+                violationTypeId
+            );
+
+            if (!violationTypeRecord) {
+                return errorResponse(res, "Khong tim thay loai vi pham", 404);
+            }
+
+            if (violationTypeRecord.status !== "ACTIVE") {
+                return errorResponse(res, "Loai vi pham dang bi tat", 400);
+            }
+
+            violationType = violationTypeRecord.name;
+
+            if (penaltyFee === null) {
+                penaltyFee = parseNonNegativeAmount(
+                    violationTypeRecord.defaultPenaltyFee
+                );
+            }
+        }
 
         if (!plateNumber) {
             return errorResponse(res, "plateNumber khong duoc de trong", 400);
@@ -59,7 +94,11 @@ const createViolation = async (req, res) => {
         }
 
         if (!violationType) {
-            return errorResponse(res, "violationType khong duoc de trong", 400);
+            return errorResponse(
+                res,
+                "violationType hoac violationTypeId khong duoc de trong",
+                400
+            );
         }
 
         if (penaltyFee === null) {
@@ -88,6 +127,7 @@ const createViolation = async (req, res) => {
             vehicleId: session?.vehicleId || vehicle?.id || null,
             vehicleType,
             violationType,
+            violationTypeId: violationTypeRecord?.id || null,
         });
 
         return successResponse(res, "Ghi nhan vi pham thanh cong", violation, 201);

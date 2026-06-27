@@ -561,9 +561,34 @@ const options = {
                         },
                     },
                 },
+                ViolationTypeRequest: {
+                    type: "object",
+                    required: ["name", "defaultPenaltyFee"],
+                    properties: {
+                        name: {
+                            type: "string",
+                            example: "Đỗ sai vị trí",
+                        },
+                        defaultPenaltyFee: {
+                            type: "integer",
+                            example: 50000,
+                            description: "Default fine amount used when staff does not manually enter penaltyFee.",
+                        },
+                        status: {
+                            type: "string",
+                            enum: ["ACTIVE", "INACTIVE"],
+                            example: "ACTIVE",
+                        },
+                        description: {
+                            type: "string",
+                            nullable: true,
+                            example: "Xe đỗ sai slot hoặc sai khu vực được phân công",
+                        },
+                    },
+                },
                 ViolationRequest: {
                     type: "object",
-                    required: ["violationType", "penaltyFee"],
+                    required: [],
                     properties: {
                         parkingSessionId: {
                             type: "integer",
@@ -583,11 +608,24 @@ const options = {
                             example: "CAR",
                             description: "Required if parkingSessionId is omitted.",
                         },
+                        violationTypeId: {
+                            type: "integer",
+                            nullable: true,
+                            example: 1,
+                            description: "Recommended. Select from /api/violation-types?status=ACTIVE.",
+                        },
                         violationType: {
                             type: "string",
+                            nullable: true,
                             example: "WRONG_SLOT",
+                            description: "Manual fallback if violationTypeId is omitted.",
                         },
-                        penaltyFee: { type: "integer", example: 50000 },
+                        penaltyFee: {
+                            type: "integer",
+                            nullable: true,
+                            example: 50000,
+                            description: "Optional when violationTypeId is provided; defaults to violation type price.",
+                        },
                         detectedAt: {
                             type: "string",
                             nullable: true,
