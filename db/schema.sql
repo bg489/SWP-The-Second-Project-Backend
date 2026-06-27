@@ -336,10 +336,27 @@ CREATE TABLE IF NOT EXISTS payments (
         ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS violation_types (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    default_penalty_fee DECIMAL(12, 2) NOT NULL DEFAULT 0,
+    status ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+    description TEXT NULL,
+    created_by INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_violation_types_name (name),
+    INDEX idx_violation_types_status (status),
+    CONSTRAINT fk_violation_types_created_by
+        FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS violations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NULL,
     vehicle_id INT NULL,
+    violation_type_id INT NULL,
     plate_number VARCHAR(30) NOT NULL,
     vehicle_type ENUM('MOTORBIKE', 'CAR') NOT NULL,
     violation_type VARCHAR(100) NOT NULL,
@@ -360,6 +377,9 @@ CREATE TABLE IF NOT EXISTS violations (
         ON DELETE SET NULL,
     CONSTRAINT fk_violations_vehicle
         FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_violations_violation_type
+        FOREIGN KEY (violation_type_id) REFERENCES violation_types(id)
         ON DELETE SET NULL,
     CONSTRAINT fk_violations_staff
         FOREIGN KEY (staff_id) REFERENCES users(id)

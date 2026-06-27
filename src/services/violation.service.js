@@ -5,6 +5,9 @@ const violationSelect = `
         v.id,
         v.parking_session_id AS parkingSessionId,
         v.vehicle_id AS vehicleId,
+        v.violation_type_id AS violationTypeId,
+        vt.name AS violationTypeName,
+        vt.default_penalty_fee AS violationTypeDefaultPenaltyFee,
         v.plate_number AS plateNumber,
         v.vehicle_type AS vehicleType,
         v.violation_type AS violationType,
@@ -20,6 +23,7 @@ const violationSelect = `
         v.updated_at AS updatedAt
     FROM violations v
     INNER JOIN users u ON v.staff_id = u.id
+    LEFT JOIN violation_types vt ON v.violation_type_id = vt.id
 `;
 
 const createViolation = async ({
@@ -34,12 +38,14 @@ const createViolation = async ({
     vehicleId,
     vehicleType,
     violationType,
+    violationTypeId,
 }) => {
     const [result] = await db.query(
         `INSERT INTO violations
             (
                 parking_session_id,
                 vehicle_id,
+                violation_type_id,
                 plate_number,
                 vehicle_type,
                 violation_type,
@@ -50,10 +56,11 @@ const createViolation = async ({
                 penalty_fee,
                 status
             )
-         VALUES (?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?)`,
         [
             parkingSessionId || null,
             vehicleId || null,
+            violationTypeId || null,
             plateNumber,
             vehicleType,
             violationType,
