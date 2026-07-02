@@ -341,14 +341,15 @@ const updateUserPassword = async ({ id, passwordHash }) => {
     return getUserById(id);
 };
 
-const updateUserProfile = async ({ id, name, phone }) => {
+const updateUserProfile = async ({ avatarUrl, id, name, phone }) => {
     await db.query(
         `UPDATE users
          SET name = ?,
              phone = ?,
+             avatar_url = COALESCE(?, avatar_url),
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [name, phone || null, id]
+        [name, phone || null, avatarUrl === undefined ? null : avatarUrl || null, id]
     );
 
     return getUserById(id);

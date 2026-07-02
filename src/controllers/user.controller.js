@@ -37,6 +37,24 @@ const isValidId = (id) => {
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+const isValidAvatarUrl = (value) => {
+    if (!value) return true;
+    if (value.length > 1024) return false;
+
+    try {
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol);
+    } catch {
+        return false;
+    }
+};
+
+const normalizePhone = (value) => {
+    if (value === undefined || value === null || value === "") return null;
+
+    return String(value).replace(/\D/g, "");
+};
+
 const getAvailableRoles = async (req, res) => {
     return successResponse(res, "Lay danh sach vai tro thanh cong", {
         accountRoles: AUTHENTICATED_ROLES,
@@ -117,8 +135,8 @@ const updateMyAvatar = async (req, res) => {
             return errorResponse(res, "avatarUrl khong duoc de trong", 400);
         }
 
-        if (avatarUrl.length > 1024 * 1024) {
-            return errorResponse(res, "Anh dai dien qua lon", 400);
+        if (!isValidAvatarUrl(avatarUrl)) {
+            return errorResponse(res, "Link anh dai dien khong hop le", 400);
         }
 
         const user = await userService.updateUserAvatar({
@@ -132,11 +150,55 @@ const updateMyAvatar = async (req, res) => {
     }
 };
 
+const updateMyProfile = async (req, res) => {
+    try {
+        const currentUser = await userService.getUserById(req.user.id);
+
+        if (!currentUser) {
+            return errorResponse(res, "Khong tim thay user", 404);
+        }
+
+        const name =
+            typeof req.body.name === "string"
+                ? req.body.name.trim()
+                : currentUser.name;
+        const phone = normalizePhone(req.body.phone);
+        const avatarUrl =
+            req.body.avatarUrl === undefined
+                ? undefined
+                : String(req.body.avatarUrl || "").trim();
+
+        if (!name || name.length < 2 || name.length > 80) {
+            return errorResponse(res, "Ho ten phai tu 2 den 80 ky tu", 400);
+        }
+
+        if (phone && !/^0\d{9}$/.test(phone)) {
+            return errorResponse(res, "So dien thoai phai gom 10 so va bat dau bang 0", 400);
+        }
+
+        if (!isValidAvatarUrl(avatarUrl)) {
+            return errorResponse(res, "Link anh dai dien khong hop le", 400);
+        }
+
+        const user = await userService.updateUserProfile({
+            id: req.user.id,
+            name,
+            phone,
+            avatarUrl,
+        });
+
+        return successResponse(res, "Cap nhat ho so thanh cong", user);
+    } catch (error) {
+        return errorResponse(res, "Loi cap nhat ho so", 500, error.message);
+    }
+};
+
 module.exports = {
     getCurrentUser: authController.getCurrentUser,
     getAvailableRoles,
     getAllUsers,
     getUserById,
     updateUserRole,
+    updateMyProfile,
     updateMyAvatar,
 };
