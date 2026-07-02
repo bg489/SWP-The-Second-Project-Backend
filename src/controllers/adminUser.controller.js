@@ -1,4 +1,5 @@
 const userService = require("../services/user.service");
+const notificationService = require("../services/notification.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     ROLES,
@@ -100,6 +101,20 @@ const updateUserRoleStatus = async (req, res) => {
             id,
             role,
             status,
+        });
+
+        await notificationService.createNotification({
+            userId: Number(id),
+            title:
+                status === USER_STATUSES.ACTIVE
+                    ? "Tài khoản đã được duyệt"
+                    : "Tài khoản đã được cập nhật",
+            message:
+                status === USER_STATUSES.ACTIVE
+                    ? "Tài khoản của bạn đã được duyệt. Bạn có thể đăng nhập và sử dụng hệ thống."
+                    : `Tài khoản của bạn đã được cập nhật sang trạng thái ${status}.`,
+            relatedType: "ACCOUNT",
+            relatedId: Number(id),
         });
 
         return successResponse(res, "Cập nhật role/trạng thái user thành công", updatedUser);
