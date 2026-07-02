@@ -21,6 +21,57 @@ const tempQrCardSelect = `
     FROM temporary_qr_cards
 `;
 
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildBuildingPrefix = (buildingName = "") => {
+    const normalized = buildingName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, " ")
+        .trim();
+    const prefix = normalized
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase();
+
+    return prefix || "QR";
+};
+
+const getBuildingById = async (buildingId) => {
+    const [rows] = await db.query(
+        `SELECT id, name
+         FROM buildings
+         WHERE id = ?
+         LIMIT 1`,
+        [buildingId]
+    );
+
+    return rows[0] || null;
+};
+
+const getNextCardStart = async ({ buildingId, prefix }) => {
+    const [rows] = await db.query(
+        `SELECT card_code AS cardCode
+         FROM temporary_qr_cards
+         WHERE building_id = ?
+            AND card_code LIKE ?
+         ORDER BY id DESC`,
+        [buildingId, `${prefix}-%`]
+    );
+
+    const matcher = new RegExp(`^${escapeRegExp(prefix)}-(\\d+)$`);
+    const maxNumber = rows.reduce((max, row) => {
+        const match = String(row.cardCode || "").match(matcher);
+        if (!match) return max;
+
+        return Math.max(max, Number(match[1]) || 0);
+    }, 0);
+
+    return maxNumber + 1;
+};
+
 const createTempQrCard = async ({ buildingId, cardCode, note, status }) => {
     const [result] = await db.query(
         `INSERT INTO temporary_qr_cards
@@ -30,6 +81,56 @@ const createTempQrCard = async ({ buildingId, cardCode, note, status }) => {
     );
 
     return getTempQrCardById(result.insertId);
+};
+
+const createTempQrCardsBulk = async ({ buildingId, note, quantity, status }) => {
+    const safeQuantity = Number(quantity);
+
+    if (!Number.isInteger(safeQuantity) || safeQuantity < 1 || safeQuantity > 500) {
+        const error = new Error("quantity phai tu 1 den 500");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (!buildingId) {
+        const error = new Error("buildingId khong duoc de trong");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const building = await getBuildingById(buildingId);
+
+    if (!building) {
+        const error = new Error("Khong tim thay toa nha");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const prefix = buildBuildingPrefix(building.name);
+    const startNumber = await getNextCardStart({ buildingId, prefix });
+    const values = Array.from({ length: safeQuantity }, (_, index) => [
+        buildingId,
+        `${prefix}-${String(startNumber + index).padStart(4, "0")}`,
+        status || "READY",
+        note || null,
+    ]);
+    const placeholders = values.map(() => "(?, ?, ?, ?)").join(", ");
+
+    const [result] = await db.query(
+        `INSERT INTO temporary_qr_cards
+            (building_id, card_code, status, note)
+         VALUES ${placeholders}`,
+        values.flat()
+    );
+
+    const [rows] = await db.query(
+        `${tempQrCardSelect}
+         WHERE id BETWEEN ? AND ?
+         ORDER BY id ASC`,
+        [result.insertId, result.insertId + safeQuantity - 1]
+    );
+
+    return rows;
 };
 
 const getTempQrCards = async ({ buildingId, status } = {}) => {
@@ -144,6 +245,7 @@ const completeCardSession = async ({ cardId, connection }) => {
 module.exports = {
     completeCardSession,
     createTempQrCard,
+    createTempQrCardsBulk,
     getTempQrCardByCode,
     getTempQrCardById,
     getTempQrCards,

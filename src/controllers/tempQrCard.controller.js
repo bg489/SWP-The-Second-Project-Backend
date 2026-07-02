@@ -2,9 +2,11 @@ const tempQrCardService = require("../services/tempQrCard.service");
 const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
+    ROLES,
     TEMP_QR_CARD_STATUSES,
     isValidEnumValue,
     normalizeEnum,
+    normalizeRole,
 } = require("../utils/constants");
 
 const isValidId = (id) => {
@@ -14,13 +16,19 @@ const isValidId = (id) => {
 
 const createTempQrCard = async (req, res) => {
     try {
+        const hasQuantity =
+            req.body.quantity !== undefined &&
+            req.body.quantity !== null &&
+            req.body.quantity !== "";
+        const quantity = hasQuantity ? Number(req.body.quantity) : 0;
         const cardCode =
             typeof req.body.cardCode === "string"
                 ? req.body.cardCode.trim().toUpperCase()
                 : "";
         const status = req.body.status ? normalizeEnum(req.body.status) : "READY";
+        const buildingId = req.body.buildingId ? Number(req.body.buildingId) : null;
 
-        if (!cardCode) {
+        if (!hasQuantity && !cardCode) {
             return errorResponse(res, "cardCode khong duoc de trong", 400);
         }
 
@@ -30,7 +38,16 @@ const createTempQrCard = async (req, res) => {
             });
         }
 
-        const buildingId = req.body.buildingId ? Number(req.body.buildingId) : null;
+        if (hasQuantity) {
+            const tempQrCards = await tempQrCardService.createTempQrCardsBulk({
+                buildingId,
+                note: req.body.note,
+                quantity,
+                status,
+            });
+
+            return successResponse(res, "Tao the QR tam thanh cong", tempQrCards, 201);
+        }
 
         const tempQrCard = await tempQrCardService.createTempQrCard({
             buildingId,
@@ -53,7 +70,11 @@ const getTempQrCards = async (req, res) => {
     try {
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
         const currentUser = await userService.getUserById(req.user.id);
-        const buildingId = currentUser?.buildingId || req.query.buildingId;
+        const currentRole = normalizeRole(req.user.role);
+        const buildingId =
+            currentRole === ROLES.STAFF
+                ? currentUser?.buildingId
+                : req.query.buildingId || currentUser?.buildingId;
 
         if (status && !isValidEnumValue(TEMP_QR_CARD_STATUSES, status)) {
             return errorResponse(res, "status the QR tam khong hop le", 400, {
