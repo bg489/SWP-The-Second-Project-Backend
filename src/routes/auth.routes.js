@@ -55,6 +55,12 @@ router.post("/register", authController.register);
  */
 router.post("/login", authController.login);
 
+router.post("/forgot-password", authController.requestPasswordReset);
+
+router.post("/verify-reset", authController.verifyPasswordReset);
+
+router.post("/reset-password", authController.resetPassword);
+
 router.post("/refresh", authMiddleware, authController.refresh);
 
 /**

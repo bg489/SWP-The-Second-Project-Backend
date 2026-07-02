@@ -13,6 +13,18 @@ const findUserByEmailOrPhone = async (emailOrPhone) => {
     return rows[0] || null;
 };
 
+const findUserByEmail = async (email) => {
+    const [rows] = await db.query(
+        `SELECT *
+         FROM users
+         WHERE email = ?
+         LIMIT 1`,
+        [email]
+    );
+
+    return rows[0] || null;
+};
+
 const findExistingUserForRegister = async (email, phone) => {
     if (phone) {
         const [rows] = await db.query(
@@ -75,6 +87,7 @@ const getUserById = async (id) => {
             u.status,
             u.building_id AS buildingId,
             u.avatar_url AS avatarUrl,
+            u.email_notifications_enabled AS emailNotificationsEnabled,
             u.created_at AS createdAt,
             u.updated_at AS updatedAt,
             b.name AS buildingName,
@@ -159,6 +172,7 @@ const getUsers = async ({ q, role, status, page = 1, limit = 10 }) => {
             u.building_id AS buildingId,
             b.name AS buildingName,
             b.address AS buildingAddress,
+            u.email_notifications_enabled AS emailNotificationsEnabled,
             COUNT(v.id) AS vehicleCount,
             GROUP_CONCAT(
                 DISTINCT CONCAT(v.plate_number, ' ', v.vehicle_type, ' ', v.status)
@@ -179,6 +193,7 @@ const getUsers = async ({ q, role, status, page = 1, limit = 10 }) => {
             u.role,
             u.status,
             u.building_id,
+            u.email_notifications_enabled,
             b.name,
             b.address,
             u.created_at,
@@ -314,8 +329,46 @@ const updateUserAvatar = async ({ id, avatarUrl }) => {
     return getUserById(id);
 };
 
+const updateUserPassword = async ({ id, passwordHash }) => {
+    await db.query(
+        `UPDATE users
+         SET password_hash = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [passwordHash, id]
+    );
+
+    return getUserById(id);
+};
+
+const updateUserProfile = async ({ id, name, phone }) => {
+    await db.query(
+        `UPDATE users
+         SET name = ?,
+             phone = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [name, phone || null, id]
+    );
+
+    return getUserById(id);
+};
+
+const updateEmailNotifications = async ({ enabled, id }) => {
+    await db.query(
+        `UPDATE users
+         SET email_notifications_enabled = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [enabled ? 1 : 0, id]
+    );
+
+    return getUserById(id);
+};
+
 module.exports = {
     findUserByEmailOrPhone,
+    findUserByEmail,
     findExistingUserForRegister,
     createUser,
     getUserById,
@@ -327,4 +380,7 @@ module.exports = {
     updateUserStatus,
     updateUserBuilding,
     updateUserAvatar,
+    updateUserPassword,
+    updateUserProfile,
+    updateEmailNotifications,
 };
