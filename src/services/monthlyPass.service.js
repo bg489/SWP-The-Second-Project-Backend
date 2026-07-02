@@ -26,6 +26,11 @@ const monthlyPassSelect = `
         p.provider_transaction_no AS providerTransactionNo,
         p.response_code AS paymentResponseCode,
         p.transaction_status AS paymentTransactionStatus,
+        qp.id AS qrPassId,
+        qp.qr_code AS qrCode,
+        qp.status AS qrStatus,
+        qp.valid_from AS qrValidFrom,
+        qp.valid_to AS qrValidTo,
         mp.created_at AS createdAt,
         mp.updated_at AS updatedAt
     FROM monthly_passes mp
@@ -34,6 +39,7 @@ const monthlyPassSelect = `
     LEFT JOIN buildings b ON mp.building_id = b.id
     LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
     LEFT JOIN payments p ON p.monthly_pass_id = mp.id
+    LEFT JOIN qr_passes qp ON qp.monthly_pass_id = mp.id
 `;
 
 const getVehicleForMonthlyPass = async (vehicleId) => {
@@ -97,10 +103,28 @@ const createMonthlyPass = async ({
     return getMonthlyPassById(result.insertId);
 };
 
-const getMonthlyPasses = async () => {
+const getMonthlyPasses = async ({ buildingId, status } = {}) => {
+    const conditions = [];
+    const params = [];
+
+    if (buildingId) {
+        conditions.push("mp.building_id = ?");
+        params.push(buildingId);
+    }
+
+    if (status) {
+        conditions.push("mp.status = ?");
+        params.push(status);
+    }
+
+    const whereSql =
+        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
     const [rows] = await db.query(
         `${monthlyPassSelect}
-         ORDER BY mp.id DESC`
+         ${whereSql}
+         ORDER BY mp.id DESC`,
+        params
     );
 
     return rows;
