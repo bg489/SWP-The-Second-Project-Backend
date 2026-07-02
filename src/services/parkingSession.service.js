@@ -332,17 +332,47 @@ const getActiveSessionsByUserId = async (userId) => {
     return rows;
 };
 
+const normalizeQrLookupCode = (value) =>
+    String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s.-]/g, "");
+
 const getActiveSessionByQrCode = async (qrCode) => {
+    const rawCode = String(qrCode || "").trim();
+
     const [rows] = await db.query(
         `${sessionSelect}
          WHERE ps.session_qr_code = ?
             AND ps.status IN ('ACTIVE', 'PENDING_PAYMENT')
          ORDER BY ps.id DESC
          LIMIT 1`,
-        [qrCode]
+        [rawCode]
     );
 
-    return rows[0] || null;
+    if (rows[0]) {
+        return rows[0];
+    }
+
+    const normalizedCode = normalizeQrLookupCode(rawCode);
+
+    if (!normalizedCode) {
+        return null;
+    }
+
+    const [plateRows] = await db.query(
+        `${sessionSelect}
+         WHERE (
+            REPLACE(REPLACE(REPLACE(UPPER(ps.plate_number), '-', ''), '.', ''), ' ', '') = ?
+            OR REPLACE(REPLACE(REPLACE(UPPER(ps.session_qr_code), '-', ''), '.', ''), ' ', '') = ?
+         )
+            AND ps.status IN ('ACTIVE', 'PENDING_PAYMENT')
+         ORDER BY ps.id DESC
+         LIMIT 1`,
+        [normalizedCode, normalizedCode]
+    );
+
+    return plateRows[0] || null;
 };
 
 const releaseSessionParkingResource = async (connection, session) => {

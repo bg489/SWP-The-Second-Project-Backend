@@ -101,7 +101,7 @@ const getPricingPolicies = async ({ buildingId, pricingType, status, vehicleType
     const [rows] = await db.query(
         `${pricingPolicySelect}
          ${whereSql}
-         ORDER BY building_id ASC, vehicle_type ASC, pricing_type ASC, id DESC`,
+         ORDER BY updated_at DESC, created_at DESC, id DESC`,
         params
     );
 

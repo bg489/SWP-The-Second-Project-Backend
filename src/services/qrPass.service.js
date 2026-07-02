@@ -23,6 +23,7 @@ const qrPassSelect = `
         mp.start_date AS monthlyPassStartDate,
         mp.end_date AS monthlyPassEndDate,
         sr.slot_id AS slotId,
+        ps.floor_id AS slotFloorId,
         ps.slot_code AS slotCode,
         qp.valid_from AS validFrom,
         qp.valid_to AS validTo,
@@ -43,6 +44,12 @@ const qrPassSelect = `
 const generateQrCode = (prefix = "QR") => {
     return `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 };
+
+const normalizePlateCode = (value) =>
+    String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s.-]/g, "");
 
 const getMonthlyPassForQr = async (monthlyPassId) => {
     const [rows] = await db.query(
@@ -338,14 +345,37 @@ const ensureQrPassesForUser = async (userId) => {
 };
 
 const getQrPassByCode = async (qrCode) => {
+    const rawCode = String(qrCode || "").trim();
+
     const [rows] = await db.query(
         `${qrPassSelect}
          WHERE qp.qr_code = ?
          LIMIT 1`,
-        [qrCode]
+        [rawCode]
     );
 
-    return rows[0] || null;
+    if (rows[0]) {
+        return rows[0];
+    }
+
+    const plateCode = normalizePlateCode(rawCode);
+
+    if (!plateCode) {
+        return null;
+    }
+
+    const [plateRows] = await db.query(
+        `${qrPassSelect}
+         WHERE REPLACE(REPLACE(REPLACE(UPPER(v.plate_number), '-', ''), '.', ''), ' ', '') = ?
+         ORDER BY
+            CASE qp.status WHEN 'ACTIVE' THEN 0 ELSE 1 END,
+            qp.valid_to DESC,
+            qp.id DESC
+         LIMIT 1`,
+        [plateCode]
+    );
+
+    return plateRows[0] || null;
 };
 
 const validateQrPass = async (qrCode) => {
@@ -355,7 +385,7 @@ const validateQrPass = async (qrCode) => {
         return {
             isValid: false,
             reason: "QR_NOT_FOUND",
-            message: "Khong tim thay QR pass",
+            message: "Không tìm thấy mã QR.",
         };
     }
 
@@ -364,33 +394,33 @@ const validateQrPass = async (qrCode) => {
     const validTo = new Date(qrPass.validTo);
 
     if (qrPass.vehicleStatus !== "APPROVED") {
-        return {
-            isValid: false,
-            reason: "VEHICLE_NOT_APPROVED",
-            message: "Xe chua duoc duyet",
-            qrPass,
-        };
+            return {
+                isValid: false,
+                reason: "VEHICLE_NOT_APPROVED",
+                message: "Xe chưa được duyệt.",
+                qrPass,
+            };
     }
 
     if (qrPass.status !== "ACTIVE") {
-        return {
-            isValid: false,
-            reason: "QR_NOT_ACTIVE",
-            message: "QR pass khong o trang thai ACTIVE",
-            qrPass,
-        };
+            return {
+                isValid: false,
+                reason: "QR_NOT_ACTIVE",
+                message: "Mã QR chưa sẵn sàng sử dụng.",
+                qrPass,
+            };
     }
 
     if (qrPass.passType === "MONTHLY") {
         const monthlyPass = await getMonthlyPassForQr(qrPass.monthlyPassId);
 
         if (!monthlyPass || monthlyPass.status !== "ACTIVE") {
-            return {
-                isValid: false,
-                reason: "MONTHLY_PASS_NOT_ACTIVE",
-                message: "The thang gan voi QR khong con ACTIVE",
-                qrPass,
-            };
+                return {
+                    isValid: false,
+                    reason: "MONTHLY_PASS_NOT_ACTIVE",
+                    message: "Gói tháng gắn với mã QR không còn hiệu lực.",
+                    qrPass,
+                };
         }
     }
 
@@ -401,7 +431,7 @@ const validateQrPass = async (qrCode) => {
             return {
                 isValid: false,
                 reason: "SLOT_REGISTRATION_NOT_PAID",
-                message: "Dang ky slot gan voi QR chua thanh toan hoac khong con hieu luc",
+                message: "Gói ô tô gắn với mã QR chưa thanh toán hoặc không còn hiệu lực.",
                 qrPass,
             };
         }
@@ -411,7 +441,7 @@ const validateQrPass = async (qrCode) => {
         return {
             isValid: false,
             reason: "QR_EXPIRED_OR_NOT_STARTED",
-            message: "QR pass het han hoac chua den ngay hieu luc",
+            message: "Mã QR hết hạn hoặc chưa đến ngày hiệu lực.",
             qrPass,
         };
     }
@@ -419,7 +449,7 @@ const validateQrPass = async (qrCode) => {
     return {
         isValid: true,
         reason: "VALID",
-        message: "QR pass hop le",
+        message: "Mã QR hợp lệ.",
         qrPass,
     };
 };

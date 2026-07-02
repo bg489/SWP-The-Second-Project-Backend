@@ -159,11 +159,30 @@ const getUsers = async ({ q, role, status, page = 1, limit = 10 }) => {
             u.building_id AS buildingId,
             b.name AS buildingName,
             b.address AS buildingAddress,
+            COUNT(v.id) AS vehicleCount,
+            GROUP_CONCAT(
+                DISTINCT CONCAT(v.plate_number, ' ', v.vehicle_type, ' ', v.status)
+                ORDER BY v.id DESC
+                SEPARATOR ', '
+            ) AS vehicleSummary,
             u.created_at AS createdAt,
             u.updated_at AS updatedAt
          FROM users u
          LEFT JOIN buildings b ON u.building_id = b.id
+         LEFT JOIN vehicles v ON v.user_id = u.id
          ${whereSql}
+         GROUP BY
+            u.id,
+            u.name,
+            u.email,
+            u.phone,
+            u.role,
+            u.status,
+            u.building_id,
+            b.name,
+            b.address,
+            u.created_at,
+            u.updated_at
          ORDER BY u.id DESC
          LIMIT ? OFFSET ?`,
         [...params, safeLimit, offset]

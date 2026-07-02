@@ -25,6 +25,12 @@ const normalizeEnum = (value) => {
     return value.trim().toUpperCase();
 };
 
+const normalizePlateCode = (value) =>
+    String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s.-]/g, "");
+
 const parseNonNegativeAmount = (value) => {
     if (value === undefined || value === null || value === "") {
         return 0;
@@ -132,17 +138,23 @@ const checkIn = async (req, res) => {
                 vehicleType = qrValidation.qrPass.vehicleType;
             }
 
-            if (plateNumber !== qrValidation.qrPass.plateNumber) {
-                return errorResponse(res, "QR pass khong khop bien so xe", 400);
+            if (
+                normalizePlateCode(plateNumber) !==
+                normalizePlateCode(qrValidation.qrPass.plateNumber)
+            ) {
+                return errorResponse(res, "Mã QR không khớp biển số xe.", 400);
             }
 
             if (vehicleType !== qrValidation.qrPass.vehicleType) {
-                return errorResponse(res, "QR pass khong khop loai xe", 400);
+                return errorResponse(res, "Mã QR không khớp loại xe.", 400);
             }
+
+            plateNumber = qrValidation.qrPass.plateNumber;
+            vehicleType = qrValidation.qrPass.vehicleType;
         }
 
         if (!isValidId(buildingId)) {
-            return errorResponse(res, "Tai khoan nhan vien chua gan toa nha", 400);
+            return errorResponse(res, "Tài khoản nhân viên chưa được gắn tòa nhà.", 400);
         }
 
         if (
@@ -151,24 +163,24 @@ const checkIn = async (req, res) => {
         ) {
             return errorResponse(
                 res,
-                "Nhan vien chi duoc check-in trong toa nha dang phu trach",
+                "Nhân viên chỉ được nhận xe trong tòa nhà đang phụ trách.",
                 403
             );
         }
 
         if (!plateNumber) {
-            return errorResponse(res, "Bien so xe khong duoc de trong", 400);
+            return errorResponse(res, "Biển số xe không được để trống.", 400);
         }
 
         if (!VALID_VEHICLE_TYPES.includes(vehicleType)) {
-            return errorResponse(res, "vehicleType chi nhan MOTORBIKE hoac CAR", 400);
+            return errorResponse(res, "Loại xe chỉ nhận xe máy hoặc ô tô.", 400);
         }
 
         const activeSession =
             await parkingSessionService.getActiveSessionByPlateNumber(plateNumber);
 
         if (activeSession) {
-            return errorResponse(res, "Xe dang co phien gui chua ket thuc", 400);
+            return errorResponse(res, "Xe đang có phiên gửi chưa kết thúc.", 400);
         }
 
         const vehicle = await parkingSessionService.getVehicleByPlateNumber(
@@ -186,7 +198,7 @@ const checkIn = async (req, res) => {
         ) {
             return errorResponse(
                 res,
-                "Xe dang thuoc toa nha khac, khong the check-in tai toa nha nay",
+                "Xe đang thuộc tòa nhà khác, không thể nhận xe tại tòa nhà này.",
                 400
             );
         }
@@ -210,18 +222,18 @@ const checkIn = async (req, res) => {
         let tempQrCard = null;
 
         if (qrValidation?.qrPass && vehicle && qrValidation.qrPass.vehicleId !== vehicle.id) {
-            return errorResponse(res, "QR pass khong thuoc xe dang check-in", 400);
+            return errorResponse(res, "Mã QR không thuộc xe đang nhận vào.", 400);
         }
 
         if (pricingType === "MONTHLY_PASS" && !qrCode) {
-            return errorResponse(res, "Xe co the thang hop le can quet qrCode de check-in", 400);
+            return errorResponse(res, "Xe có gói tháng cần quét mã QR để nhận vào.", 400);
         }
 
         if (pricingType !== "MONTHLY_PASS") {
             if (!isValidId(tempQrCardId) && !tempQrCardCode) {
                 return errorResponse(
                     res,
-                    "Can tempQrCardId hoac tempQrCardCode cho khach vang lai/gui theo luot",
+                    "Khách gửi lẻ cần có thẻ QR tạm.",
                     400
                 );
             }
@@ -238,21 +250,21 @@ const checkIn = async (req, res) => {
                 tempQrCard.buildingId &&
                 Number(tempQrCard.buildingId) !== Number(buildingId)
             ) {
-                return errorResponse(res, "The QR tam khong thuoc toa nha dang phu trach", 400);
+                return errorResponse(res, "Thẻ QR tạm không thuộc tòa nhà đang phụ trách.", 400);
             }
 
             if (tempQrCard.status !== "READY") {
-                return errorResponse(res, "The QR tam khong o trang thai READY", 400);
+                return errorResponse(res, "Thẻ QR tạm chưa sẵn sàng sử dụng.", 400);
             }
         }
 
         if (vehicleType === "MOTORBIKE") {
             if (!isValidId(buildingId)) {
-                return errorResponse(res, "buildingId khong hop le", 400);
+                return errorResponse(res, "Tòa nhà không hợp lệ.", 400);
             }
 
             if (floorId !== undefined && !isValidId(floorId)) {
-                return errorResponse(res, "floorId khong hop le", 400);
+                return errorResponse(res, "Tầng xe máy không hợp lệ.", 400);
             }
 
             const floor = await parkingSessionService.getMotorbikeFloorForCheckIn({
@@ -261,11 +273,11 @@ const checkIn = async (req, res) => {
             });
 
             if (!floor) {
-                return errorResponse(res, "Khong tim thay tang xe may dang hoat dong", 404);
+                return errorResponse(res, "Không tìm thấy tầng xe máy đang hoạt động.", 404);
             }
 
             if (floor.currentCount >= floor.capacity) {
-                return errorResponse(res, "Tang xe may da het suc chua", 400);
+                return errorResponse(res, "Tầng xe máy đã hết sức chứa.", 400);
             }
 
             floorId = floor.id;
@@ -277,13 +289,13 @@ const checkIn = async (req, res) => {
             }
 
             if (!isValidId(slotId)) {
-                return errorResponse(res, "slotId khong hop le", 400);
+                return errorResponse(res, "Ô đỗ ô tô không hợp lệ.", 400);
             }
 
             if (monthlyPass?.slotId && Number(slotId) !== Number(monthlyPass.slotId)) {
                 return errorResponse(
                     res,
-                    "Xe co the thang chi duoc vao dung slot da dang ky",
+                    "Xe có gói tháng chỉ được vào đúng ô đã đăng ký.",
                     400
                 );
             }
@@ -291,31 +303,31 @@ const checkIn = async (req, res) => {
             const slot = await parkingSessionService.getCarSlotForCheckIn(slotId);
 
             if (!slot) {
-                return errorResponse(res, "Khong tim thay slot oto", 404);
+                return errorResponse(res, "Không tìm thấy ô đỗ ô tô.", 404);
             }
 
             if (Number(slot.buildingId) !== Number(buildingId)) {
                 return errorResponse(
                     res,
-                    "Slot oto khong thuoc toa nha nhan vien dang phu trach",
+                    "Ô đỗ ô tô không thuộc tòa nhà nhân viên đang phụ trách.",
                     403
                 );
             }
 
             if (slot.floorStatus !== "ACTIVE") {
-                return errorResponse(res, "Tang cua slot dang khong hoat dong", 400);
+                return errorResponse(res, "Tầng của ô đỗ đang không hoạt động.", 400);
             }
 
             if (slot.floorType !== "CAR") {
-                return errorResponse(res, "slotId phai thuoc tang CAR", 400);
+                return errorResponse(res, "Ô đỗ phải thuộc tầng ô tô.", 400);
             }
 
             if (pricingType === "MONTHLY_PASS") {
                 if (!["AVAILABLE", "RESERVED"].includes(slot.status)) {
-                    return errorResponse(res, "Slot thang khong san sang", 400);
+                    return errorResponse(res, "Ô đỗ của gói tháng chưa sẵn sàng.", 400);
                 }
             } else if (slot.status !== "AVAILABLE") {
-                return errorResponse(res, "Slot oto khong con trong", 400);
+                return errorResponse(res, "Ô đỗ ô tô không còn trống.", 400);
             }
 
             floorId = slot.floorId;
@@ -350,17 +362,17 @@ const checkIn = async (req, res) => {
 
         const session = await parkingSessionService.getSessionById(sessionId);
 
-        return successResponse(res, "Check-in thanh cong", session, 201);
+        return successResponse(res, "Nhận xe vào bãi thành công.", session, 201);
     } catch (error) {
         if (error.code === "MOTORBIKE_FLOOR_FULL") {
-            return errorResponse(res, "Tang xe may da het suc chua", 400);
+            return errorResponse(res, "Tầng xe máy đã hết sức chứa.", 400);
         }
 
         if (error.code === "CAR_SLOT_NOT_AVAILABLE") {
-            return errorResponse(res, "Slot oto khong con san sang", 400);
+            return errorResponse(res, "Ô đỗ ô tô không còn sẵn sàng.", 400);
         }
 
-        return errorResponse(res, "Loi check-in xe", 500, error.message);
+        return errorResponse(res, "Lỗi nhận xe vào bãi.", 500, error.message);
     }
 };
 
@@ -586,19 +598,19 @@ const checkOutByQr = async (req, res) => {
             typeof req.body.qrCode === "string" ? req.body.qrCode.trim() : "";
 
         if (!qrCode) {
-            return errorResponse(res, "qrCode khong duoc de trong", 400);
+            return errorResponse(res, "Mã QR không được để trống.", 400);
         }
 
         const session = await parkingSessionService.getActiveSessionByQrCode(qrCode);
 
         if (!session) {
-            return errorResponse(res, "Khong tim thay phien gui xe dang hoat dong theo QR", 404);
+            return errorResponse(res, "Không tìm thấy phiên gửi xe đang hoạt động theo mã QR.", 404);
         }
 
         req.params.id = session.id;
         return checkOut(req, res);
     } catch (error) {
-        return errorResponse(res, "Loi check-out bang QR", 500, error.message);
+        return errorResponse(res, "Lỗi cho xe ra bằng mã QR.", 500, error.message);
     }
 };
 
