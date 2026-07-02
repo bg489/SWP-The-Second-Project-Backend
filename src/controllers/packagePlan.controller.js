@@ -26,6 +26,12 @@ const addDays = (date, days) => {
 };
 
 const validatePayload = (body, existing = {}) => {
+    const buildingId =
+        body.buildingId === undefined
+            ? existing.buildingId || null
+            : body.buildingId
+              ? Number(body.buildingId)
+              : null;
     const name =
         body.name === undefined ? existing.name : String(body.name || "").trim();
     const vehicleType = normalizeEnum(body.vehicleType || existing.vehicleType);
@@ -63,6 +69,7 @@ const validatePayload = (body, existing = {}) => {
 
     return {
         value: {
+            buildingId,
             description: description || null,
             durationDays,
             name,
@@ -97,8 +104,10 @@ const getPackagePlans = async (req, res) => {
             ? normalizeEnum(req.query.vehicleType)
             : undefined;
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
+        const buildingId = req.query.buildingId ? Number(req.query.buildingId) : undefined;
 
         const packagePlans = await packagePlanService.getPackagePlans({
+            buildingId,
             status,
             vehicleType,
         });
@@ -211,6 +220,14 @@ const buyPackagePlan = async (req, res) => {
 
         if (vehicle.vehicleType !== packagePlan.vehicleType) {
             return errorResponse(res, "Goi thang khong khop loai xe", 400);
+        }
+
+        if (
+            packagePlan.buildingId &&
+            vehicle.buildingId &&
+            Number(packagePlan.buildingId) !== Number(vehicle.buildingId)
+        ) {
+            return errorResponse(res, "Goi thang khong thuoc toa nha cua xe", 400);
         }
 
         if (vehicle.vehicleType === VEHICLE_TYPES.CAR) {

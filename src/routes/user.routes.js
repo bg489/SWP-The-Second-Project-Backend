@@ -28,6 +28,8 @@ const { adminMiddleware } = require("../middlewares/role.middleware");
  */
 router.get("/me", authMiddleware, userController.getCurrentUser);
 
+router.patch("/me/avatar", authMiddleware, userController.updateMyAvatar);
+
 /**
  * @swagger
  * /api/users/roles:

@@ -74,6 +74,7 @@ const getUserById = async (id) => {
             u.role,
             u.status,
             u.building_id AS buildingId,
+            u.avatar_url AS avatarUrl,
             u.created_at AS createdAt,
             u.updated_at AS updatedAt,
             b.name AS buildingName,
@@ -282,6 +283,18 @@ const updateUserBuilding = async ({ id, buildingId }) => {
     }
 };
 
+const updateUserAvatar = async ({ id, avatarUrl }) => {
+    await db.query(
+        `UPDATE users
+         SET avatar_url = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [avatarUrl || null, id]
+    );
+
+    return getUserById(id);
+};
+
 module.exports = {
     findUserByEmailOrPhone,
     findExistingUserForRegister,
@@ -294,4 +307,5 @@ module.exports = {
     updateUserRoleStatus,
     updateUserStatus,
     updateUserBuilding,
+    updateUserAvatar,
 };

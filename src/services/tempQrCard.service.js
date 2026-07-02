@@ -3,6 +3,13 @@ const db = require("../config/db");
 const tempQrCardSelect = `
     SELECT
         id,
+        building_id AS buildingId,
+        (
+            SELECT name
+            FROM buildings
+            WHERE buildings.id = temporary_qr_cards.building_id
+            LIMIT 1
+        ) AS buildingName,
         card_code AS cardCode,
         status,
         current_session_id AS currentSessionId,
@@ -14,24 +21,33 @@ const tempQrCardSelect = `
     FROM temporary_qr_cards
 `;
 
-const createTempQrCard = async ({ cardCode, note, status }) => {
+const createTempQrCard = async ({ buildingId, cardCode, note, status }) => {
     const [result] = await db.query(
         `INSERT INTO temporary_qr_cards
-            (card_code, status, note)
-         VALUES (?, ?, ?)`,
-        [cardCode, status || "READY", note || null]
+            (building_id, card_code, status, note)
+         VALUES (?, ?, ?, ?)`,
+        [buildingId || null, cardCode, status || "READY", note || null]
     );
 
     return getTempQrCardById(result.insertId);
 };
 
-const getTempQrCards = async ({ status } = {}) => {
+const getTempQrCards = async ({ buildingId, status } = {}) => {
     const params = [];
-    const whereSql = status ? "WHERE status = ?" : "";
+    const conditions = [];
+
+    if (buildingId) {
+        conditions.push("building_id = ?");
+        params.push(buildingId);
+    }
 
     if (status) {
+        conditions.push("status = ?");
         params.push(status);
     }
+
+    const whereSql =
+        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const [rows] = await db.query(
         `${tempQrCardSelect}

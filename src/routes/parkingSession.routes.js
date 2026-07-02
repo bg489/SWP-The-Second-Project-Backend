@@ -62,6 +62,12 @@ router.get(
     parkingSessionController.getActiveSessions
 );
 
+router.get(
+    "/my-active",
+    authMiddleware,
+    parkingSessionController.getMyActiveSessions
+);
+
 /**
  * @swagger
  * /api/parking-sessions/check-out-by-qr:

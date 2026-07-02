@@ -150,7 +150,7 @@ const { ROLES } = require("../utils/constants");
 router.post(
     "/",
     authMiddleware,
-    requireRoles(ROLES.USER),
+    requireRoles(ROLES.USER, ROLES.STAFF),
     buildingChangeRequestController.createMyBuildingChangeRequest
 );
 
@@ -189,7 +189,7 @@ router.post(
 router.get(
     "/my",
     authMiddleware,
-    requireRoles(ROLES.USER),
+    requireRoles(ROLES.USER, ROLES.STAFF),
     buildingChangeRequestController.getMyBuildingChangeRequests
 );
 

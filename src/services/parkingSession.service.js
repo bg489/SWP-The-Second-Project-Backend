@@ -320,6 +320,18 @@ const getActiveSessions = async ({ buildingId } = {}) => {
     return rows;
 };
 
+const getActiveSessionsByUserId = async (userId) => {
+    const [rows] = await db.query(
+        `${sessionSelect}
+         WHERE ps.user_id = ?
+            AND ps.status IN ('ACTIVE', 'PENDING_PAYMENT')
+         ORDER BY ps.id DESC`,
+        [userId]
+    );
+
+    return rows;
+};
+
 const getActiveSessionByQrCode = async (qrCode) => {
     const [rows] = await db.query(
         `${sessionSelect}
@@ -540,6 +552,7 @@ module.exports = {
     getActiveSessionByPlateNumber,
     getActiveSessionByQrCode,
     getActiveSessions,
+    getActiveSessionsByUserId,
     getCarSlotForCheckIn,
     getMotorbikeFloorForCheckIn,
     getSessionById,

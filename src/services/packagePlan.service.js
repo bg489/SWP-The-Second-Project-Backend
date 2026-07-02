@@ -3,6 +3,13 @@ const db = require("../config/db");
 const packagePlanSelect = `
     SELECT
         id,
+        building_id AS buildingId,
+        (
+            SELECT name
+            FROM buildings
+            WHERE buildings.id = package_plans.building_id
+            LIMIT 1
+        ) AS buildingName,
         name,
         vehicle_type AS vehicleType,
         price,
@@ -15,6 +22,7 @@ const packagePlanSelect = `
 `;
 
 const createPackagePlan = async ({
+    buildingId,
     description,
     durationDays,
     name,
@@ -24,9 +32,10 @@ const createPackagePlan = async ({
 }) => {
     const [result] = await db.query(
         `INSERT INTO package_plans
-            (name, vehicle_type, price, duration_days, status, description)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+            (building_id, name, vehicle_type, price, duration_days, status, description)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
+            buildingId || null,
             name,
             vehicleType,
             price,
@@ -39,9 +48,14 @@ const createPackagePlan = async ({
     return getPackagePlanById(result.insertId);
 };
 
-const getPackagePlans = async ({ status, vehicleType } = {}) => {
+const getPackagePlans = async ({ buildingId, status, vehicleType } = {}) => {
     const conditions = [];
     const params = [];
+
+    if (buildingId) {
+        conditions.push("building_id = ?");
+        params.push(buildingId);
+    }
 
     if (vehicleType) {
         conditions.push("vehicle_type = ?");
@@ -59,7 +73,7 @@ const getPackagePlans = async ({ status, vehicleType } = {}) => {
     const [rows] = await db.query(
         `${packagePlanSelect}
          ${whereSql}
-         ORDER BY vehicle_type ASC, price ASC, id DESC`,
+         ORDER BY building_id ASC, vehicle_type ASC, price ASC, id DESC`,
         params
     );
 
@@ -78,6 +92,7 @@ const getPackagePlanById = async (id) => {
 };
 
 const updatePackagePlan = async ({
+    buildingId,
     description,
     durationDays,
     id,
@@ -89,6 +104,7 @@ const updatePackagePlan = async ({
     await db.query(
         `UPDATE package_plans
          SET
+            building_id = ?,
             name = ?,
             vehicle_type = ?,
             price = ?,
@@ -98,6 +114,7 @@ const updatePackagePlan = async ({
             updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
+            buildingId || null,
             name,
             vehicleType,
             price,

@@ -6,6 +6,7 @@ const getTrafficReport = async (req, res) => {
         const report = await reportService.getTrafficReport({
             from: req.query.from,
             to: req.query.to,
+            buildingId: req.query.buildingId,
         });
 
         return successResponse(res, "Lay bao cao luot vao ra thanh cong", report);
@@ -16,7 +17,9 @@ const getTrafficReport = async (req, res) => {
 
 const getMotorbikeCapacityReport = async (req, res) => {
     try {
-        const report = await reportService.getMotorbikeCapacityReport();
+        const report = await reportService.getMotorbikeCapacityReport({
+            buildingId: req.query.buildingId,
+        });
 
         return successResponse(res, "Lay bao cao suc chua xe may thanh cong", report);
     } catch (error) {
@@ -31,7 +34,9 @@ const getMotorbikeCapacityReport = async (req, res) => {
 
 const getCarSlotStatusReport = async (req, res) => {
     try {
-        const report = await reportService.getCarSlotStatusReport();
+        const report = await reportService.getCarSlotStatusReport({
+            buildingId: req.query.buildingId,
+        });
 
         return successResponse(res, "Lay bao cao slot oto thanh cong", report);
     } catch (error) {
@@ -44,6 +49,7 @@ const getRevenueReport = async (req, res) => {
         const report = await reportService.getRevenueReport({
             from: req.query.from,
             to: req.query.to,
+            buildingId: req.query.buildingId,
         });
 
         return successResponse(res, "Lay bao cao doanh thu thanh cong", report);
@@ -54,7 +60,9 @@ const getRevenueReport = async (req, res) => {
 
 const getQrPassReport = async (req, res) => {
     try {
-        const report = await reportService.getQrPassReport();
+        const report = await reportService.getQrPassReport({
+            buildingId: req.query.buildingId,
+        });
 
         return successResponse(res, "Lay bao cao QR pass thanh cong", report);
     } catch (error) {
@@ -67,6 +75,7 @@ const getViolationReport = async (req, res) => {
         const report = await reportService.getViolationReport({
             from: req.query.from,
             to: req.query.to,
+            buildingId: req.query.buildingId,
         });
 
         return successResponse(res, "Lay bao cao vi pham thanh cong", report);
