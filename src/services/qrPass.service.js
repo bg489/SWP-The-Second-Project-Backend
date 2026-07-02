@@ -378,7 +378,7 @@ const getQrPassByCode = async (qrCode) => {
     return plateRows[0] || null;
 };
 
-const validateQrPass = async (qrCode) => {
+const validateQrPass = async (qrCode, { buildingId } = {}) => {
     const qrPass = await getQrPassByCode(qrCode);
 
     if (!qrPass) {
@@ -392,6 +392,19 @@ const validateQrPass = async (qrCode) => {
     const now = new Date();
     const validFrom = new Date(qrPass.validFrom);
     const validTo = new Date(qrPass.validTo);
+
+    if (
+        buildingId &&
+        qrPass.buildingId &&
+        Number(qrPass.buildingId) !== Number(buildingId)
+    ) {
+        return {
+            isValid: false,
+            reason: "QR_BUILDING_MISMATCH",
+            message: "Mã QR này thuộc tòa nhà khác.",
+            qrPass,
+        };
+    }
 
     if (qrPass.vehicleStatus !== "APPROVED") {
             return {
