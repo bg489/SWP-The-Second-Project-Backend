@@ -165,6 +165,13 @@ const createSlotRegistration = async (req, res) => {
             );
         }
 
+        if (
+            packagePlan?.buildingId &&
+            Number(packagePlan.buildingId) !== Number(slot.buildingId)
+        ) {
+            return errorResponse(res, "Goi thang khong thuoc toa nha cua slot", 400);
+        }
+
         const activeVehicleRegistration =
             await slotRegistrationService.findActiveRegistrationByVehicleId(
                 vehicleId

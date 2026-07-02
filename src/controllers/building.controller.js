@@ -7,17 +7,51 @@ const isValidId = (id) => {
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+const parseRequiredMoney = (value) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
 const createBuilding = async (req, res) => {
     try {
-        const { name, address } = req.body;
+        const {
+            address,
+            carHourlyPrice,
+            carMonthlyPrice,
+            motorbikeMonthlyPrice,
+            motorbikeTurnPrice,
+            name,
+        } = req.body;
 
         if (!name || !name.trim()) {
             return errorResponse(res, "Ten toa nha khong duoc de trong", 400);
         }
 
+        const parsedMotorbikeTurnPrice = parseRequiredMoney(motorbikeTurnPrice);
+        const parsedCarHourlyPrice = parseRequiredMoney(carHourlyPrice);
+        const parsedMotorbikeMonthlyPrice = parseRequiredMoney(motorbikeMonthlyPrice);
+        const parsedCarMonthlyPrice = parseRequiredMoney(carMonthlyPrice);
+
+        if (
+            !parsedMotorbikeTurnPrice ||
+            !parsedCarHourlyPrice ||
+            !parsedMotorbikeMonthlyPrice ||
+            !parsedCarMonthlyPrice
+        ) {
+            return errorResponse(
+                res,
+                "Can nhap du gia xe may 1 luot, oto 1 gio, goi thang xe may va goi thang oto",
+                400
+            );
+        }
+
         const building = await buildingService.createBuilding({
             name: name.trim(),
             address,
+            motorbikeTurnPrice: parsedMotorbikeTurnPrice,
+            carHourlyPrice: parsedCarHourlyPrice,
+            motorbikeMonthlyPrice: parsedMotorbikeMonthlyPrice,
+            carMonthlyPrice: parsedCarMonthlyPrice,
         });
 
         return successResponse(res, "Tao toa nha thanh cong", building, 201);

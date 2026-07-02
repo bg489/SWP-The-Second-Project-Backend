@@ -19,6 +19,12 @@ const parsePositiveAmount = (value) => {
 };
 
 const validatePayload = (body, existing = {}) => {
+    const buildingId =
+        body.buildingId === undefined
+            ? existing.buildingId || null
+            : body.buildingId
+              ? Number(body.buildingId)
+              : null;
     const vehicleType = normalizeEnum(body.vehicleType || existing.vehicleType);
     const pricingType = normalizeEnum(body.pricingType || existing.pricingType);
     const amount =
@@ -54,6 +60,7 @@ const validatePayload = (body, existing = {}) => {
     return {
         value: {
             amount,
+            buildingId,
             description: description || null,
             pricingType,
             status,
@@ -97,8 +104,10 @@ const getPricingPolicies = async (req, res) => {
             ? normalizeEnum(req.query.pricingType)
             : undefined;
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
+        const buildingId = req.query.buildingId ? Number(req.query.buildingId) : undefined;
 
         const pricingPolicies = await pricingPolicyService.getPricingPolicies({
+            buildingId,
             pricingType,
             status,
             vehicleType,

@@ -1,4 +1,5 @@
 const tempQrCardService = require("../services/tempQrCard.service");
+const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     TEMP_QR_CARD_STATUSES,
@@ -29,7 +30,10 @@ const createTempQrCard = async (req, res) => {
             });
         }
 
+        const buildingId = req.body.buildingId ? Number(req.body.buildingId) : null;
+
         const tempQrCard = await tempQrCardService.createTempQrCard({
+            buildingId,
             cardCode,
             note: req.body.note,
             status,
@@ -48,6 +52,8 @@ const createTempQrCard = async (req, res) => {
 const getTempQrCards = async (req, res) => {
     try {
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
+        const currentUser = await userService.getUserById(req.user.id);
+        const buildingId = currentUser?.buildingId || req.query.buildingId;
 
         if (status && !isValidEnumValue(TEMP_QR_CARD_STATUSES, status)) {
             return errorResponse(res, "status the QR tam khong hop le", 400, {
@@ -55,7 +61,10 @@ const getTempQrCards = async (req, res) => {
             });
         }
 
-        const tempQrCards = await tempQrCardService.getTempQrCards({ status });
+        const tempQrCards = await tempQrCardService.getTempQrCards({
+            buildingId,
+            status,
+        });
 
         return successResponse(res, "Lay danh sach the QR tam thanh cong", tempQrCards);
     } catch (error) {

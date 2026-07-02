@@ -108,10 +108,35 @@ const updateUserRole = async (req, res) => {
     }
 };
 
+const updateMyAvatar = async (req, res) => {
+    try {
+        const avatarUrl =
+            typeof req.body.avatarUrl === "string" ? req.body.avatarUrl.trim() : "";
+
+        if (!avatarUrl) {
+            return errorResponse(res, "avatarUrl khong duoc de trong", 400);
+        }
+
+        if (avatarUrl.length > 1024 * 1024) {
+            return errorResponse(res, "Anh dai dien qua lon", 400);
+        }
+
+        const user = await userService.updateUserAvatar({
+            id: req.user.id,
+            avatarUrl,
+        });
+
+        return successResponse(res, "Cap nhat anh dai dien thanh cong", user);
+    } catch (error) {
+        return errorResponse(res, "Loi cap nhat anh dai dien", 500, error.message);
+    }
+};
+
 module.exports = {
     getCurrentUser: authController.getCurrentUser,
     getAvailableRoles,
     getAllUsers,
     getUserById,
     updateUserRole,
+    updateMyAvatar,
 };

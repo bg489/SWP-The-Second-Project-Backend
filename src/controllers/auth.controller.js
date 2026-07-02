@@ -93,10 +93,30 @@ const login = async (req, res) => {
                 role: normalizeRole(user.role),
                 status: user.status,
                 buildingId: user.building_id,
+                avatarUrl: user.avatar_url,
             },
         });
     } catch (error) {
         return errorResponse(res, "Lỗi đăng nhập", 500, error.message);
+    }
+};
+
+const refresh = async (req, res) => {
+    try {
+        const user = await userService.getUserById(req.user.id);
+
+        if (!user) {
+            return errorResponse(res, "Khong tim thay user", 404);
+        }
+
+        const token = generateToken(user);
+
+        return successResponse(res, "Lam moi dang nhap thanh cong", {
+            token,
+            user,
+        });
+    } catch (error) {
+        return errorResponse(res, "Loi lam moi dang nhap", 500, error.message);
     }
 };
 
@@ -123,5 +143,6 @@ const getCurrentUser = async (req, res) => {
 module.exports = {
     register,
     login,
+    refresh,
     getCurrentUser,
 };

@@ -16,18 +16,82 @@ const buildingSelectWithCounts = `
     LEFT JOIN parking_slots s ON s.floor_id = f.id
 `;
 
-const createBuilding = async ({ name, address }) => {
-    const [result] = await db.query(
-        `INSERT INTO buildings (name, address)
-         VALUES (?, ?)`,
-        [name, address || null]
-    );
+const createBuilding = async ({
+    address,
+    carHourlyPrice,
+    carMonthlyPrice,
+    motorbikeMonthlyPrice,
+    motorbikeTurnPrice,
+    name,
+}) => {
+    const connection = await db.getConnection();
 
-    return {
-        id: result.insertId,
-        name,
-        address: address || null,
-    };
+    try {
+        await connection.beginTransaction();
+
+        const [result] = await connection.query(
+            `INSERT INTO buildings (name, address)
+             VALUES (?, ?)`,
+            [name, address || null]
+        );
+
+        const buildingId = result.insertId;
+
+        if (motorbikeTurnPrice) {
+            await connection.query(
+                `INSERT INTO pricing_policies
+                    (building_id, vehicle_type, pricing_type, amount, status, description)
+                 VALUES (?, 'MOTORBIKE', 'TURN', ?, 'ACTIVE', ?)`,
+                [buildingId, motorbikeTurnPrice, "Gia xe may theo luot khi tao toa nha"]
+            );
+        }
+
+        if (carHourlyPrice) {
+            await connection.query(
+                `INSERT INTO pricing_policies
+                    (building_id, vehicle_type, pricing_type, amount, status, description)
+                 VALUES (?, 'CAR', 'HOURLY', ?, 'ACTIVE', ?)`,
+                [buildingId, carHourlyPrice, "Gia oto theo gio khi tao toa nha"]
+            );
+        }
+
+        if (motorbikeMonthlyPrice) {
+            await connection.query(
+                `INSERT INTO package_plans
+                    (building_id, name, vehicle_type, price, duration_days, status, description)
+                 VALUES (?, ?, 'MOTORBIKE', ?, 30, 'ACTIVE', ?)`,
+                [
+                    buildingId,
+                    `Goi xe may 30 ngay - ${name}`,
+                    motorbikeMonthlyPrice,
+                    "Goi thang xe may theo toa nha",
+                ]
+            );
+        }
+
+        if (carMonthlyPrice) {
+            await connection.query(
+                `INSERT INTO package_plans
+                    (building_id, name, vehicle_type, price, duration_days, status, description)
+                 VALUES (?, ?, 'CAR', ?, 30, 'ACTIVE', ?)`,
+                [
+                    buildingId,
+                    `Goi oto 30 ngay - ${name}`,
+                    carMonthlyPrice,
+                    "Goi thang oto theo toa nha",
+                ]
+            );
+        }
+
+        await connection.commit();
+
+        return getBuildingById(buildingId);
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
 };
 
 const getAllBuildings = async () => {

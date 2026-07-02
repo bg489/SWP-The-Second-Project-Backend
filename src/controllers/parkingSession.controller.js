@@ -39,8 +39,9 @@ const parseNonNegativeAmount = (value) => {
     return parsed;
 };
 
-const getPolicyAmount = async ({ fallbackAmount, pricingType, vehicleType }) => {
+const getPolicyAmount = async ({ buildingId, fallbackAmount, pricingType, vehicleType }) => {
     const policy = await pricingPolicyService.getActivePricingPolicy({
+        buildingId,
         pricingType,
         vehicleType,
     });
@@ -56,8 +57,21 @@ const calculateBaseFee = async (session) => {
         };
     }
 
+    if (session.vehicleId) {
+        const activeMonthlyPass =
+            await parkingSessionService.getActiveMonthlyPassByVehicleId(session.vehicleId);
+
+        if (activeMonthlyPass) {
+            return {
+                baseFee: 0,
+                durationHours: 0,
+            };
+        }
+    }
+
     if (session.vehicleType === "MOTORBIKE") {
         const amount = await getPolicyAmount({
+            buildingId: session.buildingId,
             fallbackAmount: PARKING_FEES.MOTORBIKE_TURN,
             pricingType: "TURN",
             vehicleType: "MOTORBIKE",
@@ -70,6 +84,7 @@ const calculateBaseFee = async (session) => {
     }
 
     const hourlyAmount = await getPolicyAmount({
+        buildingId: session.buildingId,
         fallbackAmount: PARKING_FEES.CAR_HOURLY,
         pricingType: "HOURLY",
         vehicleType: "CAR",
@@ -217,6 +232,13 @@ const checkIn = async (req, res) => {
 
             if (!tempQrCard) {
                 return errorResponse(res, "Khong tim thay the QR tam", 404);
+            }
+
+            if (
+                tempQrCard.buildingId &&
+                Number(tempQrCard.buildingId) !== Number(buildingId)
+            ) {
+                return errorResponse(res, "The QR tam khong thuoc toa nha dang phu trach", 400);
             }
 
             if (tempQrCard.status !== "READY") {
@@ -537,6 +559,27 @@ const getActiveSessions = async (req, res) => {
     }
 };
 
+const getMyActiveSessions = async (req, res) => {
+    try {
+        const sessions = await parkingSessionService.getActiveSessionsByUserId(
+            req.user.id
+        );
+
+        return successResponse(
+            res,
+            "Lay danh sach phien dang gui cua toi thanh cong",
+            sessions
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            "Loi lay danh sach phien dang gui cua toi",
+            500,
+            error.message
+        );
+    }
+};
+
 const checkOutByQr = async (req, res) => {
     try {
         const qrCode =
@@ -584,5 +627,6 @@ module.exports = {
     checkOut,
     checkOutByQr,
     getActiveSessions,
+    getMyActiveSessions,
     getSessionById,
 };
