@@ -6,12 +6,12 @@ const buildDateRange = ({ from, to }, column) => {
 
     if (from) {
         conditions.push(`${column} >= ?`);
-        params.push(from);
+        params.push(String(from).length === 10 ? `${from} 00:00:00` : from);
     }
 
     if (to) {
         conditions.push(`${column} <= ?`);
-        params.push(to);
+        params.push(String(to).length === 10 ? `${to} 23:59:59` : to);
     }
 
     return {
@@ -141,6 +141,27 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
         paymentFilters.params
     );
 
+    const [sourceRows] = await db.query(
+        `SELECT
+            CASE
+                WHEN p.monthly_pass_id IS NOT NULL THEN 'MONTHLY_PASS'
+                WHEN p.slot_registration_id IS NOT NULL THEN 'SLOT_REGISTRATION'
+                WHEN p.parking_session_id IS NOT NULL THEN 'PARKING_SESSION'
+                ELSE 'OTHER'
+            END AS sourceType,
+            p.status,
+            COUNT(*) AS paymentCount,
+            COALESCE(SUM(p.amount), 0) AS totalAmount
+         FROM payments p
+         LEFT JOIN parking_sessions ps ON p.parking_session_id = ps.id
+         LEFT JOIN monthly_passes mp ON p.monthly_pass_id = mp.id
+         LEFT JOIN slot_registrations sr ON p.slot_registration_id = sr.id
+         ${paymentFilters.whereSql}
+         GROUP BY sourceType, p.status
+         ORDER BY sourceType ASC, p.status ASC`,
+        paymentFilters.params
+    );
+
     const [sessionRows] = await db.query(
         `SELECT
             ps.pricing_type AS pricingType,
@@ -160,9 +181,41 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
         sessionFilters.params
     );
 
+    const successfulPaymentTotal = sourceRows
+        .filter((row) => row.status === "SUCCESS")
+        .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+    const pendingPaymentTotal = sourceRows
+        .filter((row) => row.status !== "SUCCESS")
+        .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+    const sessionTotal = sessionRows.reduce(
+        (sum, row) => sum + Number(row.totalAmount || 0),
+        0
+    );
+    const monthlyPassRevenue = sourceRows
+        .filter(
+            (row) =>
+                row.status === "SUCCESS" &&
+                ["MONTHLY_PASS", "SLOT_REGISTRATION"].includes(row.sourceType)
+        )
+        .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+    const walkInRevenue = sourceRows
+        .filter((row) => row.status === "SUCCESS" && row.sourceType === "PARKING_SESSION")
+        .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
+    const violationRevenue = sessionRows.reduce(
+        (sum, row) => sum + Number(row.violationFeeTotal || 0),
+        0
+    );
+
     return {
         payments: summaryRows,
+        paymentSources: sourceRows,
         sessions: sessionRows,
+        monthlyPassRevenue,
+        paidRevenue: successfulPaymentTotal,
+        pendingRevenue: pendingPaymentTotal,
+        totalRevenue: successfulPaymentTotal || sessionTotal,
+        violationRevenue,
+        walkInRevenue,
     };
 };
 

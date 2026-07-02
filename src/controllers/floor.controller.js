@@ -36,6 +36,18 @@ const normalizeSlots = ({ slots, slotList }) => {
     return [];
 };
 
+const normalizeSlotPrefix = (value) => {
+    const normalized = String(value || "")
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Za-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toUpperCase();
+
+    return normalized || "CAR";
+};
+
 const generateCarSlots = (prefix, slotCount) => {
     return Array.from({ length: slotCount }, (_, index) => {
         const slotNumber = String(index + 1).padStart(2, "0");
@@ -47,6 +59,7 @@ const validateFloorPayload = (body, options = {}) => {
     const buildingId = toPositiveInteger(options.buildingId || body.buildingId || body.building_id);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
+    const slotPrefix = normalizeSlotPrefix(body.slotPrefix || body.slot_prefix || code || name);
     const floorType = normalizeEnum(body.floorType || body.floor_type);
     const status = normalizeEnum(body.status || FLOOR_STATUSES.ACTIVE);
     const operationNote =
@@ -111,8 +124,7 @@ const validateFloorPayload = (body, options = {}) => {
         }
 
         if (slots.length === 0) {
-            const prefix = code || name.replace(/\s+/g, "-").toUpperCase();
-            slots = generateCarSlots(prefix, slotCount);
+            slots = generateCarSlots(slotPrefix, slotCount);
         }
 
         const uniqueSlots = new Set(slots);
