@@ -59,6 +59,20 @@ const normalizePhone = (value) => {
     return String(value).replace(/\D/g, "");
 };
 
+const parseCropNumber = ({ fallback, max, min, value }) => {
+    if (value === undefined || value === null || value === "") {
+        return fallback;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed)) {
+        return null;
+    }
+
+    return Math.min(max, Math.max(min, parsed));
+};
+
 const buildProfilePayload = (body, currentUser) => {
     const name =
         typeof body.name === "string"
@@ -69,6 +83,24 @@ const buildProfilePayload = (body, currentUser) => {
         body.avatarUrl === undefined
             ? undefined
             : String(body.avatarUrl || "").trim();
+    const avatarCropX = parseCropNumber({
+        fallback: currentUser.avatarCropX ?? 50,
+        max: 100,
+        min: 0,
+        value: body.avatarCropX,
+    });
+    const avatarCropY = parseCropNumber({
+        fallback: currentUser.avatarCropY ?? 50,
+        max: 100,
+        min: 0,
+        value: body.avatarCropY,
+    });
+    const avatarCropZoom = parseCropNumber({
+        fallback: currentUser.avatarCropZoom ?? 1,
+        max: 3,
+        min: 1,
+        value: body.avatarCropZoom,
+    });
 
     if (!name || name.length < 2 || name.length > 80) {
         const error = new Error("Họ tên phải từ 2 đến 80 ký tự");
@@ -88,7 +120,16 @@ const buildProfilePayload = (body, currentUser) => {
         throw error;
     }
 
+    if ([avatarCropX, avatarCropY, avatarCropZoom].some((value) => value === null)) {
+        const error = new Error("Thông số cắt ảnh đại diện không hợp lệ");
+        error.statusCode = 400;
+        throw error;
+    }
+
     return {
+        avatarCropX,
+        avatarCropY,
+        avatarCropZoom,
         avatarUrl,
         name,
         phone,

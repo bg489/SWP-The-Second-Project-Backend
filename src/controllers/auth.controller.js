@@ -121,6 +121,9 @@ const login = async (req, res) => {
                 status: user.status,
                 buildingId: user.building_id,
                 avatarUrl: user.avatar_url,
+                avatarCropX: Number(user.avatar_crop_x ?? 50),
+                avatarCropY: Number(user.avatar_crop_y ?? 50),
+                avatarCropZoom: Number(user.avatar_crop_zoom ?? 1),
                 emailNotificationsEnabled: Boolean(user.email_notifications_enabled ?? true),
             },
         });
