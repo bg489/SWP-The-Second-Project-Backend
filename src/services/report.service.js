@@ -281,11 +281,256 @@ const getViolationReport = async ({ from, to, buildingId } = {}) => {
     return rows;
 };
 
+const getMonthlyPassRevenueDetails = async ({ from, to, buildingId } = {}) => {
+    const passRange = buildDateRange({ from, to }, "COALESCE(p.created_at, mp.created_at)");
+    const slotRange = buildDateRange({ from, to }, "COALESCE(p.created_at, sr.created_at)");
+    const passFilters = appendCondition(
+        passRange,
+        "mp.building_id = ?",
+        buildingId
+    );
+    const slotFilters = appendCondition(
+        slotRange,
+        "sr.building_id = ?",
+        buildingId
+    );
+
+    const [motorbikeRows] = await db.query(
+        `SELECT
+            'MONTHLY_PASS' AS sourceType,
+            mp.id,
+            u.id AS userId,
+            u.name AS ownerName,
+            v.plate_number AS plateNumber,
+            mp.vehicle_type AS vehicleType,
+            b.name AS buildingName,
+            COALESCE(pp.name, 'Goi thang xe may') AS packageName,
+            mp.amount,
+            mp.status,
+            p.status AS paymentStatus,
+            mp.start_date AS startDate,
+            mp.end_date AS endDate,
+            p.created_at AS paidAt
+         FROM monthly_passes mp
+         INNER JOIN vehicles v ON mp.vehicle_id = v.id
+         LEFT JOIN users u ON mp.user_id = u.id
+         LEFT JOIN buildings b ON mp.building_id = b.id
+         LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
+         LEFT JOIN payments p ON p.monthly_pass_id = mp.id
+         ${passFilters.whereSql}
+         ORDER BY COALESCE(p.created_at, mp.created_at) DESC, mp.id DESC`,
+        passFilters.params
+    );
+
+    const [carRows] = await db.query(
+        `SELECT
+            'SLOT_REGISTRATION' AS sourceType,
+            sr.id,
+            u.id AS userId,
+            u.name AS ownerName,
+            v.plate_number AS plateNumber,
+            v.vehicle_type AS vehicleType,
+            b.name AS buildingName,
+            CONCAT('Goi thang oto - ', ps.slot_code) AS packageName,
+            sr.amount,
+            sr.status,
+            p.status AS paymentStatus,
+            sr.start_date AS startDate,
+            sr.end_date AS endDate,
+            p.created_at AS paidAt
+         FROM slot_registrations sr
+         INNER JOIN vehicles v ON sr.vehicle_id = v.id
+         LEFT JOIN users u ON sr.user_id = u.id
+         LEFT JOIN buildings b ON sr.building_id = b.id
+         LEFT JOIN parking_slots ps ON sr.slot_id = ps.id
+         LEFT JOIN payments p ON p.slot_registration_id = sr.id
+         ${slotFilters.whereSql}
+         ORDER BY COALESCE(p.created_at, sr.created_at) DESC, sr.id DESC`,
+        slotFilters.params
+    );
+
+    const rows = [...motorbikeRows, ...carRows];
+    const totalPaid = rows
+        .filter((row) => row.paymentStatus === "SUCCESS" || row.status === "PAID")
+        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+    return {
+        rows,
+        totalPaid,
+    };
+};
+
+const getWalkInRevenueSummary = async ({ from, to, buildingId } = {}) => {
+    const range = buildDateRange({ from, to }, "ps.check_out_at");
+    const filters = appendCondition(range, "ps.building_id = ?", buildingId);
+
+    const [rows] = await db.query(
+        `SELECT
+            ps.vehicle_type AS vehicleType,
+            COUNT(*) AS completedCount,
+            COALESCE(SUM(ps.base_fee), 0) AS parkingFeeTotal,
+            COALESCE(SUM(ps.violation_fee), 0) AS violationFeeTotal,
+            COALESCE(SUM(ps.total_amount), 0) AS totalAmount
+         FROM parking_sessions ps
+         ${
+             filters.whereSql
+                 ? `${filters.whereSql} AND ps.status = 'COMPLETED' AND ps.pricing_type IN ('TURN', 'HOURLY')`
+                 : "WHERE ps.status = 'COMPLETED' AND ps.pricing_type IN ('TURN', 'HOURLY')"
+         }
+         GROUP BY ps.vehicle_type
+         ORDER BY ps.vehicle_type ASC`,
+        filters.params
+    );
+
+    return {
+        rows,
+        completedCount: rows.reduce((sum, row) => sum + Number(row.completedCount || 0), 0),
+        parkingFeeTotal: rows.reduce((sum, row) => sum + Number(row.parkingFeeTotal || 0), 0),
+        totalAmount: rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0),
+        violationFeeTotal: rows.reduce((sum, row) => sum + Number(row.violationFeeTotal || 0), 0),
+    };
+};
+
+const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
+    const range = buildDateRange({ from, to }, "v.detected_at");
+    const filters = appendCondition(range, "ps.building_id = ?", buildingId);
+
+    const [rows] = await db.query(
+        `SELECT
+            COALESCE(vt.name, v.violation_type) AS violationName,
+            COUNT(*) AS violationCount,
+            COALESCE(SUM(v.penalty_fee), 0) AS totalPenalty,
+            COALESCE(SUM(CASE WHEN v.status = 'COLLECTED' THEN v.penalty_fee ELSE 0 END), 0) AS paidPenalty,
+            GROUP_CONCAT(DISTINCT COALESCE(owner.name, 'Khach vang lai') ORDER BY owner.name SEPARATOR ', ') AS userNames,
+            GROUP_CONCAT(DISTINCT v.plate_number ORDER BY v.plate_number SEPARATOR ', ') AS plateNumbers,
+            GROUP_CONCAT(DISTINCT v.vehicle_type ORDER BY v.vehicle_type SEPARATOR ', ') AS vehicleTypes
+         FROM violations v
+         LEFT JOIN violation_types vt ON v.violation_type_id = vt.id
+         LEFT JOIN parking_sessions ps ON v.parking_session_id = ps.id
+         LEFT JOIN users owner ON ps.user_id = owner.id
+         ${filters.whereSql}
+         GROUP BY COALESCE(vt.name, v.violation_type)
+         ORDER BY paidPenalty DESC, totalPenalty DESC, violationName ASC`,
+        filters.params
+    );
+
+    return {
+        rows,
+        paidPenalty: rows.reduce((sum, row) => sum + Number(row.paidPenalty || 0), 0),
+        totalPenalty: rows.reduce((sum, row) => sum + Number(row.totalPenalty || 0), 0),
+    };
+};
+
+const getCapacityOverview = async ({ buildingId } = {}) => {
+    const buildingWhere = buildingId ? "WHERE b.id = ?" : "";
+    const params = buildingId ? [buildingId] : [];
+
+    const [rows] = await db.query(
+        `SELECT
+            b.id AS buildingId,
+            b.name AS buildingName,
+            b.address AS buildingAddress,
+            COALESCE(mb.motorbikeCapacity, 0) AS motorbikeCapacity,
+            COALESCE(mb.motorbikeCurrent, 0) AS motorbikeCurrent,
+            COALESCE(mp.activeMotorbikePasses, 0) AS motorbikeMonthlyPasses,
+            GREATEST(
+                COALESCE(mb.motorbikeCapacity, 0)
+                - COALESCE(mb.motorbikeCurrent, 0)
+                - COALESCE(mp.activeMotorbikePasses, 0),
+                0
+            ) AS effectiveMotorbikeRemaining,
+            COALESCE(car.totalSlots, 0) AS carTotalSlots,
+            COALESCE(car.occupiedSlots, 0) AS carOccupiedSlots,
+            COALESCE(car.reservedSlots, 0) AS carReservedSlots,
+            COALESCE(sr.activeCarMonthlySlots, 0) AS carMonthlySlots
+         FROM buildings b
+         LEFT JOIN (
+            SELECT
+                building_id,
+                COALESCE(SUM(capacity), 0) AS motorbikeCapacity,
+                COALESCE(SUM(current_count), 0) AS motorbikeCurrent
+            FROM parking_floors
+            WHERE floor_type = 'MOTORBIKE'
+            GROUP BY building_id
+         ) mb ON mb.building_id = b.id
+         LEFT JOIN (
+            SELECT
+                building_id,
+                COUNT(*) AS activeMotorbikePasses
+            FROM monthly_passes
+            WHERE vehicle_type = 'MOTORBIKE'
+                AND status = 'ACTIVE'
+                AND end_date >= CURRENT_DATE
+            GROUP BY building_id
+         ) mp ON mp.building_id = b.id
+         LEFT JOIN (
+            SELECT
+                building_id,
+                COUNT(*) AS totalSlots,
+                SUM(CASE WHEN status = 'OCCUPIED' THEN 1 ELSE 0 END) AS occupiedSlots,
+                SUM(CASE WHEN status = 'RESERVED' THEN 1 ELSE 0 END) AS reservedSlots
+            FROM parking_slots
+            GROUP BY building_id
+         ) car ON car.building_id = b.id
+         LEFT JOIN (
+            SELECT
+                building_id,
+                COUNT(*) AS activeCarMonthlySlots
+            FROM slot_registrations
+            WHERE status = 'PAID'
+                AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+            GROUP BY building_id
+         ) sr ON sr.building_id = b.id
+         ${buildingWhere}
+         ORDER BY b.id ASC`,
+        params
+    );
+
+    return rows;
+};
+
+const getFullReport = async ({ from, to, buildingId } = {}) => {
+    const [
+        revenue,
+        monthlyPasses,
+        walkIns,
+        violations,
+        capacity,
+        traffic,
+        qrPasses,
+    ] = await Promise.all([
+        getRevenueReport({ from, to, buildingId }),
+        getMonthlyPassRevenueDetails({ from, to, buildingId }),
+        getWalkInRevenueSummary({ from, to, buildingId }),
+        getViolationRevenueDetails({ from, to, buildingId }),
+        getCapacityOverview({ buildingId }),
+        getTrafficReport({ from, to, buildingId }),
+        getQrPassReport({ buildingId }),
+    ]);
+
+    return {
+        capacity,
+        generatedAt: new Date().toISOString(),
+        monthlyPasses,
+        qrPasses,
+        range: { from, to },
+        revenue,
+        traffic,
+        violations,
+        walkIns,
+    };
+};
+
 module.exports = {
     getCarSlotStatusReport,
+    getCapacityOverview,
+    getFullReport,
     getMotorbikeCapacityReport,
+    getMonthlyPassRevenueDetails,
     getQrPassReport,
     getRevenueReport,
     getTrafficReport,
+    getViolationRevenueDetails,
     getViolationReport,
+    getWalkInRevenueSummary,
 };

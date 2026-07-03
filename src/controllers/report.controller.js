@@ -84,8 +84,23 @@ const getViolationReport = async (req, res) => {
     }
 };
 
+const getFullReport = async (req, res) => {
+    try {
+        const report = await reportService.getFullReport({
+            from: req.query.from,
+            to: req.query.to,
+            buildingId: req.query.buildingId,
+        });
+
+        return successResponse(res, "Lay bao cao tong hop thanh cong", report);
+    } catch (error) {
+        return errorResponse(res, "Loi lay bao cao tong hop", 500, error.message);
+    }
+};
+
 module.exports = {
     getCarSlotStatusReport,
+    getFullReport,
     getMotorbikeCapacityReport,
     getQrPassReport,
     getRevenueReport,
