@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const tempQrCardService = require("./tempQrCard.service");
 const violationService = require("./violation.service");
+const wrongSlotCaseService = require("./wrongSlotCase.service");
 
 const sessionSelect = `
     SELECT
@@ -467,6 +468,10 @@ const completeSessionWithManualPayment = async ({
             paymentId: paymentResult.insertId,
             session,
         });
+        await wrongSlotCaseService.restoreReservedSlotAfterOccupierCheckout({
+            connection,
+            session,
+        });
         await connection.commit();
 
         return transactionRef;
@@ -550,6 +555,10 @@ const completeSessionFromPayment = async ({ session }) => {
         );
 
         await releaseSessionParkingResource(connection, session);
+        await wrongSlotCaseService.restoreReservedSlotAfterOccupierCheckout({
+            connection,
+            session,
+        });
         await connection.commit();
     } catch (error) {
         await connection.rollback();

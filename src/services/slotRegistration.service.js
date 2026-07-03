@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { generateQrCode } = require("./qrPass.service");
+const wrongSlotCaseService = require("./wrongSlotCase.service");
 
 const registrationSelect = `
     SELECT
@@ -491,6 +492,14 @@ const markPaymentResult = async ({
                         sessionStatus?.vehicleType || null,
                     ]
                 );
+
+                await wrongSlotCaseService.restoreReservedSlotAfterOccupierCheckout({
+                    connection,
+                    session: {
+                        id: parkingSessionId,
+                        vehicleType: sessionStatus?.vehicleType,
+                    },
+                });
             } else {
                 await connection.query(
                     `UPDATE parking_sessions
