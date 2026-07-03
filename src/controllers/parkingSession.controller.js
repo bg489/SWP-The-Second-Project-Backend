@@ -124,7 +124,9 @@ const checkIn = async (req, res) => {
         let qrValidation = null;
 
         if (qrCode) {
-            qrValidation = await qrPassService.validateQrPass(qrCode);
+            qrValidation = await qrPassService.validateQrPass(qrCode, {
+                buildingId,
+            });
 
             if (!qrValidation.isValid) {
                 return errorResponse(res, qrValidation.message, 400, qrValidation);
@@ -202,9 +204,15 @@ const checkIn = async (req, res) => {
                 400
             );
         }
-        const monthlyPass = isApprovedRegisteredVehicle
+        const activeMonthlyPass = isApprovedRegisteredVehicle
             ? await parkingSessionService.getActiveMonthlyPassByVehicleId(vehicle.id)
             : null;
+        const monthlyPass =
+            activeMonthlyPass &&
+            (!activeMonthlyPass.buildingId ||
+                Number(activeMonthlyPass.buildingId) === Number(buildingId))
+                ? activeMonthlyPass
+                : null;
         const tempQrCardId = req.body.tempQrCardId;
         const tempQrCardCode =
             typeof req.body.tempQrCardCode === "string"

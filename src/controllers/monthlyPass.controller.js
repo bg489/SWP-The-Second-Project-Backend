@@ -1,7 +1,9 @@
 const monthlyPassService = require("../services/monthlyPass.service");
 const qrPassService = require("../services/qrPass.service");
+const userService = require("../services/user.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
+const { ROLES, normalizeRole } = require("../utils/constants");
 
 const isValidId = (id) => {
     const numberId = Number(id);
@@ -95,7 +97,16 @@ const createMonthlyPass = async (req, res) => {
 
 const getMonthlyPasses = async (req, res) => {
     try {
-        const monthlyPasses = await monthlyPassService.getMonthlyPasses();
+        const currentUser = await userService.getUserById(req.user.id);
+        const currentRole = normalizeRole(req.user.role);
+        const buildingId =
+            currentRole === ROLES.ADMIN
+                ? req.query.buildingId
+                : currentUser?.buildingId || req.query.buildingId;
+        const monthlyPasses = await monthlyPassService.getMonthlyPasses({
+            buildingId,
+            status: req.query.status,
+        });
 
         return successResponse(res, "Lay danh sach the thang thanh cong", monthlyPasses);
     } catch (error) {

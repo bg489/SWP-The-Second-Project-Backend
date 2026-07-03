@@ -1,4 +1,5 @@
 const qrPassService = require("../services/qrPass.service");
+const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     QR_PASS_STATUSES,
@@ -44,8 +45,17 @@ const getMyQrPasses = async (req, res) => {
         const qrPasses = await qrPassService.getQrPasses({
             userId: req.user.id,
         });
+        const currentUser = await userService.getUserById(req.user.id);
+        const currentBuildingId = currentUser?.buildingId;
+        const visibleQrPasses = currentBuildingId
+            ? qrPasses.filter(
+                  (qrPass) =>
+                      !qrPass.buildingId ||
+                      Number(qrPass.buildingId) === Number(currentBuildingId)
+              )
+            : qrPasses;
 
-        return successResponse(res, "Lay QR pass cua toi thanh cong", qrPasses);
+        return successResponse(res, "Lay QR pass cua toi thanh cong", visibleQrPasses);
     } catch (error) {
         return errorResponse(res, "Loi lay QR pass cua toi", 500, error.message);
     }
@@ -152,7 +162,9 @@ const validateQrPass = async (req, res) => {
             return errorResponse(res, "qrCode khong duoc de trong", 400);
         }
 
-        const result = await qrPassService.validateQrPass(qrCode);
+        const result = await qrPassService.validateQrPass(qrCode, {
+            buildingId: req.body.buildingId,
+        });
 
         return successResponse(
             res,

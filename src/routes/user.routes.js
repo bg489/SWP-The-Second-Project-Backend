@@ -3,7 +3,10 @@ const router = express.Router();
 
 const userController = require("../controllers/user.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
-const { adminMiddleware } = require("../middlewares/role.middleware");
+const {
+    adminMiddleware,
+    parkingManagerMiddleware,
+} = require("../middlewares/role.middleware");
 
 /**
  * @swagger
@@ -28,6 +31,12 @@ const { adminMiddleware } = require("../middlewares/role.middleware");
  */
 router.get("/me", authMiddleware, userController.getCurrentUser);
 
+router.patch("/me", authMiddleware, userController.updateMyProfile);
+
+router.post("/me/update-request", authMiddleware, userController.requestMyProfileUpdate);
+
+router.patch("/me/confirm-update", authMiddleware, userController.confirmMyProfileUpdate);
+
 router.patch("/me/avatar", authMiddleware, userController.updateMyAvatar);
 
 /**
@@ -49,6 +58,20 @@ router.get(
     authMiddleware,
     adminMiddleware,
     userController.getAvailableRoles
+);
+
+router.get(
+    "/staff-candidates",
+    authMiddleware,
+    parkingManagerMiddleware,
+    userController.getStaffCandidatesForMyBuilding
+);
+
+router.patch(
+    "/staff/:id/building",
+    authMiddleware,
+    parkingManagerMiddleware,
+    userController.assignStaffToMyBuilding
 );
 
 /**

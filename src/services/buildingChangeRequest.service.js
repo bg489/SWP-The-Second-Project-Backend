@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const notificationService = require("./notification.service");
 
 const requestSelect = `
     SELECT
@@ -215,7 +216,17 @@ const approveRequest = async ({ id, adminId, adminNote }) => {
 
         await connection.commit();
 
-        return getRequestById(id);
+        const updatedRequest = await getRequestById(id);
+
+        await notificationService.createNotification({
+            userId: Number(request.user_id),
+            title: "Yêu cầu đổi tòa đã được duyệt",
+            message: `Yêu cầu chuyển sang ${updatedRequest?.requestedBuildingName || "tòa nhà mới"} đã được duyệt. Các mã QR cũ sẽ được kiểm tra theo tòa mới.`,
+            relatedType: "BUILDING_CHANGE_REQUEST",
+            relatedId: Number(id),
+        });
+
+        return updatedRequest;
     } catch (error) {
         await connection.rollback();
         throw error;
@@ -266,7 +277,17 @@ const rejectRequest = async ({ id, adminId, adminNote }) => {
 
         await connection.commit();
 
-        return getRequestById(id);
+        const updatedRequest = await getRequestById(id);
+
+        await notificationService.createNotification({
+            userId: Number(request.user_id),
+            title: "Yêu cầu đổi tòa bị từ chối",
+            message: `Yêu cầu chuyển sang ${updatedRequest?.requestedBuildingName || "tòa nhà mới"} chưa được duyệt.${adminNote ? ` Ghi chú: ${adminNote}` : ""}`,
+            relatedType: "BUILDING_CHANGE_REQUEST",
+            relatedId: Number(id),
+        });
+
+        return updatedRequest;
     } catch (error) {
         await connection.rollback();
         throw error;

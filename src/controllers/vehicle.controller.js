@@ -1,5 +1,6 @@
 const vehicleService = require("../services/vehicle.service");
 const userService = require("../services/user.service");
+const notificationService = require("../services/notification.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
 const createVehicle = async (req, res) => {
@@ -79,6 +80,14 @@ const approveVehicle = async (req, res) => {
 
         const updatedVehicle = await vehicleService.updateVehicleStatus(id, "APPROVED");
 
+        await notificationService.createNotification({
+            userId: Number(vehicle.user_id || vehicle.userId),
+            title: "Xe đã được duyệt",
+            message: `Xe biển số ${vehicle.plate_number || vehicle.plateNumber} đã được duyệt. Bạn có thể dùng xe này trong hệ thống.`,
+            relatedType: "VEHICLE",
+            relatedId: Number(id),
+        });
+
         return successResponse(res, "Duyệt xe thành công", updatedVehicle);
     } catch (error) {
         return errorResponse(res, "Lỗi duyệt xe", 500, error.message);
@@ -96,6 +105,14 @@ const rejectVehicle = async (req, res) => {
         }
 
         const updatedVehicle = await vehicleService.updateVehicleStatus(id, "REJECTED");
+
+        await notificationService.createNotification({
+            userId: Number(vehicle.user_id || vehicle.userId),
+            title: "Xe bị từ chối",
+            message: `Xe biển số ${vehicle.plate_number || vehicle.plateNumber} chưa được duyệt. Vui lòng kiểm tra lại thông tin xe.`,
+            relatedType: "VEHICLE",
+            relatedId: Number(id),
+        });
 
         return successResponse(res, "Từ chối xe thành công", updatedVehicle);
     } catch (error) {
