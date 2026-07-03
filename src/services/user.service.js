@@ -229,6 +229,50 @@ const getAllUsers = async () => {
     return result.users;
 };
 
+const getStaffCandidatesForBuilding = async ({ buildingId, q }) => {
+    const conditions = [
+        `u.role = ?`,
+        `u.status = ?`,
+        `(u.building_id IS NULL OR u.building_id = ?)`,
+    ];
+    const params = [ROLES.STAFF, USER_STATUSES.ACTIVE, buildingId];
+
+    if (q) {
+        conditions.push(`(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)`);
+        const keyword = `%${q}%`;
+        params.push(keyword, keyword, keyword);
+    }
+
+    const [rows] = await db.query(
+        `SELECT
+            u.id,
+            u.name,
+            u.email,
+            u.phone,
+            u.role,
+            u.status,
+            u.building_id AS buildingId,
+            u.avatar_url AS avatarUrl,
+            u.created_at AS createdAt,
+            u.updated_at AS updatedAt,
+            b.name AS buildingName,
+            b.address AS buildingAddress
+         FROM users u
+         LEFT JOIN buildings b ON u.building_id = b.id
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY
+            CASE WHEN u.building_id = ? THEN 0 ELSE 1 END,
+            u.name ASC,
+            u.id DESC`,
+        [...params, buildingId]
+    );
+
+    return rows.map((row) => ({
+        ...row,
+        role: normalizeRole(row.role),
+    }));
+};
+
 const updateUserRole = async (id, role) => {
     await db.query(
         `UPDATE users
@@ -376,6 +420,7 @@ module.exports = {
     getVehiclesByUserId,
     getUsers,
     getAllUsers,
+    getStaffCandidatesForBuilding,
     updateUserRole,
     updateUserRoleStatus,
     updateUserStatus,

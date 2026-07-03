@@ -1,6 +1,8 @@
 const authController = require("./auth.controller");
 const userService = require("../services/user.service");
+const notificationService = require("../services/notification.service");
 const { ROLES, AUTHENTICATED_ROLES } = require("../constants/roles");
+const { USER_STATUSES } = require("../utils/constants");
 const { successResponse, errorResponse } = require("../utils/response");
 
 const BUSINESS_ROLES = [
@@ -193,6 +195,83 @@ const updateMyProfile = async (req, res) => {
     }
 };
 
+const getStaffCandidatesForMyBuilding = async (req, res) => {
+    try {
+        const manager = await userService.getUserById(req.user.id);
+
+        if (!manager?.buildingId) {
+            return errorResponse(res, "Tài khoản quản lý chưa được gán tòa nhà", 400);
+        }
+
+        const staff = await userService.getStaffCandidatesForBuilding({
+            buildingId: manager.buildingId,
+            q: req.query.q,
+        });
+
+        return successResponse(res, "Lấy danh sách nhân viên thành công", {
+            building: {
+                id: manager.buildingId,
+                name: manager.buildingName,
+                address: manager.buildingAddress,
+            },
+            staff,
+        });
+    } catch (error) {
+        return errorResponse(res, "Lỗi lấy danh sách nhân viên", 500, error.message);
+    }
+};
+
+const assignStaffToMyBuilding = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!isValidId(id)) {
+            return errorResponse(res, "Nhân viên không hợp lệ", 400);
+        }
+
+        const manager = await userService.getUserById(req.user.id);
+
+        if (!manager?.buildingId) {
+            return errorResponse(res, "Tài khoản quản lý chưa được gán tòa nhà", 400);
+        }
+
+        const staff = await userService.getUserById(id);
+
+        if (!staff || staff.role !== ROLES.STAFF) {
+            return errorResponse(res, "Không tìm thấy nhân viên bãi xe", 404);
+        }
+
+        if (staff.status !== USER_STATUSES.ACTIVE) {
+            return errorResponse(res, "Chỉ có thể gán nhân viên đã được duyệt", 400);
+        }
+
+        if (staff.buildingId && Number(staff.buildingId) !== Number(manager.buildingId)) {
+            return errorResponse(res, "Nhân viên này đang thuộc tòa nhà khác", 400);
+        }
+
+        const updatedStaff = await userService.updateUserBuilding({
+            id: Number(id),
+            buildingId: Number(manager.buildingId),
+        });
+
+        await notificationService.createNotification({
+            userId: Number(id),
+            title: "Bạn đã được gán tòa làm việc",
+            message: `Bạn hiện được phân công làm việc tại ${manager.buildingName || "tòa nhà mới"}.`,
+            relatedType: "STAFF_ASSIGNMENT",
+            relatedId: Number(manager.buildingId),
+        });
+
+        return successResponse(res, "Đã gán nhân viên vào tòa nhà", updatedStaff);
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.message || "Lỗi gán nhân viên vào tòa nhà",
+            error.statusCode || 500
+        );
+    }
+};
+
 module.exports = {
     getCurrentUser: authController.getCurrentUser,
     getAvailableRoles,
@@ -201,4 +280,6 @@ module.exports = {
     updateUserRole,
     updateMyProfile,
     updateMyAvatar,
+    getStaffCandidatesForMyBuilding,
+    assignStaffToMyBuilding,
 };

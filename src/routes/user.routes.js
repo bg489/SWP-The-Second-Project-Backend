@@ -3,7 +3,10 @@ const router = express.Router();
 
 const userController = require("../controllers/user.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
-const { adminMiddleware } = require("../middlewares/role.middleware");
+const {
+    adminMiddleware,
+    parkingManagerMiddleware,
+} = require("../middlewares/role.middleware");
 
 /**
  * @swagger
@@ -51,6 +54,20 @@ router.get(
     authMiddleware,
     adminMiddleware,
     userController.getAvailableRoles
+);
+
+router.get(
+    "/staff-candidates",
+    authMiddleware,
+    parkingManagerMiddleware,
+    userController.getStaffCandidatesForMyBuilding
+);
+
+router.patch(
+    "/staff/:id/building",
+    authMiddleware,
+    parkingManagerMiddleware,
+    userController.assignStaffToMyBuilding
 );
 
 /**

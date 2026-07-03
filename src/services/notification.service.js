@@ -58,6 +58,7 @@ const buildNotificationLink = (relatedType) => {
     const paths = {
         ACCOUNT: "/user/dashboard",
         BUILDING_CHANGE_REQUEST: "/user/building-change",
+        STAFF_ASSIGNMENT: "/staff/dashboard",
         VEHICLE: "/user/profile",
         WRONG_SLOT_CASE: "/user/dashboard",
     };
