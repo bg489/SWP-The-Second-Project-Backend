@@ -33,6 +33,10 @@ router.get("/me", authMiddleware, userController.getCurrentUser);
 
 router.patch("/me", authMiddleware, userController.updateMyProfile);
 
+router.post("/me/update-request", authMiddleware, userController.requestMyProfileUpdate);
+
+router.patch("/me/confirm-update", authMiddleware, userController.confirmMyProfileUpdate);
+
 router.patch("/me/avatar", authMiddleware, userController.updateMyAvatar);
 
 /**

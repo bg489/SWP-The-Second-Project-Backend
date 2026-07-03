@@ -1,6 +1,8 @@
 const authController = require("./auth.controller");
 const userService = require("../services/user.service");
 const notificationService = require("../services/notification.service");
+const emailService = require("../services/email.service");
+const profileUpdateService = require("../services/profileUpdate.service");
 const { ROLES, AUTHENTICATED_ROLES } = require("../constants/roles");
 const { USER_STATUSES } = require("../utils/constants");
 const { successResponse, errorResponse } = require("../utils/response");
@@ -55,6 +57,42 @@ const normalizePhone = (value) => {
     if (value === undefined || value === null || value === "") return null;
 
     return String(value).replace(/\D/g, "");
+};
+
+const buildProfilePayload = (body, currentUser) => {
+    const name =
+        typeof body.name === "string"
+            ? body.name.trim()
+            : currentUser.name;
+    const phone = normalizePhone(body.phone);
+    const avatarUrl =
+        body.avatarUrl === undefined
+            ? undefined
+            : String(body.avatarUrl || "").trim();
+
+    if (!name || name.length < 2 || name.length > 80) {
+        const error = new Error("Họ tên phải từ 2 đến 80 ký tự");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (phone && !/^0\d{9}$/.test(phone)) {
+        const error = new Error("Số điện thoại phải gồm 10 số và bắt đầu bằng 0");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    if (!isValidAvatarUrl(avatarUrl)) {
+        const error = new Error("Link ảnh đại diện không hợp lệ");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return {
+        avatarUrl,
+        name,
+        phone,
+    };
 };
 
 const getAvailableRoles = async (req, res) => {
@@ -160,38 +198,96 @@ const updateMyProfile = async (req, res) => {
             return errorResponse(res, "Khong tim thay user", 404);
         }
 
-        const name =
-            typeof req.body.name === "string"
-                ? req.body.name.trim()
-                : currentUser.name;
-        const phone = normalizePhone(req.body.phone);
-        const avatarUrl =
-            req.body.avatarUrl === undefined
-                ? undefined
-                : String(req.body.avatarUrl || "").trim();
-
-        if (!name || name.length < 2 || name.length > 80) {
-            return errorResponse(res, "Ho ten phai tu 2 den 80 ky tu", 400);
-        }
-
-        if (phone && !/^0\d{9}$/.test(phone)) {
-            return errorResponse(res, "So dien thoai phai gom 10 so va bat dau bang 0", 400);
-        }
-
-        if (!isValidAvatarUrl(avatarUrl)) {
-            return errorResponse(res, "Link anh dai dien khong hop le", 400);
-        }
+        const payload = buildProfilePayload(req.body, currentUser);
 
         const user = await userService.updateUserProfile({
             id: req.user.id,
-            name,
-            phone,
-            avatarUrl,
+            ...payload,
         });
 
         return successResponse(res, "Cap nhat ho so thanh cong", user);
     } catch (error) {
-        return errorResponse(res, "Loi cap nhat ho so", 500, error.message);
+        return errorResponse(
+            res,
+            error.statusCode ? error.message : "Loi cap nhat ho so",
+            error.statusCode || 500,
+            error.statusCode ? undefined : error.message
+        );
+    }
+};
+
+const requestMyProfileUpdate = async (req, res) => {
+    try {
+        const currentUser = await userService.getUserById(req.user.id);
+
+        if (!currentUser) {
+            return errorResponse(res, "Không tìm thấy tài khoản", 404);
+        }
+
+        const payload = buildProfilePayload(req.body, currentUser);
+        const request = await profileUpdateService.createProfileUpdateRequest({
+            payload,
+            userId: req.user.id,
+        });
+
+        await emailService.sendMail({
+            to: currentUser.email,
+            subject: "Sunrise Parking - Mã xác minh cập nhật hồ sơ",
+            text: `Mã xác minh cập nhật hồ sơ của bạn là ${request.otp}. Mã hết hạn sau ${request.expiresMinutes} phút.`,
+            html: emailService.buildParkingMail({
+                title: "Xác minh cập nhật hồ sơ",
+                body: "Nhập mã bên dưới trên trang hồ sơ để hoàn tất cập nhật thông tin cá nhân.",
+                otp: request.otp,
+            }),
+        });
+
+        return successResponse(res, "Đã gửi mã xác minh tới email của bạn", {
+            expiresMinutes: request.expiresMinutes,
+            requestId: request.id,
+        });
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.statusCode ? error.message : "Lỗi gửi mã xác minh hồ sơ",
+            error.statusCode || 500,
+            error.statusCode ? undefined : error.message
+        );
+    }
+};
+
+const confirmMyProfileUpdate = async (req, res) => {
+    try {
+        const requestId = Number(req.body.requestId);
+        const otp = String(req.body.otp || "").trim();
+
+        if (!Number.isInteger(requestId) || requestId <= 0) {
+            return errorResponse(res, "Yêu cầu cập nhật không hợp lệ", 400);
+        }
+
+        if (!/^\d{6}$/.test(otp)) {
+            return errorResponse(res, "Mã xác minh phải gồm 6 số", 400);
+        }
+
+        const request = await profileUpdateService.findValidProfileUpdateRequest({
+            id: requestId,
+            otp,
+            userId: req.user.id,
+        });
+
+        if (!request) {
+            return errorResponse(res, "Mã xác minh không đúng hoặc đã hết hạn", 400);
+        }
+
+        const user = await userService.updateUserProfile({
+            id: req.user.id,
+            ...request.payload,
+        });
+
+        await profileUpdateService.markProfileUpdateRequestUsed(request.id);
+
+        return successResponse(res, "Cập nhật hồ sơ thành công", user);
+    } catch (error) {
+        return errorResponse(res, "Lỗi xác minh cập nhật hồ sơ", 500, error.message);
     }
 };
 
@@ -280,6 +376,8 @@ module.exports = {
     updateUserRole,
     updateMyProfile,
     updateMyAvatar,
+    requestMyProfileUpdate,
+    confirmMyProfileUpdate,
     getStaffCandidatesForMyBuilding,
     assignStaffToMyBuilding,
 };
