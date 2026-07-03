@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { generateQrCode } = require("./qrPass.service");
 const wrongSlotCaseService = require("./wrongSlotCase.service");
+const floorMismatchCaseService = require("./floorMismatchCase.service");
 
 const registrationSelect = `
     SELECT
@@ -497,6 +498,14 @@ const markPaymentResult = async ({
                     connection,
                     session: {
                         id: parkingSessionId,
+                        vehicleType: sessionStatus?.vehicleType,
+                    },
+                });
+                await floorMismatchCaseService.restoreTemporarySlotAfterCheckout({
+                    connection,
+                    session: {
+                        id: parkingSessionId,
+                        pricingType: sessionStatus?.pricingType,
                         vehicleType: sessionStatus?.vehicleType,
                     },
                 });
