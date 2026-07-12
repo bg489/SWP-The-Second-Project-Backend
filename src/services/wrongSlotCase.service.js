@@ -275,6 +275,19 @@ const reportWrongSlot = async ({
                 originalSlotId: session.slot_id,
                 session,
             });
+
+            if (session.user_id) {
+                await notificationService.createNotification({
+                    connection,
+                    evidenceUrl,
+                    relatedId: caseResult.insertId,
+                    relatedType: "WRONG_SLOT_CASE",
+                    title: "Nhac nho dau dung o da duoc phan",
+                    message:
+                        "Xe cua ban dang dau o khac voi o da ghi nhan. O nay hien chua co ai dat nen khong phat sinh phi, vui long dau dung o trong nhung lan sau.",
+                    userId: session.user_id,
+                });
+            }
         } else {
             await connection.query(
                 `UPDATE parking_slots
@@ -393,6 +406,19 @@ const confirmWrongSlot = async ({ force, id, staffId }) => {
             ]
         );
 
+        if (session.user_id) {
+            await notificationService.createNotification({
+                connection,
+                evidenceUrl: wrongCase.evidence_url || null,
+                relatedId: wrongCase.id,
+                relatedType: "WRONG_SLOT_CASE",
+                title: "Da tinh phi vi pham dau sai o",
+                message:
+                    "Xe cua ban khong duoc doi sau 15 phut nen he thong da ghi nhan phi vi pham. Phi nay se duoc cong khi xe ra bai.",
+                userId: session.user_id,
+            });
+        }
+
         const reservedRegistration = wrongCase.reserved_registration_id
             ? await getReservedRegistrationBySlot(
                   connection,
@@ -474,9 +500,115 @@ const confirmWrongSlot = async ({ force, id, staffId }) => {
     }
 };
 
+const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session }) => {
+    if (!session?.id || session.vehicleType !== "CAR") {
+        return [];
+    }
+
+    const executor = connection || db;
+    const [caseRows] = await executor.query(
+        `SELECT
+            c.id,
+            c.observed_slot_id AS observedSlotId,
+            c.reassigned_slot_id AS reassignedSlotId,
+            c.reserved_registration_id AS reservedRegistrationId,
+            rr.user_id AS reservedUserId,
+            rr.vehicle_id AS reservedVehicleId,
+            rr.slot_id AS currentReservedSlotId,
+            v.plate_number AS reservedPlateNumber,
+            obs.slot_code AS observedSlotCode,
+            obs.floor_id AS observedFloorId,
+            rs.slot_code AS reassignedSlotCode
+         FROM wrong_slot_cases c
+         INNER JOIN slot_registrations rr ON c.reserved_registration_id = rr.id
+         INNER JOIN vehicles v ON rr.vehicle_id = v.id
+         INNER JOIN parking_slots obs ON c.observed_slot_id = obs.id
+         LEFT JOIN parking_slots rs ON c.reassigned_slot_id = rs.id
+         WHERE c.parking_session_id = ?
+            AND c.status = 'PENALIZED'
+            AND c.reserved_registration_id IS NOT NULL
+            AND c.reassigned_slot_id IS NOT NULL`,
+        [session.id]
+    );
+
+    const restored = [];
+
+    for (const wrongCase of caseRows) {
+        const [activeRows] = await executor.query(
+            `SELECT id
+             FROM parking_sessions
+             WHERE vehicle_id = ?
+                AND status IN ('ACTIVE', 'PENDING_PAYMENT')
+             LIMIT 1`,
+            [wrongCase.reservedVehicleId]
+        );
+        const reservedVehicleInside = Boolean(activeRows[0]);
+
+        if (!reservedVehicleInside) {
+            await executor.query(
+                `UPDATE slot_registrations
+                 SET slot_id = ?,
+                     floor_id = ?,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [
+                    wrongCase.observedSlotId,
+                    wrongCase.observedFloorId,
+                    wrongCase.reservedRegistrationId,
+                ]
+            );
+
+            await executor.query(
+                `UPDATE parking_slots
+                 SET status = 'RESERVED',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [wrongCase.observedSlotId]
+            );
+
+            await executor.query(
+                `UPDATE parking_slots
+                 SET status = 'AVAILABLE',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?
+                    AND status = 'RESERVED'`,
+                [wrongCase.reassignedSlotId]
+            );
+
+            await notificationService.createNotification({
+                connection: executor,
+                relatedId: wrongCase.id,
+                relatedType: "WRONG_SLOT_CASE",
+                title: "O dang ky cua ban da duoc tra lai",
+                message: `Xe chiem o da roi bai. O dang ky cua ban da duoc chuyen lai ve ${wrongCase.observedSlotCode}.`,
+                userId: wrongCase.reservedUserId,
+            });
+        } else {
+            await notificationService.createNotification({
+                connection: executor,
+                relatedId: wrongCase.id,
+                relatedType: "WRONG_SLOT_CASE",
+                title: "O dang ky cua ban da trong tro lai",
+                message: `Xe chiem o ${wrongCase.observedSlotCode} da roi bai. Neu xe cua ban dang o ${wrongCase.reassignedSlotCode}, ban co the yeu cau nhan vien ho tro doi lai o dang ky.`,
+                userId: wrongCase.reservedUserId,
+            });
+        }
+
+        restored.push({
+            caseId: wrongCase.id,
+            observedSlotCode: wrongCase.observedSlotCode,
+            reassignedSlotCode: wrongCase.reassignedSlotCode,
+            reservedVehicleInside,
+        });
+    }
+
+    return restored;
+};
+
 module.exports = {
     confirmWrongSlot,
     getCaseById,
     getCases,
     reportWrongSlot,
+    restoreReservedSlotAfterOccupierCheckout,
 };

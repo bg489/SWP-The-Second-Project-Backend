@@ -87,6 +87,9 @@ const getUserById = async (id) => {
             u.status,
             u.building_id AS buildingId,
             u.avatar_url AS avatarUrl,
+            u.avatar_crop_x AS avatarCropX,
+            u.avatar_crop_y AS avatarCropY,
+            u.avatar_crop_zoom AS avatarCropZoom,
             u.email_notifications_enabled AS emailNotificationsEnabled,
             u.created_at AS createdAt,
             u.updated_at AS updatedAt,
@@ -253,6 +256,9 @@ const getStaffCandidatesForBuilding = async ({ buildingId, q }) => {
             u.status,
             u.building_id AS buildingId,
             u.avatar_url AS avatarUrl,
+            u.avatar_crop_x AS avatarCropX,
+            u.avatar_crop_y AS avatarCropY,
+            u.avatar_crop_zoom AS avatarCropZoom,
             u.created_at AS createdAt,
             u.updated_at AS updatedAt,
             b.name AS buildingName,
@@ -385,15 +391,34 @@ const updateUserPassword = async ({ id, passwordHash }) => {
     return getUserById(id);
 };
 
-const updateUserProfile = async ({ avatarUrl, id, name, phone }) => {
+const updateUserProfile = async ({
+    avatarCropX,
+    avatarCropY,
+    avatarCropZoom,
+    avatarUrl,
+    id,
+    name,
+    phone,
+}) => {
     await db.query(
         `UPDATE users
          SET name = ?,
              phone = ?,
              avatar_url = COALESCE(?, avatar_url),
+             avatar_crop_x = COALESCE(?, avatar_crop_x),
+             avatar_crop_y = COALESCE(?, avatar_crop_y),
+             avatar_crop_zoom = COALESCE(?, avatar_crop_zoom),
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [name, phone || null, avatarUrl === undefined ? null : avatarUrl || null, id]
+        [
+            name,
+            phone || null,
+            avatarUrl === undefined ? null : avatarUrl || null,
+            avatarCropX === undefined ? null : avatarCropX,
+            avatarCropY === undefined ? null : avatarCropY,
+            avatarCropZoom === undefined ? null : avatarCropZoom,
+            id,
+        ]
     );
 
     return getUserById(id);

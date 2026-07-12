@@ -61,6 +61,7 @@ const buildNotificationLink = (relatedType) => {
         STAFF_ASSIGNMENT: "/staff/dashboard",
         VEHICLE: "/user/profile",
         WRONG_SLOT_CASE: "/user/dashboard",
+        FLOOR_MISMATCH_CASE: "/user/dashboard",
     };
 
     return `${frontendUrl}${paths[relatedType] || "/user/dashboard"}`;

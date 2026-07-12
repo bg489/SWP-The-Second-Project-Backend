@@ -137,4 +137,11 @@ router.get(
     reportController.getViolationReport
 );
 
+router.get(
+    "/full",
+    authMiddleware,
+    parkingManagerMiddleware,
+    reportController.getFullReport
+);
+
 module.exports = router;
