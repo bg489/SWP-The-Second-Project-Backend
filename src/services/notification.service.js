@@ -120,7 +120,8 @@ const createNotification = async ({
         ]
     );
 
-    await sendNotificationEmail({
+    // Email delivery must not hold up user-facing actions such as approvals.
+    void sendNotificationEmail({
         evidenceUrl,
         message,
         relatedType,

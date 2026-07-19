@@ -7,11 +7,12 @@ const createVehicle = async ({
     vehicleType,
     brand,
     color,
+    plateImageUrl,
 }) => {
     const [result] = await db.query(
         `INSERT INTO vehicles 
-            (user_id, building_id, plate_number, vehicle_type, brand, color, status)
-         VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`,
+            (user_id, building_id, plate_number, vehicle_type, brand, color, plate_image_url, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
         [
             userId,
             buildingId || null,
@@ -19,6 +20,7 @@ const createVehicle = async ({
             vehicleType,
             brand || null,
             color || null,
+            plateImageUrl || null,
         ]
     );
 
@@ -30,6 +32,7 @@ const createVehicle = async ({
         vehicleType,
         brand: brand || null,
         color: color || null,
+        plateImageUrl: plateImageUrl || null,
         status: "PENDING",
     };
 };
@@ -42,6 +45,7 @@ const getVehiclesByUserId = async (userId) => {
             v.vehicle_type AS vehicleType,
             v.brand,
             v.color,
+            v.plate_image_url AS plateImageUrl,
             v.status,
             v.created_at AS createdAt,
             b.id AS buildingId,
@@ -64,6 +68,7 @@ const getAllVehicles = async () => {
             v.vehicle_type AS vehicleType,
             v.brand,
             v.color,
+            v.plate_image_url AS plateImageUrl,
             v.status,
             v.created_at AS createdAt,
 
@@ -85,7 +90,18 @@ const getAllVehicles = async () => {
 
 const getVehicleById = async (id) => {
     const [rows] = await db.query(
-        `SELECT *
+        `SELECT
+            id,
+            user_id AS userId,
+            building_id AS buildingId,
+            plate_number AS plateNumber,
+            vehicle_type AS vehicleType,
+            brand,
+            color,
+            plate_image_url AS plateImageUrl,
+            status,
+            created_at AS createdAt,
+            updated_at AS updatedAt
          FROM vehicles
          WHERE id = ?
          LIMIT 1`,
@@ -128,6 +144,7 @@ const getVehicleByIdAndUserId = async (id, userId) => {
             v.vehicle_type AS vehicleType,
             v.brand,
             v.color,
+            v.plate_image_url AS plateImageUrl,
             v.status,
             v.created_at AS createdAt,
             v.updated_at AS updatedAt,
@@ -163,6 +180,7 @@ const updateVehicleByIdAndUserId = async ({
     vehicleType,
     brand,
     color,
+    plateImageUrl,
     buildingId,
 }) => {
     await db.query(
@@ -172,6 +190,7 @@ const updateVehicleByIdAndUserId = async ({
             vehicle_type = ?,
             brand = ?,
             color = ?,
+            plate_image_url = ?,
             building_id = ?,
             updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND user_id = ?`,
@@ -180,6 +199,7 @@ const updateVehicleByIdAndUserId = async ({
             vehicleType,
             brand || null,
             color || null,
+            plateImageUrl || null,
             buildingId || null,
             id,
             userId,

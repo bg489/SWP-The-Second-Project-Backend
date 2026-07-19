@@ -3,12 +3,46 @@ const userService = require("../services/user.service");
 const notificationService = require("../services/notification.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+const MAX_PLATE_IMAGE_LENGTH = 3_000_000;
+
+const normalizePlateImageUrl = (value) =>
+    typeof value === "string" ? value.trim() : "";
+
+const isValidPlateImageUrl = (value) => {
+    if (!value || value.length > MAX_PLATE_IMAGE_LENGTH) return false;
+
+    return (
+        /^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(value) ||
+        /^https?:\/\//i.test(value)
+    );
+};
+
 const createVehicle = async (req, res) => {
     try {
-        const { plateNumber, vehicleType, brand, color, buildingId } = req.body;
+        const {
+            plateNumber,
+            vehicleType,
+            brand,
+            color,
+            buildingId,
+            plateImageUrl,
+        } = req.body;
+        const normalizedPlateImageUrl = normalizePlateImageUrl(plateImageUrl);
 
-        if (!plateNumber || !vehicleType) {
-            return errorResponse(res, "Vui lòng nhập biển số xe và loại xe", 400);
+        if (!plateNumber || !vehicleType || !normalizedPlateImageUrl) {
+            return errorResponse(
+                res,
+                "Vui lòng nhập biển số, loại xe và chụp ảnh biển số xe",
+                400
+            );
+        }
+
+        if (!isValidPlateImageUrl(normalizedPlateImageUrl)) {
+            return errorResponse(
+                res,
+                "Ảnh biển số không hợp lệ hoặc có dung lượng quá lớn",
+                400
+            );
         }
 
         const validTypes = ["MOTORBIKE", "CAR"];
@@ -40,6 +74,7 @@ const createVehicle = async (req, res) => {
             vehicleType,
             brand,
             color,
+            plateImageUrl: normalizedPlateImageUrl,
         });
 
         return successResponse(res, "Thêm xe thành công, đang chờ duyệt", vehicle, 201);
@@ -150,7 +185,14 @@ const getMyVehicleById = async (req, res) => {
 const updateMyVehicle = async (req, res) => {
     try {
         const { id } = req.params;
-        const { plateNumber, vehicleType, brand, color, buildingId } = req.body;
+        const {
+            plateNumber,
+            vehicleType,
+            brand,
+            color,
+            buildingId,
+            plateImageUrl,
+        } = req.body;
 
         if (!id || isNaN(Number(id))) {
             return errorResponse(res, "Vehicle id không hợp lệ", 400);
@@ -195,6 +237,19 @@ const updateMyVehicle = async (req, res) => {
             );
         }
 
+        const normalizedPlateImageUrl =
+            plateImageUrl === undefined
+                ? normalizePlateImageUrl(vehicle.plateImageUrl)
+                : normalizePlateImageUrl(plateImageUrl);
+
+        if (!isValidPlateImageUrl(normalizedPlateImageUrl)) {
+            return errorResponse(
+                res,
+                "Vui lòng chụp ảnh biển số hợp lệ trước khi cập nhật xe",
+                400
+            );
+        }
+
         const existedVehicle = await vehicleService.findVehicleByPlateNumberExceptId(
             plateNumber.trim(),
             id
@@ -211,6 +266,7 @@ const updateMyVehicle = async (req, res) => {
             vehicleType,
             brand,
             color,
+            plateImageUrl: normalizedPlateImageUrl,
             buildingId: buildingId || vehicle.buildingId || null,
         });
 

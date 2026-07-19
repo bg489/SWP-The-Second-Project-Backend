@@ -120,6 +120,7 @@ const getVehiclesByUserId = async (userId) => {
             vehicle_type AS vehicleType,
             brand,
             color,
+            plate_image_url AS plateImageUrl,
             status,
             created_at AS createdAt
          FROM vehicles

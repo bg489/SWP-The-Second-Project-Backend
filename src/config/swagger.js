@@ -661,7 +661,7 @@ const options = {
                 },
                 VehicleRequest: {
                     type: "object",
-                    required: ["plateNumber", "vehicleType"],
+                    required: ["plateNumber", "vehicleType", "plateImageUrl"],
                     properties: {
                         plateNumber: { type: "string", example: "59A-12345" },
                         vehicleType: {
@@ -671,6 +671,11 @@ const options = {
                         },
                         brand: { type: "string", example: "Toyota" },
                         color: { type: "string", example: "White" },
+                        plateImageUrl: {
+                            type: "string",
+                            example: "data:image/jpeg;base64,...",
+                            description: "Compressed license plate photo captured by the user.",
+                        },
                         buildingId: { type: "integer", example: 1 },
                     },
                 },
