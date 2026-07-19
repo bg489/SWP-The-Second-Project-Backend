@@ -221,8 +221,15 @@ const appendSessionNote = async ({ connection, message, sessionId }) => {
     );
 };
 
-const findTargetCarSlot = async ({ buildingId, connection, targetSlotId }) => {
-    if (targetSlotId) {
+const findTargetCarSlot = async ({
+    assignedSlotId,
+    buildingId,
+    connection,
+    targetSlotId,
+}) => {
+    const requestedSlotId = targetSlotId || assignedSlotId;
+
+    if (requestedSlotId) {
         const [rows] = await connection.query(
             `SELECT
                 s.id,
@@ -237,7 +244,7 @@ const findTargetCarSlot = async ({ buildingId, connection, targetSlotId }) => {
              WHERE s.id = ?
              LIMIT 1
              FOR UPDATE`,
-            [targetSlotId]
+            [requestedSlotId]
         );
         const slot = rows[0];
 
@@ -259,7 +266,12 @@ const findTargetCarSlot = async ({ buildingId, connection, targetSlotId }) => {
             throw error;
         }
 
-        if (slot.status !== "AVAILABLE") {
+        const isAssignedToSession =
+            assignedSlotId && Number(slot.id) === Number(assignedSlotId);
+        const canReuseAssignedSlot =
+            isAssignedToSession && slot.status === "OCCUPIED";
+
+        if (slot.status !== "AVAILABLE" && !canReuseAssignedSlot) {
             const error = new Error("O oto duoc chi dinh khong con trong");
             error.statusCode = 400;
             throw error;
@@ -437,6 +449,7 @@ const reportFloorMismatch = async ({
         }
 
         const targetSlot = await findTargetCarSlot({
+            assignedSlotId: session.slotId,
             buildingId: session.buildingId,
             connection,
             targetSlotId,

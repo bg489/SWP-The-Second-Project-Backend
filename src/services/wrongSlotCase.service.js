@@ -121,20 +121,29 @@ const findReplacementSlot = async (executor, { buildingId, excludeSlotId }) => {
     return rows[0] || null;
 };
 
-const getWrongSlotPenalty = async (executor) => {
+const getWrongSlotPenalty = async (executor, staffId) => {
+    await executor.query(
+        `INSERT INTO violation_types
+            (name, default_penalty_fee, status, description, created_by)
+         VALUES ('WRONG_SLOT', 50000, 'ACTIVE', 'Oto dau sai o duoc chi dinh', ?)
+         ON DUPLICATE KEY UPDATE
+            status = 'ACTIVE',
+            default_penalty_fee = IF(default_penalty_fee > 0, default_penalty_fee, VALUES(default_penalty_fee)),
+            updated_at = CURRENT_TIMESTAMP`,
+        [staffId || null]
+    );
+
     const [rows] = await executor.query(
         `SELECT id, name, default_penalty_fee AS defaultPenaltyFee
          FROM violation_types
-         WHERE status = 'ACTIVE'
-            AND (name LIKE ? OR name LIKE ?)
-         ORDER BY id ASC
+         WHERE name = 'WRONG_SLOT'
          LIMIT 1`,
-        ["%sai%", "%slot%"]
+        []
     );
 
     return rows[0] || {
         id: null,
-        name: "Do sai slot",
+        name: "WRONG_SLOT",
         defaultPenaltyFee: 50000,
     };
 };
@@ -376,7 +385,7 @@ const confirmWrongSlot = async ({ force, id, staffId }) => {
             throw error;
         }
 
-        const penalty = await getWrongSlotPenalty(connection);
+        const penalty = await getWrongSlotPenalty(connection, staffId);
         const [violationResult] = await connection.query(
             `INSERT INTO violations
                 (
