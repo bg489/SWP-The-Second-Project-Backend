@@ -1,5 +1,6 @@
 const authController = require("./auth.controller");
 const userService = require("../services/user.service");
+const { canAdminChangeRoleDirectly } = require("../utils/adminRolePolicy");
 const notificationService = require("../services/notification.service");
 const emailService = require("../services/email.service");
 const profileUpdateService = require("../services/profileUpdate.service");
@@ -196,13 +197,10 @@ const updateUserRole = async (req, res) => {
             return errorResponse(res, "Khong tim thay user", 404);
         }
 
-        if (
-            role !== user.role
-            && [ROLES.STAFF, ROLES.USER].includes(role)
-        ) {
+        if (!canAdminChangeRoleDirectly(user.role, role)) {
             return errorResponse(
                 res,
-                "Viec chuyen sang nhan vien hoac cu dan phai qua de nghi cua quan ly",
+                "Moi thay doi quyen lien quan toi nhan vien phai qua de nghi cua quan ly",
                 409
             );
         }
