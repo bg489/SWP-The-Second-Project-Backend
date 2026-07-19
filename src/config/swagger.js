@@ -685,12 +685,12 @@ const options = {
                         vehiclePortraitImageUrl: {
                             type: "string",
                             example: "data:image/jpeg;base64,...",
-                            description: "Compressed full-vehicle photo captured in portrait orientation.",
+                            description: "Compressed full-vehicle photo captured along the vehicle body, not the phone orientation.",
                         },
                         vehicleLandscapeImageUrl: {
                             type: "string",
                             example: "data:image/jpeg;base64,...",
-                            description: "Compressed full-vehicle photo captured in landscape orientation.",
+                            description: "Compressed side-view photo across the vehicle body; the plate is not required in this photo.",
                         },
                         buildingId: { type: "integer", example: 1 },
                     },
