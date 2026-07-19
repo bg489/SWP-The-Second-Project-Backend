@@ -96,6 +96,16 @@ const STAFF_ROLE_REQUEST_STATUSES = {
     CANCELLED: "CANCELLED",
 };
 
+const STAFF_ROLE_REQUEST_TYPES = {
+    PROMOTE: "PROMOTE",
+    DEMOTE: "DEMOTE",
+};
+
+const STAFF_PROFILE_STATUSES = {
+    ACTIVE: "ACTIVE",
+    INACTIVE: "INACTIVE",
+};
+
 const normalizeEnum = (value) => {
     if (typeof value !== "string") {
         return value;
@@ -130,6 +140,8 @@ module.exports = {
     VIOLATION_TYPE_STATUSES,
     BUILDING_CHANGE_REQUEST_STATUSES,
     STAFF_ROLE_REQUEST_STATUSES,
+    STAFF_ROLE_REQUEST_TYPES,
+    STAFF_PROFILE_STATUSES,
     normalizeEnum,
     normalizeRole,
     isValidEnumValue,

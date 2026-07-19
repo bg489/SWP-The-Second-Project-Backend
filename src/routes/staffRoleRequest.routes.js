@@ -10,18 +10,28 @@ const { ROLES } = require("../utils/constants");
  * @swagger
  * tags:
  *   name: Staff Role Requests
- *   description: Manager proposals and admin approval for new parking staff
+ *   description: Manager proposals, staff profiles and admin role approval
  */
 
 /**
  * @swagger
  * /api/staff-role-requests/candidates:
  *   get:
- *     summary: Manager searches active resident accounts in the managed building
+ *     summary: Manager searches residents or staff in a selected building
  *     tags: [Staff Role Requests]
  *     security:
  *       - bearerAuth: []
  *     parameters:
+ *       - in: query
+ *         name: buildingId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: requestType
+ *         schema:
+ *           type: string
+ *           enum: [PROMOTE, DEMOTE]
  *       - in: query
  *         name: q
  *         schema:
@@ -70,10 +80,15 @@ router.get(
  *         application/json:
  *           schema:
  *             type: object
- *             required: [userId, portraitImageUrl]
+ *             required: [userId, buildingId, requestType]
  *             properties:
  *               userId:
  *                 type: integer
+ *               buildingId:
+ *                 type: integer
+ *               requestType:
+ *                 type: string
+ *                 enum: [PROMOTE, DEMOTE]
  *               portraitImageUrl:
  *                 type: string
  *               managerNote:
@@ -92,6 +107,11 @@ router.get(
  *         schema:
  *           type: string
  *           enum: [PENDING, APPROVED, REJECTED, CANCELLED]
+ *       - in: query
+ *         name: requestType
+ *         schema:
+ *           type: string
+ *           enum: [PROMOTE, DEMOTE]
  *     responses:
  *       200:
  *         description: Staff role requests loaded
@@ -112,6 +132,54 @@ router.get(
 
 /**
  * @swagger
+ * /api/staff-role-requests/profiles:
+ *   get:
+ *     summary: Manager gets active staff profiles in a selected building
+ *     tags: [Staff Role Requests]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+    "/profiles",
+    authMiddleware,
+    requireRoles(ROLES.MANAGER),
+    staffRoleRequestController.getStaffProfiles
+);
+
+/**
+ * @swagger
+ * /api/staff-role-requests/profiles/me:
+ *   get:
+ *     summary: Staff gets their own employment profile
+ *     tags: [Staff Role Requests]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+    "/profiles/me",
+    authMiddleware,
+    requireRoles(ROLES.STAFF),
+    staffRoleRequestController.getMyStaffProfile
+);
+
+/**
+ * @swagger
+ * /api/staff-role-requests/profiles/{userId}:
+ *   get:
+ *     summary: Manager gets one active staff profile
+ *     tags: [Staff Role Requests]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get(
+    "/profiles/:userId",
+    authMiddleware,
+    requireRoles(ROLES.MANAGER),
+    staffRoleRequestController.getStaffProfile
+);
+
+/**
+ * @swagger
  * /api/staff-role-requests/{id}/approve:
  *   patch:
  *     summary: Admin approves a staff role request
@@ -126,7 +194,7 @@ router.get(
  *           type: integer
  *     responses:
  *       200:
- *         description: Account promoted to staff and portrait applied
+ *         description: Staff promotion or demotion request approved
  */
 router.patch(
     "/:id/approve",

@@ -196,6 +196,17 @@ const updateUserRole = async (req, res) => {
             return errorResponse(res, "Khong tim thay user", 404);
         }
 
+        if (
+            role !== user.role
+            && [ROLES.STAFF, ROLES.USER].includes(role)
+        ) {
+            return errorResponse(
+                res,
+                "Viec chuyen sang nhan vien hoac cu dan phai qua de nghi cua quan ly",
+                409
+            );
+        }
+
         const updatedUser = await userService.updateUserRole(id, role);
 
         return successResponse(res, "Cap nhat role user thanh cong", {

@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS staff_role_requests (
     manager_id INT NOT NULL,
     user_id INT NOT NULL,
     building_id INT NOT NULL,
-    portrait_image_url MEDIUMTEXT NOT NULL,
+    request_type ENUM('PROMOTE', 'DEMOTE') NOT NULL DEFAULT 'PROMOTE',
+    portrait_image_url MEDIUMTEXT NULL,
     manager_note TEXT NULL,
     status ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
     admin_id INT NULL,
@@ -108,6 +109,34 @@ CREATE TABLE IF NOT EXISTS staff_role_requests (
         ON DELETE RESTRICT,
     CONSTRAINT fk_staff_role_requests_admin
         FOREIGN KEY (admin_id) REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS staff_profiles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    building_id INT NOT NULL,
+    portrait_image_url MEDIUMTEXT NOT NULL,
+    status ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+    approved_request_id INT NULL,
+    approved_by INT NULL,
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_staff_profiles_user (user_id),
+    INDEX idx_staff_profiles_building_status (building_id, status),
+    CONSTRAINT fk_staff_profiles_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_staff_profiles_building
+        FOREIGN KEY (building_id) REFERENCES buildings(id)
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_staff_profiles_request
+        FOREIGN KEY (approved_request_id) REFERENCES staff_role_requests(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_staff_profiles_approved_by
+        FOREIGN KEY (approved_by) REFERENCES users(id)
         ON DELETE SET NULL
 );
 
