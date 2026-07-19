@@ -3,7 +3,9 @@ const { successResponse, errorResponse } = require("../utils/response");
 const {
     FLOOR_TYPES,
     FLOOR_STATUSES,
+    ROLES,
     normalizeEnum,
+    normalizeRole,
     isValidEnumValue,
 } = require("../utils/constants");
 
@@ -188,13 +190,31 @@ const createFloor = async (req, res) => {
 
 const getFloors = async (req, res) => {
     try {
+        const currentRole = normalizeRole(req.user?.role);
+        const isResident = currentRole === ROLES.USER;
         const floorType = req.query.floorType || req.query.floor_type
             ? normalizeEnum(req.query.floorType || req.query.floor_type)
             : undefined;
-        const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
-        const buildingId = req.query.buildingId || req.query.building_id
+        const requestedStatus = req.query.status ? normalizeEnum(req.query.status) : undefined;
+        const requestedBuildingId = req.query.buildingId || req.query.building_id
             ? toPositiveInteger(req.query.buildingId || req.query.building_id)
             : undefined;
+        const residentBuildingId = toPositiveInteger(req.user?.buildingId);
+
+        if (isResident && !residentBuildingId) {
+            return errorResponse(res, "Tài khoản chưa được gán tòa nhà", 400);
+        }
+
+        if (
+            isResident &&
+            requestedBuildingId &&
+            requestedBuildingId !== residentBuildingId
+        ) {
+            return errorResponse(res, "Bạn chỉ có thể xem tầng thuộc tòa nhà của mình", 403);
+        }
+
+        const buildingId = isResident ? residentBuildingId : requestedBuildingId;
+        const status = isResident ? FLOOR_STATUSES.ACTIVE : requestedStatus;
 
         if (floorType && !isValidEnumValue(FLOOR_TYPES, floorType)) {
             return errorResponse(res, "Loại tầng không hợp lệ", 400, {
@@ -257,6 +277,14 @@ const getFloorById = async (req, res) => {
 
         if (!floor) {
             return errorResponse(res, "Không tìm thấy tầng gửi xe", 404);
+        }
+
+        if (
+            normalizeRole(req.user?.role) === ROLES.USER &&
+            (Number(floor.buildingId) !== Number(req.user?.buildingId) ||
+                floor.status !== FLOOR_STATUSES.ACTIVE)
+        ) {
+            return errorResponse(res, "Bạn không thể xem tầng này", 403);
         }
 
         return successResponse(res, "Lấy chi tiết tầng gửi xe thành công", floor);

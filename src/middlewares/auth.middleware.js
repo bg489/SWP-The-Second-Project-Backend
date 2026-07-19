@@ -20,7 +20,7 @@ const authMiddleware = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const [rows] = await db.query(
-            `SELECT id, role, status
+            `SELECT id, role, status, building_id AS buildingId
              FROM users
              WHERE id = ?
              LIMIT 1`,
@@ -46,6 +46,7 @@ const authMiddleware = async (req, res, next) => {
             id: user.id,
             role: normalizeRole(user.role),
             status: user.status,
+            buildingId: user.buildingId,
         };
 
         next();
