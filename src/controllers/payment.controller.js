@@ -32,20 +32,41 @@ const appendQuery = (url, params) => {
     return `${url}${separator}${new URLSearchParams(params).toString()}`;
 };
 
-const getFrontendPaymentReturnUrl = (result) => {
-    const exactReturnUrl = process.env.FRONTEND_PAYMENT_RETURN_URL;
-    const appUrl =
-        exactReturnUrl ||
+const buildFrontendRouteUrl = (targetPath, exactUrl) => {
+    const configuredUrl =
+        exactUrl ||
         process.env.FRONTEND_URL ||
         process.env.CLIENT_URL ||
+        process.env.FRONTEND_PAYMENT_RETURN_URL ||
         "http://localhost:5173";
+
+    try {
+        const url = new URL(configuredUrl);
+
+        if (!exactUrl) {
+            url.pathname = targetPath;
+            url.search = "";
+            url.hash = "";
+        }
+
+        return url.toString();
+    } catch {
+        return exactUrl || `${configuredUrl.replace(/\/$/, "")}${targetPath}`;
+    }
+};
+
+const getFrontendPaymentReturnUrl = (result) => {
     const payment = result.data?.payment || {};
-    const targetPath = result.data?.session ? "/staff/check-out" : "/user/qr-pass";
-    const appUrlAlreadyHasPath = /\/user\/qr-pass|\/staff\/check-out/.test(appUrl);
-    const returnUrl =
-        (exactReturnUrl || appUrlAlreadyHasPath)
-            ? appUrl
-            : `${appUrl.replace(/\/$/, "")}${targetPath}`;
+    const isParkingCheckout = Boolean(
+        result.data?.session || payment.parkingSessionId
+    );
+    const targetPath = isParkingCheckout
+        ? "/staff/check-out"
+        : "/user/qr-pass";
+    const exactReturnUrl = isParkingCheckout
+        ? process.env.FRONTEND_CHECKOUT_PAYMENT_RETURN_URL
+        : process.env.FRONTEND_PACKAGE_PAYMENT_RETURN_URL;
+    const returnUrl = buildFrontendRouteUrl(targetPath, exactReturnUrl);
 
     return appendQuery(returnUrl, {
         paymentStatus: payment.status || "FAILED",
@@ -215,6 +236,7 @@ const handleVnpayIpn = async (req, res) => {
 };
 
 module.exports = {
+    getFrontendPaymentReturnUrl,
     handleVnpayIpn,
     handleVnpayReturn,
 };

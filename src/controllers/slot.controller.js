@@ -1,6 +1,7 @@
 const floorService = require("../services/floor.service");
 const slotService = require("../services/slot.service");
 const { successResponse, errorResponse } = require("../utils/response");
+const { ROLES, normalizeRole } = require("../utils/constants");
 
 const VALID_SLOT_STATUSES = [
     "AVAILABLE",
@@ -139,10 +140,18 @@ const getSlotsByFloorId = async (req, res) => {
             return errorResponse(res, "Floor id khong hop le", 400);
         }
 
-        const { error, statusCode } = await assertCarFloor(floorId);
+        const { floor, error, statusCode } = await assertCarFloor(floorId);
 
         if (error) {
             return errorResponse(res, error, statusCode);
+        }
+
+        if (
+            normalizeRole(req.user?.role) === ROLES.USER &&
+            (Number(floor.buildingId) !== Number(req.user?.buildingId) ||
+                floor.status !== "ACTIVE")
+        ) {
+            return errorResponse(res, "Bạn không thể xem ô đỗ của tầng này", 403);
         }
 
         const slots = await slotService.getSlotsByFloorId(floorId);

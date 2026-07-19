@@ -6,8 +6,16 @@ const slotController = require("../controllers/slot.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const {
     managerOrAdminMiddleware,
-    parkingStaffOrAboveMiddleware,
+    requireRoles,
 } = require("../middlewares/role.middleware");
+const { ROLES } = require("../utils/constants");
+
+const floorReadMiddleware = requireRoles(
+    ROLES.ADMIN,
+    ROLES.MANAGER,
+    ROLES.STAFF,
+    ROLES.USER
+);
 
 /**
  * @swagger
@@ -92,7 +100,7 @@ router.post("/", authMiddleware, managerOrAdminMiddleware, floorController.creat
  * @swagger
  * /api/floors:
  *   get:
- *     summary: Get parking floors. ADMIN/MANAGER/STAFF.
+ *     summary: Get parking floors. Residents only see active floors in their building.
  *     tags: [Floors]
  *     security:
  *       - bearerAuth: []
@@ -147,7 +155,7 @@ router.post("/", authMiddleware, managerOrAdminMiddleware, floorController.creat
  *       500:
  *         description: Server error
  */
-router.get("/", authMiddleware, parkingStaffOrAboveMiddleware, floorController.getFloors);
+router.get("/", authMiddleware, floorReadMiddleware, floorController.getFloors);
 
 /**
  * @swagger
@@ -208,7 +216,7 @@ router.post(
  * @swagger
  * /api/floors/{floorId}/slots:
  *   get:
- *     summary: Get slots under a car floor. ADMIN/MANAGER/STAFF.
+ *     summary: Get slots under a car floor. Residents only see slots in their building.
  *     tags: [Slots]
  *     security:
  *       - bearerAuth: []
@@ -232,7 +240,7 @@ router.post(
 router.get(
     "/:floorId/slots",
     authMiddleware,
-    parkingStaffOrAboveMiddleware,
+    floorReadMiddleware,
     slotController.getSlotsByFloorId
 );
 
@@ -240,7 +248,7 @@ router.get(
  * @swagger
  * /api/floors/{id}:
  *   get:
- *     summary: Get parking floor detail. ADMIN/MANAGER/STAFF.
+ *     summary: Get parking floor detail. Residents only see active floors in their building.
  *     tags: [Floors]
  *     security:
  *       - bearerAuth: []
@@ -263,7 +271,7 @@ router.get(
  *       500:
  *         description: Server error
  */
-router.get("/:id", authMiddleware, parkingStaffOrAboveMiddleware, floorController.getFloorById);
+router.get("/:id", authMiddleware, floorReadMiddleware, floorController.getFloorById);
 
 /**
  * @swagger
