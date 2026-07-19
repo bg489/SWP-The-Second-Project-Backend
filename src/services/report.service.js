@@ -518,8 +518,8 @@ const getTicketRevenueSummary = async ({ from, to, buildingId } = {}) => {
          FROM parking_sessions ps
          ${
              filters.whereSql
-                 ? `${filters.whereSql} AND ps.status = 'COMPLETED' AND ps.payment_status = 'PAID' AND ps.customer_type = 'WALK_IN_GUEST' AND ps.pricing_type IN ('TURN', 'HOURLY')`
-                 : "WHERE ps.status = 'COMPLETED' AND ps.payment_status = 'PAID' AND ps.customer_type = 'WALK_IN_GUEST' AND ps.pricing_type IN ('TURN', 'HOURLY')"
+                 ? `${filters.whereSql} AND ps.status = 'COMPLETED' AND ps.pricing_type IN ('TURN', 'HOURLY')`
+                 : "WHERE ps.status = 'COMPLETED' AND ps.pricing_type IN ('TURN', 'HOURLY')"
          }
          GROUP BY ps.vehicle_type, ps.pricing_type, ps.customer_type
          ORDER BY ps.vehicle_type ASC, ps.pricing_type ASC, ps.customer_type ASC`,
