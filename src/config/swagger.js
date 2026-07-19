@@ -661,7 +661,13 @@ const options = {
                 },
                 VehicleRequest: {
                     type: "object",
-                    required: ["plateNumber", "vehicleType", "plateImageUrl"],
+                    required: [
+                        "plateNumber",
+                        "vehicleType",
+                        "plateImageUrl",
+                        "vehiclePortraitImageUrl",
+                        "vehicleLandscapeImageUrl",
+                    ],
                     properties: {
                         plateNumber: { type: "string", example: "59A-12345" },
                         vehicleType: {
@@ -675,6 +681,16 @@ const options = {
                             type: "string",
                             example: "data:image/jpeg;base64,...",
                             description: "Compressed license plate photo captured by the user.",
+                        },
+                        vehiclePortraitImageUrl: {
+                            type: "string",
+                            example: "data:image/jpeg;base64,...",
+                            description: "Compressed full-vehicle photo captured in portrait orientation.",
+                        },
+                        vehicleLandscapeImageUrl: {
+                            type: "string",
+                            example: "data:image/jpeg;base64,...",
+                            description: "Compressed full-vehicle photo captured in landscape orientation.",
                         },
                         buildingId: { type: "integer", example: 1 },
                     },
