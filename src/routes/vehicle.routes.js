@@ -122,10 +122,10 @@ router.get("/:id", authMiddleware, vehicleController.getMyVehicleById);
  *                 description: Ảnh biển số đã nén ở dạng data URL hoặc đường dẫn ảnh
  *               vehiclePortraitImageUrl:
  *                 type: string
- *                 description: Ảnh toàn xe chụp theo chiều dọc
+ *                 description: Ảnh chụp dọc theo thân xe, không phụ thuộc hướng xoay điện thoại
  *               vehicleLandscapeImageUrl:
  *                 type: string
- *                 description: Ảnh toàn xe chụp theo chiều ngang
+ *                 description: Ảnh chụp ngang thân xe từ bên hông, không bắt buộc thấy biển số
  *               buildingId:
  *                 type: integer
  *                 example: 1

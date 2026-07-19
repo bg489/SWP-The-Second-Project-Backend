@@ -46,7 +46,7 @@ const createVehicle = async (req, res) => {
         ) {
             return errorResponse(
                 res,
-                "Vui lòng nhập thông tin xe và chụp đủ ảnh biển số, ảnh dọc, ảnh ngang",
+                "Vui lòng nhập thông tin xe và chụp đủ ảnh biển số, ảnh dọc thân xe, ảnh ngang thân xe",
                 400
             );
         }
