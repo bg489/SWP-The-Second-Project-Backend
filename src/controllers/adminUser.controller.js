@@ -93,6 +93,17 @@ const updateUserRoleStatus = async (req, res) => {
             return errorResponse(res, "Không tìm thấy user", 404);
         }
 
+        const isRoleChange = role !== user.role;
+        const requiresManagerRequest = [ROLES.STAFF, ROLES.USER].includes(role);
+
+        if (isRoleChange && requiresManagerRequest) {
+            return errorResponse(
+                res,
+                "Việc chuyển sang nhân viên hoặc cư dân phải được quản lý gửi hồ sơ và quản trị viên xét duyệt",
+                409
+            );
+        }
+
         if (Number(id) === Number(req.user.id) && status !== USER_STATUSES.ACTIVE) {
             return errorResponse(res, "Admin không thể tự khóa hoặc vô hiệu hóa tài khoản của mình", 400);
         }
