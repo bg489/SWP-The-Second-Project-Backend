@@ -8,11 +8,14 @@ const createVehicle = async ({
     brand,
     color,
     plateImageUrl,
+    vehiclePortraitImageUrl,
+    vehicleLandscapeImageUrl,
 }) => {
     const [result] = await db.query(
         `INSERT INTO vehicles 
-            (user_id, building_id, plate_number, vehicle_type, brand, color, plate_image_url, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+            (user_id, building_id, plate_number, vehicle_type, brand, color,
+             plate_image_url, vehicle_portrait_image_url, vehicle_landscape_image_url, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
         [
             userId,
             buildingId || null,
@@ -21,6 +24,8 @@ const createVehicle = async ({
             brand || null,
             color || null,
             plateImageUrl || null,
+            vehiclePortraitImageUrl || null,
+            vehicleLandscapeImageUrl || null,
         ]
     );
 
@@ -33,6 +38,8 @@ const createVehicle = async ({
         brand: brand || null,
         color: color || null,
         plateImageUrl: plateImageUrl || null,
+        vehiclePortraitImageUrl: vehiclePortraitImageUrl || null,
+        vehicleLandscapeImageUrl: vehicleLandscapeImageUrl || null,
         status: "PENDING",
     };
 };
@@ -46,6 +53,8 @@ const getVehiclesByUserId = async (userId) => {
             v.brand,
             v.color,
             v.plate_image_url AS plateImageUrl,
+            v.vehicle_portrait_image_url AS vehiclePortraitImageUrl,
+            v.vehicle_landscape_image_url AS vehicleLandscapeImageUrl,
             v.status,
             v.created_at AS createdAt,
             b.id AS buildingId,
@@ -69,6 +78,8 @@ const getAllVehicles = async () => {
             v.brand,
             v.color,
             v.plate_image_url AS plateImageUrl,
+            v.vehicle_portrait_image_url AS vehiclePortraitImageUrl,
+            v.vehicle_landscape_image_url AS vehicleLandscapeImageUrl,
             v.status,
             v.created_at AS createdAt,
 
@@ -99,6 +110,8 @@ const getVehicleById = async (id) => {
             brand,
             color,
             plate_image_url AS plateImageUrl,
+            vehicle_portrait_image_url AS vehiclePortraitImageUrl,
+            vehicle_landscape_image_url AS vehicleLandscapeImageUrl,
             status,
             created_at AS createdAt,
             updated_at AS updatedAt
@@ -145,6 +158,8 @@ const getVehicleByIdAndUserId = async (id, userId) => {
             v.brand,
             v.color,
             v.plate_image_url AS plateImageUrl,
+            v.vehicle_portrait_image_url AS vehiclePortraitImageUrl,
+            v.vehicle_landscape_image_url AS vehicleLandscapeImageUrl,
             v.status,
             v.created_at AS createdAt,
             v.updated_at AS updatedAt,
@@ -181,6 +196,8 @@ const updateVehicleByIdAndUserId = async ({
     brand,
     color,
     plateImageUrl,
+    vehiclePortraitImageUrl,
+    vehicleLandscapeImageUrl,
     buildingId,
 }) => {
     await db.query(
@@ -191,6 +208,8 @@ const updateVehicleByIdAndUserId = async ({
             brand = ?,
             color = ?,
             plate_image_url = ?,
+            vehicle_portrait_image_url = ?,
+            vehicle_landscape_image_url = ?,
             building_id = ?,
             updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND user_id = ?`,
@@ -200,6 +219,8 @@ const updateVehicleByIdAndUserId = async ({
             brand || null,
             color || null,
             plateImageUrl || null,
+            vehiclePortraitImageUrl || null,
+            vehicleLandscapeImageUrl || null,
             buildingId || null,
             id,
             userId,

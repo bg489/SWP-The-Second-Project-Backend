@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
     brand VARCHAR(100) NULL,
     color VARCHAR(50) NULL,
     plate_image_url MEDIUMTEXT NULL,
+    vehicle_portrait_image_url MEDIUMTEXT NULL,
+    vehicle_landscape_image_url MEDIUMTEXT NULL,
     status ENUM('PENDING', 'APPROVED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

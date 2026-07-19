@@ -3,13 +3,13 @@ const userService = require("../services/user.service");
 const notificationService = require("../services/notification.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
-const MAX_PLATE_IMAGE_LENGTH = 3_000_000;
+const MAX_VEHICLE_IMAGE_LENGTH = 1_200_000;
 
-const normalizePlateImageUrl = (value) =>
+const normalizeVehicleImageUrl = (value) =>
     typeof value === "string" ? value.trim() : "";
 
-const isValidPlateImageUrl = (value) => {
-    if (!value || value.length > MAX_PLATE_IMAGE_LENGTH) return false;
+const isValidVehicleImageUrl = (value) => {
+    if (!value || value.length > MAX_VEHICLE_IMAGE_LENGTH) return false;
 
     return (
         /^data:image\/(?:jpeg|jpg|png|webp);base64,/i.test(value) ||
@@ -26,21 +26,39 @@ const createVehicle = async (req, res) => {
             color,
             buildingId,
             plateImageUrl,
+            vehiclePortraitImageUrl,
+            vehicleLandscapeImageUrl,
         } = req.body;
-        const normalizedPlateImageUrl = normalizePlateImageUrl(plateImageUrl);
+        const normalizedPlateImageUrl = normalizeVehicleImageUrl(plateImageUrl);
+        const normalizedVehiclePortraitImageUrl = normalizeVehicleImageUrl(
+            vehiclePortraitImageUrl
+        );
+        const normalizedVehicleLandscapeImageUrl = normalizeVehicleImageUrl(
+            vehicleLandscapeImageUrl
+        );
 
-        if (!plateNumber || !vehicleType || !normalizedPlateImageUrl) {
+        if (
+            !plateNumber ||
+            !vehicleType ||
+            !normalizedPlateImageUrl ||
+            !normalizedVehiclePortraitImageUrl ||
+            !normalizedVehicleLandscapeImageUrl
+        ) {
             return errorResponse(
                 res,
-                "Vui lòng nhập biển số, loại xe và chụp ảnh biển số xe",
+                "Vui lòng nhập thông tin xe và chụp đủ ảnh biển số, ảnh dọc, ảnh ngang",
                 400
             );
         }
 
-        if (!isValidPlateImageUrl(normalizedPlateImageUrl)) {
+        if (
+            !isValidVehicleImageUrl(normalizedPlateImageUrl) ||
+            !isValidVehicleImageUrl(normalizedVehiclePortraitImageUrl) ||
+            !isValidVehicleImageUrl(normalizedVehicleLandscapeImageUrl)
+        ) {
             return errorResponse(
                 res,
-                "Ảnh biển số không hợp lệ hoặc có dung lượng quá lớn",
+                "Một trong các ảnh xe không hợp lệ hoặc có dung lượng quá lớn",
                 400
             );
         }
@@ -75,6 +93,8 @@ const createVehicle = async (req, res) => {
             brand,
             color,
             plateImageUrl: normalizedPlateImageUrl,
+            vehiclePortraitImageUrl: normalizedVehiclePortraitImageUrl,
+            vehicleLandscapeImageUrl: normalizedVehicleLandscapeImageUrl,
         });
 
         return successResponse(res, "Thêm xe thành công, đang chờ duyệt", vehicle, 201);
@@ -192,6 +212,8 @@ const updateMyVehicle = async (req, res) => {
             color,
             buildingId,
             plateImageUrl,
+            vehiclePortraitImageUrl,
+            vehicleLandscapeImageUrl,
         } = req.body;
 
         if (!id || isNaN(Number(id))) {
@@ -239,13 +261,25 @@ const updateMyVehicle = async (req, res) => {
 
         const normalizedPlateImageUrl =
             plateImageUrl === undefined
-                ? normalizePlateImageUrl(vehicle.plateImageUrl)
-                : normalizePlateImageUrl(plateImageUrl);
+                ? normalizeVehicleImageUrl(vehicle.plateImageUrl)
+                : normalizeVehicleImageUrl(plateImageUrl);
+        const normalizedVehiclePortraitImageUrl =
+            vehiclePortraitImageUrl === undefined
+                ? normalizeVehicleImageUrl(vehicle.vehiclePortraitImageUrl)
+                : normalizeVehicleImageUrl(vehiclePortraitImageUrl);
+        const normalizedVehicleLandscapeImageUrl =
+            vehicleLandscapeImageUrl === undefined
+                ? normalizeVehicleImageUrl(vehicle.vehicleLandscapeImageUrl)
+                : normalizeVehicleImageUrl(vehicleLandscapeImageUrl);
 
-        if (!isValidPlateImageUrl(normalizedPlateImageUrl)) {
+        if (
+            !isValidVehicleImageUrl(normalizedPlateImageUrl) ||
+            !isValidVehicleImageUrl(normalizedVehiclePortraitImageUrl) ||
+            !isValidVehicleImageUrl(normalizedVehicleLandscapeImageUrl)
+        ) {
             return errorResponse(
                 res,
-                "Vui lòng chụp ảnh biển số hợp lệ trước khi cập nhật xe",
+                "Vui lòng chụp đủ ba ảnh hợp lệ trước khi cập nhật xe",
                 400
             );
         }
@@ -267,6 +301,8 @@ const updateMyVehicle = async (req, res) => {
             brand,
             color,
             plateImageUrl: normalizedPlateImageUrl,
+            vehiclePortraitImageUrl: normalizedVehiclePortraitImageUrl,
+            vehicleLandscapeImageUrl: normalizedVehicleLandscapeImageUrl,
             buildingId: buildingId || vehicle.buildingId || null,
         });
 

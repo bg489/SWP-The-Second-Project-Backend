@@ -120,6 +120,12 @@ router.get("/:id", authMiddleware, vehicleController.getMyVehicleById);
  *               plateImageUrl:
  *                 type: string
  *                 description: Ảnh biển số đã nén ở dạng data URL hoặc đường dẫn ảnh
+ *               vehiclePortraitImageUrl:
+ *                 type: string
+ *                 description: Ảnh toàn xe chụp theo chiều dọc
+ *               vehicleLandscapeImageUrl:
+ *                 type: string
+ *                 description: Ảnh toàn xe chụp theo chiều ngang
  *               buildingId:
  *                 type: integer
  *                 example: 1
