@@ -430,7 +430,7 @@ CREATE TABLE IF NOT EXISTS violations (
     detected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     staff_id INT NOT NULL,
     note TEXT NULL,
-    evidence_url TEXT NULL,
+    evidence_url MEDIUMTEXT NULL,
     penalty_fee DECIMAL(12, 2) NOT NULL DEFAULT 0,
     status ENUM('OPEN', 'RESOLVED', 'COLLECTED', 'CANCELLED') NOT NULL DEFAULT 'OPEN',
     collected_payment_id INT NULL,
