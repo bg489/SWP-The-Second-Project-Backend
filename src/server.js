@@ -27,6 +27,7 @@ const buildingChangeRequestRoutes = require("./routes/buildingChangeRequest.rout
 const notificationRoutes = require("./routes/notification.routes");
 const wrongSlotCaseRoutes = require("./routes/wrongSlotCase.routes");
 const floorMismatchCaseRoutes = require("./routes/floorMismatchCase.routes");
+const staffRoleRequestRoutes = require("./routes/staffRoleRequest.routes");
 const {
     notFoundMiddleware,
     errorMiddleware,
@@ -90,6 +91,7 @@ app.use("/api/building-change-requests", buildingChangeRequestRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/wrong-slot-cases", wrongSlotCaseRoutes);
 app.use("/api/floor-mismatch-cases", floorMismatchCaseRoutes);
+app.use("/api/staff-role-requests", staffRoleRequestRoutes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);
 

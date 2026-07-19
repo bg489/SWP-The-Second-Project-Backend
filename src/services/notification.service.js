@@ -59,6 +59,8 @@ const buildNotificationLink = (relatedType) => {
         ACCOUNT: "/user/dashboard",
         BUILDING_CHANGE_REQUEST: "/user/building-change",
         STAFF_ASSIGNMENT: "/staff/dashboard",
+        STAFF_ROLE_REQUEST_ADMIN: "/admin/staff-role-requests",
+        STAFF_ROLE_REQUEST_MANAGER: "/manager/staff",
         VEHICLE: "/user/profile",
         WRONG_SLOT_CASE: "/user/dashboard",
         FLOOR_MISMATCH_CASE: "/user/dashboard",
