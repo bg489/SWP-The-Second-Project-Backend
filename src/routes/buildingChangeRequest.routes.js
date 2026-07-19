@@ -58,6 +58,20 @@ const { ROLES } = require("../utils/constants");
  *         userPhone:
  *           type: string
  *           example: "0901234567"
+ *         userRole:
+ *           type: string
+ *           enum: [ADMIN, MANAGER, STAFF, USER]
+ *           example: "STAFF"
+ *         userStatus:
+ *           type: string
+ *           enum: [PENDING, ACTIVE, LOCKED, INACTIVE]
+ *           example: "ACTIVE"
+ *         userAvatarUrl:
+ *           type: string
+ *           nullable: true
+ *         userCreatedAt:
+ *           type: string
+ *           example: "2026-06-15T09:00:00.000Z"
  *         currentBuildingId:
  *           type: integer
  *           nullable: true
@@ -66,6 +80,9 @@ const { ROLES } = require("../utils/constants");
  *           type: string
  *           nullable: true
  *           example: "FPT Parking Building"
+ *         currentBuildingAddress:
+ *           type: string
+ *           nullable: true
  *         requestedBuildingId:
  *           type: integer
  *           example: 2

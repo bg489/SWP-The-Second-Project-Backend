@@ -117,6 +117,9 @@ router.get("/:id", authMiddleware, vehicleController.getMyVehicleById);
  *               color:
  *                 type: string
  *                 example: "Black"
+ *               plateImageUrl:
+ *                 type: string
+ *                 description: Ảnh biển số đã nén ở dạng data URL hoặc đường dẫn ảnh
  *               buildingId:
  *                 type: integer
  *                 example: 1

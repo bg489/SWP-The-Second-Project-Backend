@@ -8,9 +8,17 @@ const requestSelect = `
         u.name AS userName,
         u.email AS userEmail,
         u.phone AS userPhone,
+        u.role AS userRole,
+        u.status AS userStatus,
+        u.avatar_url AS userAvatarUrl,
+        u.avatar_crop_x AS userAvatarCropX,
+        u.avatar_crop_y AS userAvatarCropY,
+        u.avatar_crop_zoom AS userAvatarCropZoom,
+        u.created_at AS userCreatedAt,
 
         r.current_building_id AS currentBuildingId,
         cb.name AS currentBuildingName,
+        cb.address AS currentBuildingAddress,
 
         r.requested_building_id AS requestedBuildingId,
         rb.name AS requestedBuildingName,
