@@ -1,5 +1,6 @@
 const userService = require("../services/user.service");
 const notificationService = require("../services/notification.service");
+const { canAdminChangeRoleDirectly } = require("../utils/adminRolePolicy");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     ROLES,
@@ -93,13 +94,10 @@ const updateUserRoleStatus = async (req, res) => {
             return errorResponse(res, "Không tìm thấy user", 404);
         }
 
-        const isRoleChange = role !== user.role;
-        const requiresManagerRequest = [ROLES.STAFF, ROLES.USER].includes(role);
-
-        if (isRoleChange && requiresManagerRequest) {
+        if (!canAdminChangeRoleDirectly(user.role, role)) {
             return errorResponse(
                 res,
-                "Việc chuyển sang nhân viên hoặc cư dân phải được quản lý gửi hồ sơ và quản trị viên xét duyệt",
+                "Mọi thay đổi quyền có liên quan tới nhân viên phải được quản lý gửi hồ sơ và quản trị viên xét duyệt",
                 409
             );
         }
@@ -120,8 +118,9 @@ const updateUserRoleStatus = async (req, res) => {
                 status === USER_STATUSES.ACTIVE
                     ? "Tài khoản đã được duyệt"
                     : "Tài khoản đã được cập nhật",
-            message:
-                status === USER_STATUSES.ACTIVE
+            message: role !== user.role
+                ? `Quyền tài khoản của bạn đã được cập nhật từ ${user.role} sang ${role}. Vui lòng đăng nhập lại để sử dụng quyền mới.`
+                : status === USER_STATUSES.ACTIVE
                     ? "Tài khoản của bạn đã được duyệt. Bạn có thể đăng nhập và sử dụng hệ thống."
                     : `Tài khoản của bạn đã được cập nhật sang trạng thái ${status}.`,
             relatedType: "ACCOUNT",
