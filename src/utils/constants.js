@@ -89,6 +89,13 @@ const BUILDING_CHANGE_REQUEST_STATUSES = {
     CANCELLED: "CANCELLED",
 };
 
+const STAFF_ROLE_REQUEST_STATUSES = {
+    PENDING: "PENDING",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    CANCELLED: "CANCELLED",
+};
+
 const normalizeEnum = (value) => {
     if (typeof value !== "string") {
         return value;
@@ -122,6 +129,7 @@ module.exports = {
     VIOLATION_STATUSES,
     VIOLATION_TYPE_STATUSES,
     BUILDING_CHANGE_REQUEST_STATUSES,
+    STAFF_ROLE_REQUEST_STATUSES,
     normalizeEnum,
     normalizeRole,
     isValidEnumValue,
