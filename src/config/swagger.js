@@ -624,7 +624,7 @@ const options = {
                             type: "integer",
                             nullable: true,
                             example: 50000,
-                            description: "Optional when violationTypeId is provided; defaults to violation type price.",
+                            description: "Required for a custom violation. When violationTypeId is provided, the configured catalog price is always used.",
                         },
                         detectedAt: {
                             type: "string",

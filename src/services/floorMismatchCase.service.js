@@ -127,6 +127,7 @@ const getObservedFloorForUpdate = async (connection, floorId) => {
 };
 
 const getOrCreateViolationType = async ({
+    code,
     connection,
     defaultPenaltyFee,
     description,
@@ -135,32 +136,31 @@ const getOrCreateViolationType = async ({
 }) => {
     await connection.query(
         `INSERT INTO violation_types
-            (name, default_penalty_fee, status, description, created_by)
-         VALUES (?, ?, 'ACTIVE', ?, ?)
+            (code, name, default_penalty_fee, status, description, created_by)
+         VALUES (?, ?, ?, 'ACTIVE', ?, ?)
          ON DUPLICATE KEY UPDATE
-            status = 'ACTIVE',
-            default_penalty_fee = IF(default_penalty_fee > 0, default_penalty_fee, VALUES(default_penalty_fee)),
-            description = COALESCE(description, VALUES(description)),
-            updated_at = CURRENT_TIMESTAMP`,
-        [name, defaultPenaltyFee, description || null, staffId || null]
+            code = VALUES(code)`,
+        [code, name, defaultPenaltyFee, description || null, staffId || null]
     );
 
     const [rows] = await connection.query(
-        `SELECT id, name, default_penalty_fee AS defaultPenaltyFee
+        `SELECT id, code, name, default_penalty_fee AS defaultPenaltyFee
          FROM violation_types
-         WHERE name = ?
+         WHERE code = ?
          LIMIT 1`,
-        [name]
+        [code]
     );
 
     return rows[0] || {
         id: null,
+        code,
         name,
         defaultPenaltyFee,
     };
 };
 
 const createViolationForSession = async ({
+    code,
     connection,
     defaultPenaltyFee,
     description,
@@ -171,6 +171,7 @@ const createViolationForSession = async ({
     staffId,
 }) => {
     const type = await getOrCreateViolationType({
+        code,
         connection,
         defaultPenaltyFee,
         description,
@@ -382,11 +383,12 @@ const reportFloorMismatch = async ({
 
         if (session.vehicleType === "MOTORBIKE") {
             const violationId = await createViolationForSession({
+                code: "MOTORBIKE_WRONG_FLOOR",
                 connection,
                 defaultPenaltyFee: 70000,
-                description: "Xe may vao khu do oto",
+                description: "Xe máy đi vào khu ô tô và được đưa về khu vực an toàn",
                 evidenceUrl,
-                name: "Xe may vao khu oto",
+                name: "Xe máy đậu sai khu",
                 note:
                     note ||
                     "Xe may vao tang oto; nhan vien dua xe vao goc an toan va khoa xe.",
@@ -601,11 +603,12 @@ const confirmFloorMismatch = async ({ force, id, staffId }) => {
         }
 
         const violationId = await createViolationForSession({
+            code: "CAR_WRONG_FLOOR_TOW",
             connection,
             defaultPenaltyFee: 250000,
-            description: "Oto vao khu xe may va phai keo ve o chi dinh",
+            description: "Ô tô đi vào khu xe máy và được đưa về ô chỉ định",
             evidenceUrl: floorCase.evidence_url || null,
-            name: "Keo oto do sai khu",
+            name: "Ô tô đậu sai khu",
             note:
                 floorCase.note ||
                 "Oto vao tang xe may, qua thoi gian phan hoi nen duoc keo ve o chi dinh.",

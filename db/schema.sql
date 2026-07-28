@@ -405,6 +405,7 @@ CREATE TABLE IF NOT EXISTS payments (
 
 CREATE TABLE IF NOT EXISTS violation_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(60) NULL,
     name VARCHAR(150) NOT NULL,
     default_penalty_fee DECIMAL(12, 2) NOT NULL DEFAULT 0,
     status ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
@@ -412,12 +413,38 @@ CREATE TABLE IF NOT EXISTS violation_types (
     created_by INT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_violation_types_code (code),
     UNIQUE KEY uq_violation_types_name (name),
     INDEX idx_violation_types_status (status),
     CONSTRAINT fk_violation_types_created_by
         FOREIGN KEY (created_by) REFERENCES users(id)
         ON DELETE SET NULL
 );
+
+INSERT IGNORE INTO violation_types
+    (code, name, default_penalty_fee, status, description)
+VALUES
+    (
+        'WRONG_SLOT',
+        'Ô tô đậu sai ô',
+        50000,
+        'ACTIVE',
+        'Ô tô đậu sai ô được chỉ định hoặc chiếm ô đã được giữ'
+    ),
+    (
+        'MOTORBIKE_WRONG_FLOOR',
+        'Xe máy đậu sai khu',
+        70000,
+        'ACTIVE',
+        'Xe máy đi vào khu ô tô và được đưa về khu vực an toàn'
+    ),
+    (
+        'CAR_WRONG_FLOOR_TOW',
+        'Ô tô đậu sai khu',
+        250000,
+        'ACTIVE',
+        'Ô tô đi vào khu xe máy và phát sinh chi phí đưa xe về ô chỉ định'
+    );
 
 CREATE TABLE IF NOT EXISTS violations (
     id INT AUTO_INCREMENT PRIMARY KEY,

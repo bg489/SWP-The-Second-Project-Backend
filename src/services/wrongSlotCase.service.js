@@ -124,26 +124,25 @@ const findReplacementSlot = async (executor, { buildingId, excludeSlotId }) => {
 const getWrongSlotPenalty = async (executor, staffId) => {
     await executor.query(
         `INSERT INTO violation_types
-            (name, default_penalty_fee, status, description, created_by)
-         VALUES ('WRONG_SLOT', 50000, 'ACTIVE', 'Oto dau sai o duoc chi dinh', ?)
+            (code, name, default_penalty_fee, status, description, created_by)
+         VALUES ('WRONG_SLOT', 'Ô tô đậu sai ô', 50000, 'ACTIVE', 'Ô tô đậu sai ô được chỉ định', ?)
          ON DUPLICATE KEY UPDATE
-            status = 'ACTIVE',
-            default_penalty_fee = IF(default_penalty_fee > 0, default_penalty_fee, VALUES(default_penalty_fee)),
-            updated_at = CURRENT_TIMESTAMP`,
+            code = VALUES(code)`,
         [staffId || null]
     );
 
     const [rows] = await executor.query(
-        `SELECT id, name, default_penalty_fee AS defaultPenaltyFee
+        `SELECT id, code, name, default_penalty_fee AS defaultPenaltyFee
          FROM violation_types
-         WHERE name = 'WRONG_SLOT'
+         WHERE code = 'WRONG_SLOT'
          LIMIT 1`,
         []
     );
 
     return rows[0] || {
         id: null,
-        name: "WRONG_SLOT",
+        code: "WRONG_SLOT",
+        name: "Ô tô đậu sai ô",
         defaultPenaltyFee: 50000,
     };
 };
