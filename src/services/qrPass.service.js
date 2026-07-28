@@ -24,6 +24,7 @@ const qrPassSelect = `
         mp.end_date AS monthlyPassEndDate,
         sr.slot_id AS slotId,
         ps.floor_id AS slotFloorId,
+        pf.name AS slotFloorName,
         ps.slot_code AS slotCode,
         qp.valid_from AS validFrom,
         qp.valid_to AS validTo,
@@ -38,6 +39,7 @@ const qrPassSelect = `
     LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
     LEFT JOIN slot_registrations sr ON qp.slot_registration_id = sr.id
     LEFT JOIN parking_slots ps ON sr.slot_id = ps.id
+    LEFT JOIN parking_floors pf ON ps.floor_id = pf.id
     LEFT JOIN buildings b ON COALESCE(mp.building_id, sr.building_id) = b.id
 `;
 

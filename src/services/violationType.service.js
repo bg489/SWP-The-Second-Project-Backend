@@ -3,6 +3,7 @@ const db = require("../config/db");
 const violationTypeSelect = `
     SELECT
         vt.id,
+        vt.code,
         vt.name,
         vt.default_penalty_fee AS defaultPenaltyFee,
         vt.status,
@@ -58,7 +59,7 @@ const getViolationTypes = async ({ q, status } = {}) => {
     const [rows] = await db.query(
         `${violationTypeSelect}
          ${whereSql}
-         ORDER BY vt.status ASC, vt.name ASC, vt.id DESC`,
+         ORDER BY (vt.code IS NULL) ASC, vt.status ASC, vt.name ASC, vt.id DESC`,
         params
     );
 

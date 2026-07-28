@@ -77,12 +77,9 @@ const createViolation = async (req, res) => {
             }
 
             violationType = violationTypeRecord.name;
-
-            if (penaltyFee === null) {
-                penaltyFee = parseNonNegativeAmount(
-                    violationTypeRecord.defaultPenaltyFee
-                );
-            }
+            penaltyFee = parseNonNegativeAmount(
+                violationTypeRecord.defaultPenaltyFee
+            );
         }
 
         if (!plateNumber) {

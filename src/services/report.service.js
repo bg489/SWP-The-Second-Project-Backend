@@ -572,16 +572,32 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
     const filters = appendCondition(range, "ps.building_id = ?", buildingId);
     const paidFilters = appendCondition(filters, "ps.payment_status = ?", "PAID");
 
-    const [rows] = await db.query(
+    const [violationRows] = await db.query(
         `SELECT
+            v.id AS violationId,
             COALESCE(vt.name, v.violation_type) AS violationName,
-            COUNT(*) AS violationCount,
-            COALESCE(SUM(v.penalty_fee), 0) AS totalPenalty,
-            COALESCE(SUM(v.penalty_fee), 0) AS paidPenalty,
-            GROUP_CONCAT(DISTINCT b.name ORDER BY b.name SEPARATOR ', ') AS buildingNames,
-            GROUP_CONCAT(DISTINCT COALESCE(owner.name, 'Khach vang lai') ORDER BY owner.name SEPARATOR ', ') AS userNames,
-            GROUP_CONCAT(DISTINCT v.plate_number ORDER BY v.plate_number SEPARATOR ', ') AS plateNumbers,
-            GROUP_CONCAT(DISTINCT v.vehicle_type ORDER BY v.vehicle_type SEPARATOR ', ') AS vehicleTypes
+            v.penalty_fee AS penaltyFee,
+            v.detected_at AS detectedAt,
+            v.evidence_url AS evidenceUrl,
+            v.status AS violationStatus,
+            ps.id AS sessionId,
+            ps.user_id AS userId,
+            ps.vehicle_id AS vehicleId,
+            ps.plate_number AS plateNumber,
+            ps.vehicle_type AS vehicleType,
+            ps.customer_type AS customerType,
+            ps.check_in_at AS checkInAt,
+            ps.check_out_at AS checkOutAt,
+            ps.payment_status AS paymentStatus,
+            ps.building_id AS buildingId,
+            b.name AS buildingName,
+            owner.name AS ownerName,
+            owner.email AS ownerEmail,
+            owner.phone AS ownerPhone,
+            vehicle.brand,
+            vehicle.color,
+            floor.name AS floorName,
+            slot.slot_code AS slotCode
          FROM violations v
          LEFT JOIN violation_types vt ON v.violation_type_id = vt.id
          INNER JOIN parking_sessions ps ON v.parking_session_id = ps.id
@@ -593,11 +609,94 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
             LIMIT 1
          )
          LEFT JOIN users owner ON ps.user_id = owner.id
+         LEFT JOIN vehicles vehicle ON ps.vehicle_id = vehicle.id
          LEFT JOIN buildings b ON ps.building_id = b.id
+         LEFT JOIN parking_floors floor ON ps.floor_id = floor.id
+         LEFT JOIN parking_slots slot ON ps.slot_id = slot.id
          ${paidFilters.whereSql}
-         GROUP BY COALESCE(vt.name, v.violation_type)
-         ORDER BY paidPenalty DESC, totalPenalty DESC, violationName ASC`,
+         ORDER BY violationName ASC, v.detected_at DESC, v.id DESC`,
         paidFilters.params
+    );
+
+    const groupedViolations = new Map();
+
+    violationRows.forEach((row) => {
+        const key = row.violationName || "Vi phạm chưa đặt tên";
+        const group = groupedViolations.get(key) || {
+            buildingNames: new Set(),
+            paidPenalty: 0,
+            plateNumbers: new Set(),
+            relatedVehicles: new Map(),
+            totalPenalty: 0,
+            userNames: new Set(),
+            vehicleTypes: new Set(),
+            violationCount: 0,
+            violationName: key,
+        };
+        const penaltyFee = Number(row.penaltyFee || 0);
+        const vehicleKey = row.sessionId
+            ? `session-${row.sessionId}`
+            : `vehicle-${row.vehicleId || row.buildingId || "none"}-${row.plateNumber}`;
+        const relatedVehicle = group.relatedVehicles.get(vehicleKey) || {
+            brand: row.brand || null,
+            buildingId: row.buildingId ? Number(row.buildingId) : null,
+            buildingName: row.buildingName || null,
+            checkInAt: row.checkInAt || null,
+            checkOutAt: row.checkOutAt || null,
+            color: row.color || null,
+            customerType: row.customerType || null,
+            floorName: row.floorName || null,
+            ownerEmail: row.ownerEmail || null,
+            ownerName: row.ownerName || "Khách vãng lai",
+            ownerPhone: row.ownerPhone || null,
+            paidPenalty: 0,
+            paymentStatus: row.paymentStatus || null,
+            plateNumber: row.plateNumber,
+            sessionId: row.sessionId ? Number(row.sessionId) : null,
+            slotCode: row.slotCode || null,
+            userId: row.userId ? Number(row.userId) : null,
+            vehicleId: row.vehicleId ? Number(row.vehicleId) : null,
+            vehicleType: row.vehicleType,
+            violationCount: 0,
+            violations: [],
+        };
+
+        group.violationCount += 1;
+        group.totalPenalty += penaltyFee;
+        group.paidPenalty += penaltyFee;
+        if (row.buildingName) group.buildingNames.add(row.buildingName);
+        group.userNames.add(row.ownerName || "Khách vãng lai");
+        if (row.plateNumber) group.plateNumbers.add(row.plateNumber);
+        if (row.vehicleType) group.vehicleTypes.add(row.vehicleType);
+
+        relatedVehicle.violationCount += 1;
+        relatedVehicle.paidPenalty += penaltyFee;
+        relatedVehicle.violations.push({
+            detectedAt: row.detectedAt,
+            evidenceUrl: row.evidenceUrl || null,
+            id: Number(row.violationId),
+            penaltyFee,
+            status: row.violationStatus,
+        });
+        group.relatedVehicles.set(vehicleKey, relatedVehicle);
+        groupedViolations.set(key, group);
+    });
+
+    const rows = [...groupedViolations.values()].map((group) => ({
+        buildingNames: [...group.buildingNames].sort().join(", "),
+        paidPenalty: group.paidPenalty,
+        plateNumbers: [...group.plateNumbers].sort().join(", "),
+        relatedVehicles: [...group.relatedVehicles.values()].sort((left, right) =>
+            String(left.plateNumber || "").localeCompare(String(right.plateNumber || ""), "vi")
+        ),
+        totalPenalty: group.totalPenalty,
+        userNames: [...group.userNames].sort().join(", "),
+        vehicleTypes: [...group.vehicleTypes].sort().join(", "),
+        violationCount: group.violationCount,
+        violationName: group.violationName,
+    })).sort((left, right) =>
+        Number(right.paidPenalty || 0) - Number(left.paidPenalty || 0)
+        || String(left.violationName).localeCompare(String(right.violationName), "vi")
     );
 
     const [unclassifiedRows] = await db.query(
@@ -648,6 +747,15 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
             buildingNames: uniqueValues("buildingName"),
             paidPenalty: unclassifiedPenalty,
             plateNumbers: uniqueValues("plateNumber"),
+            relatedVehicles: unclassifiedRows.map((row) => ({
+                buildingName: row.buildingName || null,
+                ownerName: row.ownerName || "Khách vãng lai",
+                paidPenalty: Number(row.unclassifiedPenalty || 0),
+                plateNumber: row.plateNumber,
+                sessionId: Number(row.sessionId),
+                violationCount: 1,
+                violations: [],
+            })),
             totalPenalty: unclassifiedPenalty,
             userNames: uniqueValues("ownerName"),
             vehicleTypes: null,
@@ -930,6 +1038,7 @@ const getFullReport = async ({ from, to, buildingId } = {}) => {
         scope: {
             buildingCount: capacity.length,
             buildingId: buildingId ? Number(buildingId) : null,
+            buildingName: buildingId ? capacity[0]?.buildingName || null : null,
             type: buildingId ? "BUILDING" : "SYSTEM",
         },
         tickets,
