@@ -62,13 +62,18 @@ const formatPlateNumber = (value) => {
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "");
 
-    if (!/^\d{2}[A-Z][A-Z0-9]?\d{5}$/.test(normalized)) {
-        return String(value || "").trim().toUpperCase();
+    if (/^\d{2}[A-Z][A-Z0-9]?\d{5}$/.test(normalized)) {
+        const serial = normalized.slice(-5);
+        const prefix = normalized.slice(0, -5);
+        return `${prefix}-${serial.slice(0, 3)}.${serial.slice(3)}`;
     }
 
-    const serial = normalized.slice(-5);
-    const prefix = normalized.slice(0, -5);
-    return `${prefix}-${serial.slice(0, 3)}.${serial.slice(3)}`;
+    const letterNumberMatch = normalized.match(/^([A-Z]{1,4})(\d{3,6})$/);
+    if (letterNumberMatch) {
+        return `${letterNumberMatch[1]}-${letterNumberMatch[2]}`;
+    }
+
+    return normalized;
 };
 
 const extractPlateNumber = (recognizedText) => {
@@ -81,8 +86,14 @@ const extractPlateNumber = (recognizedText) => {
         .split(/[^A-Z0-9]+/)
         .map((token) => token.replace(/[^A-Z0-9]/g, ""))
         .filter(Boolean);
+    const adjacentTokens = compactTokens
+        .slice(0, -1)
+        .map((token, index) => `${token}${compactTokens[index + 1]}`)
+        .filter((token) => token.length <= 10);
     const allText = rawText.replace(/[^A-Z0-9]/g, "");
-    const sources = [...new Set([...compactLines, ...compactTokens, allText])];
+    const sources = [
+        ...new Set([...compactLines, ...compactTokens, ...adjacentTokens, allText]),
+    ];
     const layouts = ["DDLDDDDDD", "DDLLDDDDD", "DDLDDDDD"];
     const candidates = [];
 
@@ -115,7 +126,26 @@ const extractPlateNumber = (recognizedText) => {
         || left.start - right.start
     );
 
-    return candidates[0] ? formatPlateNumber(candidates[0].value) : "";
+    if (candidates[0]) {
+        return formatPlateNumber(candidates[0].value);
+    }
+
+    const genericCandidates = sources
+        .filter((source) =>
+            source.length >= 4
+            && source.length <= 10
+            && /[A-Z]/.test(source)
+            && (source.match(/\d/g) || []).length >= 2
+        )
+        .sort((left, right) => {
+            const leftTransitions = (left.match(/[A-Z](?=\d)|\d(?=[A-Z])/g) || []).length;
+            const rightTransitions = (right.match(/[A-Z](?=\d)|\d(?=[A-Z])/g) || []).length;
+
+            return rightTransitions - leftTransitions
+                || Math.abs(left.length - 7) - Math.abs(right.length - 7);
+        });
+
+    return genericCandidates[0] ? formatPlateNumber(genericCandidates[0]) : "";
 };
 
 const createRecognitionWorker = async () => {
