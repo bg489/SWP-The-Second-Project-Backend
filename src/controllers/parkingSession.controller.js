@@ -1,5 +1,6 @@
 const { PARKING_FEES } = require("../constants/pricing");
 const parkingSessionService = require("../services/parkingSession.service");
+const plateRecognitionService = require("../services/plateRecognition.service");
 const pricingPolicyService = require("../services/pricingPolicy.service");
 const qrPassService = require("../services/qrPass.service");
 const tempQrCardService = require("../services/tempQrCard.service");
@@ -7,9 +8,11 @@ const userService = require("../services/user.service");
 const violationService = require("../services/violation.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
+const { ROLES } = require("../utils/constants");
 
 const VALID_VEHICLE_TYPES = ["MOTORBIKE", "CAR"];
 const VALID_MANUAL_PAYMENT_METHODS = ["CASH", "CARD"];
+const VALID_DAILY_ACTIVITY_FILTERS = ["ALL", "CURRENTLY_PARKED", "ENTERED", "EXITED"];
 
 const isValidId = (id) => {
     const numberId = Number(id);
@@ -30,6 +33,27 @@ const normalizePlateCode = (value) =>
         .trim()
         .toUpperCase()
         .replace(/[\s.-]/g, "");
+
+const getVietnamDate = () =>
+    new Intl.DateTimeFormat("en-CA", {
+        day: "2-digit",
+        month: "2-digit",
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+    }).format(new Date());
+
+const isValidDateOnly = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) {
+        return false;
+    }
+
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    return date.getUTCFullYear() === year
+        && date.getUTCMonth() === month - 1
+        && date.getUTCDate() === day;
+};
 
 const parseNonNegativeAmount = (value) => {
     if (value === undefined || value === null || value === "") {
@@ -579,6 +603,80 @@ const getActiveSessions = async (req, res) => {
     }
 };
 
+const getDailyActivity = async (req, res) => {
+    try {
+        const date = String(req.query.date || getVietnamDate()).trim();
+        const activity = normalizeEnum(req.query.activity) || "ALL";
+        const vehicleType = normalizeEnum(req.query.vehicleType);
+        const requestedBuildingId = req.query.buildingId;
+
+        if (!isValidDateOnly(date)) {
+            return errorResponse(res, "Ngày xem lượt xe không hợp lệ.", 400);
+        }
+
+        if (!VALID_DAILY_ACTIVITY_FILTERS.includes(activity)) {
+            return errorResponse(res, "Trạng thái lượt xe không hợp lệ.", 400);
+        }
+
+        if (vehicleType && !VALID_VEHICLE_TYPES.includes(vehicleType)) {
+            return errorResponse(res, "Loại xe không hợp lệ.", 400);
+        }
+
+        if (requestedBuildingId && !isValidId(requestedBuildingId)) {
+            return errorResponse(res, "Tòa nhà không hợp lệ.", 400);
+        }
+
+        let buildingId = requestedBuildingId ? Number(requestedBuildingId) : null;
+
+        if (req.user.role === ROLES.STAFF) {
+            if (!req.user.buildingId) {
+                return errorResponse(res, "Nhân viên chưa được phân công tòa nhà.", 400);
+            }
+
+            if (buildingId && Number(buildingId) !== Number(req.user.buildingId)) {
+                return errorResponse(res, "Bạn chỉ được xem lượt xe của tòa nhà đang làm việc.", 403);
+            }
+
+            buildingId = Number(req.user.buildingId);
+        }
+
+        const data = await parkingSessionService.getDailyActivity({
+            activity,
+            buildingId,
+            date,
+            search: String(req.query.search || "").trim().slice(0, 100),
+            vehicleType,
+        });
+
+        return successResponse(res, "Lấy lượt xe ra vào trong ngày thành công.", data);
+    } catch (error) {
+        return errorResponse(res, "Lỗi lấy lượt xe ra vào trong ngày.", 500, error.message);
+    }
+};
+
+const recognizePlate = async (req, res) => {
+    try {
+        if (!req.file?.buffer) {
+            return errorResponse(res, "Ảnh biển số không hợp lệ.", 400);
+        }
+
+        if (req.file.buffer.length < 100 || req.file.buffer.length > 8 * 1024 * 1024) {
+            return errorResponse(res, "Ảnh biển số phải nhỏ hơn 8 MB.", 400);
+        }
+
+        const result = await plateRecognitionService.recognizePlate(req.file.buffer);
+        return successResponse(
+            res,
+            result.plateNumber
+                ? "Đã nhận diện biển số xe."
+                : "Chưa đọc rõ biển số xe từ ảnh.",
+            result
+        );
+    } catch (error) {
+        return errorResponse(res, "Lỗi nhận diện biển số xe.", 500, error.message);
+    }
+};
+
 const getMyActiveSessions = async (req, res) => {
     try {
         const sessions = await parkingSessionService.getActiveSessionsByUserId(
@@ -647,6 +745,8 @@ module.exports = {
     checkOut,
     checkOutByQr,
     getActiveSessions,
+    getDailyActivity,
     getMyActiveSessions,
     getSessionById,
+    recognizePlate,
 };

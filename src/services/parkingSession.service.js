@@ -334,6 +334,212 @@ const getActiveSessionsByUserId = async (userId) => {
     return rows;
 };
 
+const createDailySummary = () => ({
+    currentlyParked: { total: 0, motorbike: 0, car: 0 },
+    enteredToday: { total: 0, motorbike: 0, car: 0 },
+    exitedToday: { total: 0, motorbike: 0, car: 0 },
+});
+
+const addDailySummaryValues = (summary, vehicleType, values) => {
+    if (!["MOTORBIKE", "CAR"].includes(vehicleType)) {
+        return;
+    }
+
+    const key = vehicleType === "CAR" ? "car" : "motorbike";
+
+    Object.entries(values).forEach(([metric, rawValue]) => {
+        const value = Number(rawValue || 0);
+        summary[metric][key] += value;
+        summary[metric].total += value;
+    });
+};
+
+const getDailyActivity = async ({
+    activity = "ALL",
+    buildingId,
+    date,
+    search,
+    vehicleType,
+} = {}) => {
+    const startAt = `${date} 00:00:00`;
+    const endAt = `${date} 23:59:59`;
+    const summaryConditions = [];
+    const summaryParams = [startAt, endAt, startAt, endAt];
+
+    if (buildingId) {
+        summaryConditions.push("b.id = ?");
+        summaryParams.push(buildingId);
+    }
+
+    const [summaryRows] = await db.query(
+        `SELECT
+            b.id AS buildingId,
+            b.name AS buildingName,
+            b.address AS buildingAddress,
+            ps.vehicle_type AS vehicleType,
+            SUM(CASE WHEN ps.status IN ('ACTIVE', 'PENDING_PAYMENT') THEN 1 ELSE 0 END) AS currentlyParked,
+            SUM(CASE WHEN ps.check_in_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS enteredToday,
+            SUM(CASE
+                WHEN ps.status = 'COMPLETED' AND ps.check_out_at BETWEEN ? AND ? THEN 1
+                ELSE 0
+            END) AS exitedToday
+         FROM buildings b
+         LEFT JOIN parking_sessions ps ON ps.building_id = b.id
+         ${summaryConditions.length ? `WHERE ${summaryConditions.join(" AND ")}` : ""}
+         GROUP BY b.id, b.name, b.address, ps.vehicle_type
+         ORDER BY b.name ASC, b.id ASC`,
+        summaryParams
+    );
+
+    const summary = createDailySummary();
+    const summariesByBuilding = new Map();
+
+    summaryRows.forEach((row) => {
+        const buildingKey = String(row.buildingId);
+
+        if (!summariesByBuilding.has(buildingKey)) {
+            summariesByBuilding.set(buildingKey, {
+                buildingId: Number(row.buildingId),
+                buildingName: row.buildingName,
+                buildingAddress: row.buildingAddress,
+                ...createDailySummary(),
+            });
+        }
+
+        const values = {
+            currentlyParked: row.currentlyParked,
+            enteredToday: row.enteredToday,
+            exitedToday: row.exitedToday,
+        };
+
+        addDailySummaryValues(summary, row.vehicleType, values);
+        addDailySummaryValues(
+            summariesByBuilding.get(buildingKey),
+            row.vehicleType,
+            values
+        );
+    });
+
+    const conditions = [];
+    const params = [startAt, endAt, startAt, endAt];
+
+    if (buildingId) {
+        conditions.push("ps.building_id = ?");
+        params.push(buildingId);
+    }
+
+    if (vehicleType) {
+        conditions.push("ps.vehicle_type = ?");
+        params.push(vehicleType);
+    }
+
+    if (activity === "CURRENTLY_PARKED") {
+        conditions.push("ps.status IN ('ACTIVE', 'PENDING_PAYMENT')");
+    } else if (activity === "ENTERED") {
+        conditions.push("ps.check_in_at BETWEEN ? AND ?");
+        params.push(startAt, endAt);
+    } else if (activity === "EXITED") {
+        conditions.push("ps.status = 'COMPLETED' AND ps.check_out_at BETWEEN ? AND ?");
+        params.push(startAt, endAt);
+    } else {
+        conditions.push(
+            `(ps.status IN ('ACTIVE', 'PENDING_PAYMENT')
+                OR ps.check_in_at BETWEEN ? AND ?
+                OR (ps.status = 'COMPLETED' AND ps.check_out_at BETWEEN ? AND ?))`
+        );
+        params.push(startAt, endAt, startAt, endAt);
+    }
+
+    if (search) {
+        const normalizedSearch = String(search)
+            .toUpperCase()
+            .replace(/[\s.-]/g, "");
+        const textSearch = `%${search}%`;
+        const plateSearch = `%${normalizedSearch}%`;
+
+        conditions.push(
+            `(REPLACE(REPLACE(REPLACE(UPPER(ps.plate_number), '-', ''), '.', ''), ' ', '') LIKE ?
+                OR owner.name LIKE ?
+                OR owner.email LIKE ?
+                OR owner.phone LIKE ?
+                OR b.name LIKE ?)`
+        );
+        params.push(plateSearch, textSearch, textSearch, textSearch, textSearch);
+    }
+
+    const [sessions] = await db.query(
+        `SELECT
+            ps.id,
+            ps.user_id AS userId,
+            ps.vehicle_id AS vehicleId,
+            ps.building_id AS buildingId,
+            b.name AS buildingName,
+            b.address AS buildingAddress,
+            ps.floor_id AS floorId,
+            f.name AS floorName,
+            ps.slot_id AS slotId,
+            slot.slot_code AS slotCode,
+            ps.monthly_pass_id AS monthlyPassId,
+            ps.temp_qr_card_id AS tempQrCardId,
+            tempQr.card_code AS tempQrCardCode,
+            ps.session_qr_code AS sessionQrCode,
+            ps.plate_number AS plateNumber,
+            ps.vehicle_type AS vehicleType,
+            ps.customer_type AS customerType,
+            ps.pricing_type AS pricingType,
+            ps.status,
+            ps.check_in_at AS checkInAt,
+            ps.check_out_at AS checkOutAt,
+            ps.base_fee AS baseFee,
+            ps.violation_fee AS violationFee,
+            ps.total_amount AS totalAmount,
+            ps.payment_status AS paymentStatus,
+            ps.payment_method AS paymentMethod,
+            owner.name AS ownerName,
+            owner.email AS ownerEmail,
+            owner.phone AS ownerPhone,
+            owner.avatar_url AS ownerAvatarUrl,
+            vehicle.brand AS vehicleBrand,
+            vehicle.color AS vehicleColor,
+            vehicle.plate_image_url AS plateImageUrl,
+            checkInStaff.name AS checkInStaffName,
+            checkOutStaff.name AS checkOutStaffName,
+            CASE WHEN ps.check_in_at BETWEEN ? AND ? THEN 1 ELSE 0 END AS enteredOnDate,
+            CASE
+                WHEN ps.status = 'COMPLETED' AND ps.check_out_at BETWEEN ? AND ? THEN 1
+                ELSE 0
+            END AS exitedOnDate,
+            CASE WHEN ps.status IN ('ACTIVE', 'PENDING_PAYMENT') THEN 1 ELSE 0 END AS currentlyParked
+         FROM parking_sessions ps
+         INNER JOIN buildings b ON ps.building_id = b.id
+         INNER JOIN parking_floors f ON ps.floor_id = f.id
+         LEFT JOIN parking_slots slot ON ps.slot_id = slot.id
+         LEFT JOIN temporary_qr_cards tempQr ON ps.temp_qr_card_id = tempQr.id
+         LEFT JOIN users owner ON ps.user_id = owner.id
+         LEFT JOIN vehicles vehicle ON ps.vehicle_id = vehicle.id
+         LEFT JOIN users checkInStaff ON ps.check_in_staff_id = checkInStaff.id
+         LEFT JOIN users checkOutStaff ON ps.check_out_staff_id = checkOutStaff.id
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY COALESCE(ps.check_out_at, ps.check_in_at) DESC, ps.id DESC`,
+        params
+    );
+
+    return {
+        date,
+        scope: {
+            buildingId: buildingId ? Number(buildingId) : null,
+        },
+        summary,
+        buildingSummaries: [...summariesByBuilding.values()],
+        sessions: sessions.map((session) => ({
+            ...session,
+            currentlyParked: Boolean(session.currentlyParked),
+            enteredOnDate: Boolean(session.enteredOnDate),
+            exitedOnDate: Boolean(session.exitedOnDate),
+        })),
+    };
+};
+
 const normalizeQrLookupCode = (value) =>
     String(value || "")
         .trim()
@@ -601,6 +807,7 @@ module.exports = {
     getActiveSessionByQrCode,
     getActiveSessions,
     getActiveSessionsByUserId,
+    getDailyActivity,
     getCarSlotForCheckIn,
     getMotorbikeFloorForCheckIn,
     getSessionById,

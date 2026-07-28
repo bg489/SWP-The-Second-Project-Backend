@@ -1,9 +1,33 @@
 const express = require("express");
+const multer = require("multer");
 const router = express.Router();
 
 const parkingSessionController = require("../controllers/parkingSession.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const { parkingStaffMiddleware } = require("../middlewares/role.middleware");
+const { errorResponse } = require("../utils/response");
+
+const plateImageUpload = multer({
+    limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+    storage: multer.memoryStorage(),
+    fileFilter: (_req, file, callback) => {
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+            return callback(new Error("Vui lòng chọn ảnh JPEG, PNG hoặc WebP."));
+        }
+
+        return callback(null, true);
+    },
+});
+
+const plateImageUploadMiddleware = (req, res, next) => {
+    plateImageUpload.single("image")(req, res, (error) => {
+        if (error) {
+            return errorResponse(res, error.message || "Ảnh biển số không hợp lệ.", 400);
+        }
+
+        return next();
+    });
+};
 
 /**
  * @swagger
@@ -60,6 +84,84 @@ router.get(
     authMiddleware,
     parkingStaffMiddleware,
     parkingSessionController.getActiveSessions
+);
+
+/**
+ * @swagger
+ * /api/parking-sessions/daily-activity:
+ *   get:
+ *     summary: View daily parking traffic, current occupancy and vehicle owner details
+ *     tags: [Parking Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: buildingId
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: vehicleType
+ *         schema:
+ *           type: string
+ *           enum: [MOTORBIKE, CAR]
+ *       - in: query
+ *         name: activity
+ *         schema:
+ *           type: string
+ *           enum: [ALL, CURRENTLY_PARKED, ENTERED, EXITED]
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Daily parking activity loaded successfully
+ *       403:
+ *         description: Staff can only view their assigned building
+ */
+router.get(
+    "/daily-activity",
+    authMiddleware,
+    parkingStaffMiddleware,
+    parkingSessionController.getDailyActivity
+);
+
+/**
+ * @swagger
+ * /api/parking-sessions/recognize-plate:
+ *   post:
+ *     summary: Read a vehicle plate number from a captured image
+ *     tags: [Parking Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [image]
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Plate recognition completed
+ *       400:
+ *         description: Invalid image
+ */
+router.post(
+    "/recognize-plate",
+    authMiddleware,
+    parkingStaffMiddleware,
+    plateImageUploadMiddleware,
+    parkingSessionController.recognizePlate
 );
 
 router.get(
