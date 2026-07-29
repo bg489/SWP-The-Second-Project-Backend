@@ -100,7 +100,7 @@ const getMonthlyPasses = async (req, res) => {
         const currentUser = await userService.getUserById(req.user.id);
         const currentRole = normalizeRole(req.user.role);
         const buildingId =
-            currentRole === ROLES.ADMIN
+            [ROLES.ADMIN, ROLES.MANAGER].includes(currentRole)
                 ? req.query.buildingId
                 : currentUser?.buildingId || req.query.buildingId;
         const monthlyPasses = await monthlyPassService.getMonthlyPasses({
