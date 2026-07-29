@@ -5,8 +5,26 @@ const monthlyPassSelect = `
         mp.id,
         mp.user_id AS userId,
         u.name AS ownerName,
+        u.email AS ownerEmail,
+        u.phone AS ownerPhone,
+        u.role AS ownerRole,
+        u.status AS ownerStatus,
+        u.building_id AS ownerBuildingId,
+        u.avatar_url AS ownerAvatarUrl,
+        u.avatar_crop_x AS ownerAvatarCropX,
+        u.avatar_crop_y AS ownerAvatarCropY,
+        u.avatar_crop_zoom AS ownerAvatarCropZoom,
+        u.created_at AS ownerCreatedAt,
+        ub.name AS ownerBuildingName,
+        ub.address AS ownerBuildingAddress,
         mp.vehicle_id AS vehicleId,
         v.plate_number AS plateNumber,
+        v.brand AS vehicleBrand,
+        v.color AS vehicleColor,
+        v.status AS vehicleStatus,
+        v.plate_image_url AS plateImageUrl,
+        v.vehicle_portrait_image_url AS vehiclePortraitImageUrl,
+        v.vehicle_landscape_image_url AS vehicleLandscapeImageUrl,
         mp.building_id AS buildingId,
         b.name AS buildingName,
         mp.slot_registration_id AS slotRegistrationId,
@@ -36,6 +54,7 @@ const monthlyPassSelect = `
     FROM monthly_passes mp
     INNER JOIN vehicles v ON mp.vehicle_id = v.id
     LEFT JOIN users u ON mp.user_id = u.id
+    LEFT JOIN buildings ub ON u.building_id = ub.id
     LEFT JOIN buildings b ON mp.building_id = b.id
     LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
     LEFT JOIN payments p ON p.monthly_pass_id = mp.id
