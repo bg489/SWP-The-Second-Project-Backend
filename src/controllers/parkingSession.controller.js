@@ -6,6 +6,7 @@ const qrPassService = require("../services/qrPass.service");
 const tempQrCardService = require("../services/tempQrCard.service");
 const userService = require("../services/user.service");
 const violationService = require("../services/violation.service");
+const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 const { ROLES } = require("../utils/constants");
@@ -84,6 +85,30 @@ const calculateBaseFee = async (session) => {
         return {
             baseFee: 0,
             durationHours: 0,
+        };
+    }
+
+    if (session.hourlyReservationId) {
+        const hourlyAmount = await getPolicyAmount({
+            buildingId: session.buildingId,
+            fallbackAmount: PARKING_FEES.CAR_HOURLY,
+            pricingType: "HOURLY",
+            vehicleType: "CAR",
+        });
+        const reservationEndAt = new Date(session.hourlyReservationEndAt);
+        const overtimeMs = Math.max(
+            Date.now() - reservationEndAt.getTime(),
+            0
+        );
+        const durationHours =
+            overtimeMs > 0
+                ? Math.ceil(overtimeMs / (60 * 60 * 1000))
+                : 0;
+
+        return {
+            baseFee: durationHours * hourlyAmount,
+            durationHours,
+            reservationCoveredUntil: session.hourlyReservationEndAt,
         };
     }
 
@@ -237,6 +262,16 @@ const checkIn = async (req, res) => {
                 Number(activeMonthlyPass.buildingId) === Number(buildingId))
                 ? activeMonthlyPass
                 : null;
+        const hourlyReservation =
+            vehicleType === "CAR" && !monthlyPass
+                ? await hourlySlotReservationService.getReservationForCheckIn({
+                      buildingId,
+                      plateNumber,
+                      vehicleId: isApprovedRegisteredVehicle
+                          ? vehicle.id
+                          : null,
+                  })
+                : null;
         const tempQrCardId = req.body.tempQrCardId;
         const tempQrCardCode =
             typeof req.body.tempQrCardCode === "string"
@@ -261,7 +296,7 @@ const checkIn = async (req, res) => {
             return errorResponse(res, "Xe có gói tháng cần quét mã QR để nhận vào.", 400);
         }
 
-        if (pricingType !== "MONTHLY_PASS") {
+        if (pricingType !== "MONTHLY_PASS" && !hourlyReservation) {
             if (!isValidId(tempQrCardId) && !tempQrCardCode) {
                 return errorResponse(
                     res,
@@ -316,6 +351,10 @@ const checkIn = async (req, res) => {
         }
 
         if (vehicleType === "CAR") {
+            if (hourlyReservation) {
+                slotId = hourlyReservation.slotId;
+            }
+
             if (!slotId && monthlyPass?.slotId) {
                 slotId = monthlyPass.slotId;
             }
@@ -354,7 +393,7 @@ const checkIn = async (req, res) => {
                 return errorResponse(res, "Ô đỗ phải thuộc tầng ô tô.", 400);
             }
 
-            if (pricingType === "MONTHLY_PASS") {
+            if (pricingType === "MONTHLY_PASS" || hourlyReservation) {
                 if (!["AVAILABLE", "RESERVED"].includes(slot.status)) {
                     return errorResponse(res, "Ô đỗ của gói tháng chưa sẵn sàng.", 400);
                 }
@@ -368,14 +407,16 @@ const checkIn = async (req, res) => {
         const sessionId = await parkingSessionService.createSession({
             allowReservedSlot:
                 vehicleType === "CAR" &&
-                pricingType === "MONTHLY_PASS" &&
-                Boolean(monthlyPass?.slotId),
+                ((pricingType === "MONTHLY_PASS" &&
+                    Boolean(monthlyPass?.slotId)) ||
+                    Boolean(hourlyReservation?.id)),
             buildingId:
                 vehicleType === "CAR"
                     ? buildingId
                     : buildingId,
             customerType,
             floorId,
+            hourlyReservation,
             monthlyPass,
             note: req.body.note,
             plateNumber,
@@ -383,7 +424,9 @@ const checkIn = async (req, res) => {
             sessionQrCode:
                 pricingType === "MONTHLY_PASS"
                     ? qrCode || null
-                    : tempQrCard.cardCode,
+                    : hourlyReservation?.reservationCode ||
+                      tempQrCard?.cardCode ||
+                      null,
             slotId: vehicleType === "CAR" ? slotId : null,
             staffId: req.user.id,
             tempQrCardId: tempQrCard?.id || null,
@@ -402,6 +445,10 @@ const checkIn = async (req, res) => {
 
         if (error.code === "CAR_SLOT_NOT_AVAILABLE") {
             return errorResponse(res, "Ô đỗ ô tô không còn sẵn sàng.", 400);
+        }
+
+        if (error.code === "RESERVATION_NOT_READY") {
+            return errorResponse(res, error.message, 400);
         }
 
         return errorResponse(res, "Lỗi nhận xe vào bãi.", 500, error.message);
@@ -440,7 +487,11 @@ const checkOut = async (req, res) => {
             await violationService.getCollectableViolationsForSession(session);
         const recordedViolationFee = violationSummary.totalFee;
         const violationFee = recordedViolationFee + manualViolationFee;
-        const { baseFee, durationHours } = await calculateBaseFee(session);
+        const {
+            baseFee,
+            durationHours,
+            reservationCoveredUntil,
+        } = await calculateBaseFee(session);
         const totalAmount = baseFee + violationFee;
         const paymentMethod = normalizeEnum(req.body.paymentMethod);
 
@@ -466,10 +517,13 @@ const checkOut = async (req, res) => {
         }
 
         if (totalAmount === 0) {
+            const coveredPaymentMethod = session.hourlyReservationId
+                ? session.hourlyReservationPaymentMethod
+                : "MONTHLY_PASS";
             const transactionRef =
                 await parkingSessionService.completeSessionWithManualPayment({
                     baseFee,
-                    paymentMethod: "MONTHLY_PASS",
+                    paymentMethod: coveredPaymentMethod,
                     paidNote: req.body.paidNote,
                     session,
                     staffId: req.user.id,
@@ -483,7 +537,7 @@ const checkOut = async (req, res) => {
                 session: completedSession,
                 payment: {
                     transactionRef,
-                    method: "MONTHLY_PASS",
+                    method: coveredPaymentMethod,
                     amount: totalAmount,
                     status: "SUCCESS",
                 },
@@ -495,6 +549,7 @@ const checkOut = async (req, res) => {
                     violations: violationSummary.violations,
                     totalAmount,
                     durationHours,
+                    reservationCoveredUntil,
                 },
             });
         }
@@ -540,6 +595,7 @@ const checkOut = async (req, res) => {
                     violations: violationSummary.violations,
                     totalAmount,
                     durationHours,
+                    reservationCoveredUntil,
                 },
             });
         }
@@ -573,6 +629,7 @@ const checkOut = async (req, res) => {
                 violations: violationSummary.violations,
                 totalAmount,
                 durationHours,
+                reservationCoveredUntil,
             },
         });
     } catch (error) {

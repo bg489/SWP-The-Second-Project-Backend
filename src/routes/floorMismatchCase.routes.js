@@ -31,6 +31,13 @@ router.post(
 );
 
 router.post(
+    "/:id/moved",
+    authMiddleware,
+    parkingStaffMiddleware,
+    floorMismatchCaseController.markFloorMismatchMovedByStaff
+);
+
+router.post(
     "/:id/confirm",
     authMiddleware,
     parkingStaffMiddleware,

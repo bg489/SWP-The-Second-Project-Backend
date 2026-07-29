@@ -573,25 +573,44 @@ const processExpiredWrongSlotCases = async ({ buildingId } = {}) => {
     return processed;
 };
 
-const markWrongSlotMoved = async ({ id, userId }) => {
+const markWrongSlotMoved = async ({
+    id,
+    staffBuildingId,
+    staffId,
+    userId,
+}) => {
     const connection = await db.getConnection();
 
     try {
         await connection.beginTransaction();
 
+        const accessConditions = ["id = ?"];
+        const accessParams = [id];
+
+        if (userId) {
+            accessConditions.push("user_id = ?");
+            accessParams.push(userId);
+        } else if (staffId && staffBuildingId) {
+            accessConditions.push("building_id = ?");
+            accessParams.push(staffBuildingId);
+        } else if (!staffId) {
+            const error = new Error("Bạn không có quyền xác nhận trường hợp này");
+            error.statusCode = 403;
+            throw error;
+        }
+
         const [caseRows] = await connection.query(
             `SELECT *
              FROM wrong_slot_cases
-             WHERE id = ?
-                AND user_id = ?
+             WHERE ${accessConditions.join(" AND ")}
              LIMIT 1
              FOR UPDATE`,
-            [id, userId]
+            accessParams
         );
         const wrongCase = caseRows[0];
 
         if (!wrongCase) {
-            const error = new Error("Không tìm thấy yêu cầu dời xe của bạn");
+            const error = new Error("Không tìm thấy yêu cầu dời xe phù hợp");
             error.statusCode = 404;
             throw error;
         }
@@ -649,19 +668,24 @@ const markWrongSlotMoved = async ({ id, userId }) => {
             `UPDATE wrong_slot_cases
              SET status = 'USER_MOVED',
                  restoration_status = 'RESTORED',
+                 staff_id = COALESCE(?, staff_id),
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [wrongCase.id]
+            [staffId || null, wrongCase.id]
         );
 
-        await notificationService.createNotification({
-            connection,
-            relatedId: wrongCase.id,
-            relatedType: "WRONG_SLOT_CASE",
-            title: "Đã xác nhận xe được dời đúng hạn",
-            message: "Bạn đã xác nhận dời xe trước thời hạn nên không phát sinh phí vi phạm đậu sai ô.",
-            userId,
-        });
+        if (wrongCase.user_id) {
+            await notificationService.createNotification({
+                connection,
+                relatedId: wrongCase.id,
+                relatedType: "WRONG_SLOT_CASE",
+                title: "Đã xác nhận xe được dời đúng hạn",
+                message: staffId
+                    ? "Nhân viên đã xác nhận xe được dời trước thời hạn nên không phát sinh phí vi phạm đậu sai ô."
+                    : "Bạn đã xác nhận dời xe trước thời hạn nên không phát sinh phí vi phạm đậu sai ô.",
+                userId: wrongCase.user_id,
+            });
+        }
 
         if (wrongCase.reserved_registration_id) {
             const [registrationRows] = await connection.query(
