@@ -730,25 +730,44 @@ const processExpiredFloorMismatchCases = async ({ buildingId } = {}) => {
     return processed;
 };
 
-const markFloorMismatchMoved = async ({ id, userId }) => {
+const markFloorMismatchMoved = async ({
+    id,
+    staffBuildingId,
+    staffId,
+    userId,
+}) => {
     const connection = await db.getConnection();
 
     try {
         await connection.beginTransaction();
 
+        const accessConditions = ["id = ?"];
+        const accessParams = [id];
+
+        if (userId) {
+            accessConditions.push("user_id = ?");
+            accessParams.push(userId);
+        } else if (staffId && staffBuildingId) {
+            accessConditions.push("building_id = ?");
+            accessParams.push(staffBuildingId);
+        } else if (!staffId) {
+            const error = new Error("Bạn không có quyền xác nhận trường hợp này");
+            error.statusCode = 403;
+            throw error;
+        }
+
         const [caseRows] = await connection.query(
             `SELECT *
              FROM floor_mismatch_cases
-             WHERE id = ?
-                AND user_id = ?
+             WHERE ${accessConditions.join(" AND ")}
              LIMIT 1
              FOR UPDATE`,
-            [id, userId]
+            accessParams
         );
         const floorCase = caseRows[0];
 
         if (!floorCase) {
-            const error = new Error("Không tìm thấy yêu cầu dời xe của bạn");
+            const error = new Error("Không tìm thấy yêu cầu dời xe phù hợp");
             error.statusCode = 404;
             throw error;
         }
@@ -808,19 +827,24 @@ const markFloorMismatchMoved = async ({ id, userId }) => {
         await connection.query(
             `UPDATE floor_mismatch_cases
              SET status = 'USER_MOVED',
+                 staff_id = COALESCE(?, staff_id),
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [floorCase.id]
+            [staffId || null, floorCase.id]
         );
 
-        await notificationService.createNotification({
-            connection,
-            relatedId: floorCase.id,
-            relatedType: "FLOOR_MISMATCH_CASE",
-            title: "Đã xác nhận ô tô được dời đúng hạn",
-            message: `Bạn đã đưa xe về ô ${targetSlot.slotCode} trước thời hạn nên không phát sinh chi phí xử lý sai khu.`,
-            userId,
-        });
+        if (floorCase.user_id) {
+            await notificationService.createNotification({
+                connection,
+                relatedId: floorCase.id,
+                relatedType: "FLOOR_MISMATCH_CASE",
+                title: "Đã xác nhận ô tô được dời đúng hạn",
+                message: staffId
+                    ? `Nhân viên đã xác nhận xe được đưa về ô ${targetSlot.slotCode} trước thời hạn nên không phát sinh chi phí xử lý sai khu.`
+                    : `Bạn đã đưa xe về ô ${targetSlot.slotCode} trước thời hạn nên không phát sinh chi phí xử lý sai khu.`,
+                userId: floorCase.user_id,
+            });
+        }
 
         await connection.commit();
         return getCaseById(floorCase.id);

@@ -31,6 +31,13 @@ router.post(
 );
 
 router.post(
+    "/:id/moved",
+    authMiddleware,
+    parkingStaffMiddleware,
+    wrongSlotCaseController.markWrongSlotMovedByStaff
+);
+
+router.post(
     "/:id/confirm",
     authMiddleware,
     parkingStaffMiddleware,

@@ -133,10 +133,42 @@ const markMyWrongSlotMoved = async (req, res) => {
     }
 };
 
+const markWrongSlotMovedByStaff = async (req, res) => {
+    try {
+        if (!isValidId(req.params.id)) {
+            return errorResponse(res, "Yêu cầu đậu sai ô không hợp lệ", 400);
+        }
+
+        if (req.user.role === "STAFF" && !req.user.buildingId) {
+            return errorResponse(res, "Nhân viên chưa được phân công tòa nhà", 400);
+        }
+
+        const wrongSlotCase = await wrongSlotCaseService.markWrongSlotMoved({
+            id: Number(req.params.id),
+            staffBuildingId:
+                req.user.role === "STAFF" ? req.user.buildingId : null,
+            staffId: req.user.id,
+        });
+
+        return successResponse(
+            res,
+            "Đã xác nhận xe được dời đúng hạn và không phát sinh phí",
+            wrongSlotCase
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.message || "Lỗi xác nhận xe đã dời",
+            error.statusCode || 500
+        );
+    }
+};
+
 module.exports = {
     confirmWrongSlot,
     getMyWrongSlotCases,
     getWrongSlotCases,
     markMyWrongSlotMoved,
+    markWrongSlotMovedByStaff,
     reportWrongSlot,
 };
