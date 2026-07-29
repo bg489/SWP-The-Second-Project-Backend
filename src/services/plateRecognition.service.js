@@ -100,7 +100,13 @@ const formatPlateNumber = (value) => {
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "");
 
-    if (/^\d{2}[A-Z][A-Z0-9]?\d{5}$/.test(normalized)) {
+    const motorbikeMatch = normalized.match(/^(\d{2})([A-Z]\d)(\d{5})$/);
+    if (motorbikeMatch) {
+        const [, province, series, serial] = motorbikeMatch;
+        return `${province}-${series}${serial.slice(0, 3)}.${serial.slice(3)}`;
+    }
+
+    if (/^\d{2}[A-Z]{1,2}\d{5}$/.test(normalized)) {
         const serial = normalized.slice(-5);
         const prefix = normalized.slice(0, -5);
         return `${prefix}-${serial.slice(0, 3)}.${serial.slice(3)}`;
