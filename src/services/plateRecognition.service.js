@@ -1,5 +1,13 @@
 const path = require("path");
-const { createWorker, OEM, PSM } = require("tesseract.js");
+const readline = require("readline");
+const { spawn } = require("child_process");
+
+const BACKEND_ROOT = path.resolve(__dirname, "../..");
+const WORKER_SCRIPT = path.join(BACKEND_ROOT, "src", "ai", "fast_alpr_worker.py");
+const PYTHON_PACKAGES = path.join(BACKEND_ROOT, ".python-packages");
+const DEFAULT_MODEL_CACHE = path.join(BACKEND_ROOT, ".fast-alpr-models");
+const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_MIN_CONFIDENCE = 72;
 
 const DIGIT_REPLACEMENTS = {
     B: "8",
@@ -22,8 +30,36 @@ const LETTER_REPLACEMENTS = {
     8: "B",
 };
 
-let workerPromise = null;
-let recognitionQueue = Promise.resolve();
+let workerProcess = null;
+let workerReadyPromise = null;
+let workerReadyResolve = null;
+let workerReadyReject = null;
+let workerReadyTimer = null;
+let requestSequence = 0;
+const pendingRequests = new Map();
+
+const parseNumber = (value, fallback) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getTimeoutMs = () =>
+    Math.max(
+        5000,
+        parseNumber(process.env.FAST_ALPR_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
+    );
+
+const getMinimumConfidence = () =>
+    Math.min(
+        100,
+        Math.max(
+            0,
+            parseNumber(
+                process.env.FAST_ALPR_MIN_CONFIDENCE,
+                DEFAULT_MIN_CONFIDENCE
+            )
+        )
+    );
 
 const toDigit = (character) =>
     /\d/.test(character) ? character : DIGIT_REPLACEMENTS[character] || "";
@@ -41,7 +77,9 @@ const buildCandidate = (source, layout) => {
 
     for (let index = 0; index < layout.length; index += 1) {
         const original = source[index];
-        const converted = layout[index] === "D" ? toDigit(original) : toLetter(original);
+        const converted = layout[index] === "D"
+            ? toDigit(original)
+            : toLetter(original);
 
         if (!converted) {
             return null;
@@ -77,131 +115,288 @@ const formatPlateNumber = (value) => {
 };
 
 const extractPlateNumber = (recognizedText) => {
-    const rawText = String(recognizedText || "").toUpperCase();
-    const compactLines = rawText
-        .split(/\r?\n/)
-        .map((line) => line.replace(/[^A-Z0-9]/g, ""))
-        .filter(Boolean);
-    const compactTokens = rawText
-        .split(/[^A-Z0-9]+/)
-        .map((token) => token.replace(/[^A-Z0-9]/g, ""))
-        .filter(Boolean);
-    const adjacentTokens = compactTokens
-        .slice(0, -1)
-        .map((token, index) => `${token}${compactTokens[index + 1]}`)
-        .filter((token) => token.length <= 10);
-    const allText = rawText.replace(/[^A-Z0-9]/g, "");
-    const sources = [
-        ...new Set([...compactLines, ...compactTokens, ...adjacentTokens, allText]),
-    ];
+    const source = String(recognizedText || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
     const layouts = ["DDLDDDDDD", "DDLLDDDDD", "DDLDDDDD"];
-    const candidates = [];
-
-    sources.forEach((source, sourceIndex) => {
-        layouts.forEach((layout) => {
-            if (source.length < layout.length) {
-                return;
-            }
-
-            for (let start = 0; start <= source.length - layout.length; start += 1) {
-                const result = buildCandidate(source.slice(start, start + layout.length), layout);
-                if (!result) {
-                    continue;
-                }
-
-                candidates.push({
-                    ...result,
-                    boundaryPenalty: source.length === layout.length ? 0 : 1,
-                    sourceIndex,
-                    start,
-                });
-            }
-        });
-    });
-
-    candidates.sort((left, right) =>
-        left.boundaryPenalty - right.boundaryPenalty
-        || left.replacements - right.replacements
-        || left.sourceIndex - right.sourceIndex
-        || left.start - right.start
-    );
+    const candidates = layouts
+        .map((layout) => buildCandidate(source, layout))
+        .filter(Boolean)
+        .sort((left, right) => left.replacements - right.replacements);
 
     if (candidates[0]) {
         return formatPlateNumber(candidates[0].value);
     }
 
-    const genericCandidates = sources
-        .filter((source) =>
-            source.length >= 4
-            && source.length <= 10
-            && /[A-Z]/.test(source)
-            && (source.match(/\d/g) || []).length >= 2
-        )
-        .sort((left, right) => {
-            const leftTransitions = (left.match(/[A-Z](?=\d)|\d(?=[A-Z])/g) || []).length;
-            const rightTransitions = (right.match(/[A-Z](?=\d)|\d(?=[A-Z])/g) || []).length;
-
-            return rightTransitions - leftTransitions
-                || Math.abs(left.length - 7) - Math.abs(right.length - 7);
-        });
-
-    return genericCandidates[0] ? formatPlateNumber(genericCandidates[0]) : "";
-};
-
-const createRecognitionWorker = async () => {
-    const worker = await createWorker("eng", OEM.LSTM_ONLY, {
-        cacheMethod: "none",
-        gzip: true,
-        langPath: path.join(__dirname, "../assets/ocr"),
-    });
-
-    await worker.setParameters({
-        preserve_interword_spaces: "0",
-        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
-    });
-
-    return worker;
-};
-
-const getRecognitionWorker = () => {
-    if (!workerPromise) {
-        workerPromise = createRecognitionWorker().catch((error) => {
-            workerPromise = null;
-            throw error;
-        });
+    if (
+        source.length >= 4
+        && source.length <= 10
+        && /[A-Z]/.test(source)
+        && (source.match(/\d/g) || []).length >= 2
+    ) {
+        return formatPlateNumber(source);
     }
 
-    return workerPromise;
+    return "";
 };
 
-const recognizePlate = (imageBuffer) => {
-    const task = recognitionQueue.then(async () => {
-        const worker = await getRecognitionWorker();
-        const result = await worker.recognize(imageBuffer);
-        const plateNumber = extractPlateNumber(result?.data?.text);
-
-        return {
-            confidence: Number(result?.data?.confidence || 0),
-            plateNumber,
-        };
+const rejectPendingRequests = (error) => {
+    pendingRequests.forEach(({ reject, timer }) => {
+        clearTimeout(timer);
+        reject(error);
     });
-
-    recognitionQueue = task.catch(() => undefined);
-    return task;
+    pendingRequests.clear();
 };
 
-const terminateRecognitionWorker = async () => {
-    if (!workerPromise) {
+const resetWorkerState = () => {
+    if (workerReadyTimer) {
+        clearTimeout(workerReadyTimer);
+        workerReadyTimer = null;
+    }
+    workerProcess = null;
+    workerReadyPromise = null;
+    workerReadyResolve = null;
+    workerReadyReject = null;
+};
+
+const failWorker = (error) => {
+    const workerError = error instanceof Error
+        ? error
+        : new Error(String(error || "FastALPR worker stopped."));
+    workerError.code = workerError.code || "FAST_ALPR_UNAVAILABLE";
+
+    if (workerReadyReject) {
+        workerReadyReject(workerError);
+    }
+    rejectPendingRequests(workerError);
+    resetWorkerState();
+};
+
+const handleWorkerMessage = (message) => {
+    if (message.type === "ready") {
+        if (workerReadyTimer) {
+            clearTimeout(workerReadyTimer);
+            workerReadyTimer = null;
+        }
+        workerReadyResolve?.(message);
+        workerReadyResolve = null;
+        workerReadyReject = null;
         return;
     }
 
-    const worker = await workerPromise;
-    workerPromise = null;
-    await worker.terminate();
+    if (message.type === "fatal") {
+        failWorker(new Error(message.error || "FastALPR could not start."));
+        return;
+    }
+
+    const pending = pendingRequests.get(message.id);
+    if (!pending) {
+        return;
+    }
+
+    pendingRequests.delete(message.id);
+    clearTimeout(pending.timer);
+
+    if (message.ok) {
+        pending.resolve(message.result || {});
+        return;
+    }
+
+    const error = new Error(message.error || "FastALPR could not read the image.");
+    error.code = "FAST_ALPR_RECOGNITION_FAILED";
+    pending.reject(error);
+};
+
+const startWorker = () => {
+    if (workerProcess && workerReadyPromise) {
+        return workerReadyPromise;
+    }
+
+    const pythonBinary = process.env.FAST_ALPR_PYTHON_BIN
+        || (process.platform === "win32" ? "python" : "python3");
+    const pythonPath = [
+        PYTHON_PACKAGES,
+        process.env.PYTHONPATH,
+    ].filter(Boolean).join(path.delimiter);
+    const modelCache = process.env.FAST_ALPR_MODEL_CACHE
+        ? path.resolve(process.env.FAST_ALPR_MODEL_CACHE)
+        : DEFAULT_MODEL_CACHE;
+
+    workerReadyPromise = new Promise((resolve, reject) => {
+        workerReadyResolve = resolve;
+        workerReadyReject = reject;
+    });
+
+    workerProcess = spawn(
+        pythonBinary,
+        ["-u", WORKER_SCRIPT],
+        {
+            cwd: BACKEND_ROOT,
+            env: {
+                ...process.env,
+                FAST_ALPR_MODEL_CACHE: modelCache,
+                PYTHONPATH: pythonPath,
+                PYTHONUNBUFFERED: "1",
+            },
+            stdio: ["pipe", "pipe", "pipe"],
+            windowsHide: true,
+        }
+    );
+
+    const activeWorker = workerProcess;
+    const output = readline.createInterface({ input: activeWorker.stdout });
+
+    output.on("line", (line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            return;
+        }
+
+        try {
+            handleWorkerMessage(JSON.parse(trimmed));
+        } catch (_error) {
+            console.warn(`[FastALPR] ${trimmed}`);
+        }
+    });
+
+    activeWorker.stderr.on("data", (chunk) => {
+        const message = String(chunk || "").trim();
+        if (message) {
+            console.warn(`[FastALPR] ${message}`);
+        }
+    });
+
+    activeWorker.once("error", (error) => {
+        if (activeWorker === workerProcess) {
+            error.message = `Không khởi động được FastALPR bằng "${pythonBinary}": ${error.message}`;
+            failWorker(error);
+        }
+    });
+
+    activeWorker.once("close", (code) => {
+        output.close();
+        if (activeWorker === workerProcess) {
+            const error = new Error(
+                `FastALPR đã dừng${code === null ? "" : ` với mã ${code}`}.`
+            );
+            error.code = "FAST_ALPR_UNAVAILABLE";
+            failWorker(error);
+        }
+    });
+
+    workerReadyTimer = setTimeout(() => {
+        if (activeWorker === workerProcess) {
+            activeWorker.kill();
+            const error = new Error(
+                "FastALPR khởi động quá lâu. Hãy kiểm tra phần cài đặt Python và mô hình."
+            );
+            error.code = "FAST_ALPR_UNAVAILABLE";
+            failWorker(error);
+        }
+    }, getTimeoutMs());
+
+    return workerReadyPromise;
+};
+
+const sendRecognitionRequest = async (imageBuffer) => {
+    await startWorker();
+
+    if (!workerProcess?.stdin?.writable) {
+        const error = new Error("FastALPR chưa sẵn sàng.");
+        error.code = "FAST_ALPR_UNAVAILABLE";
+        throw error;
+    }
+
+    requestSequence += 1;
+    const requestId = `plate-${Date.now()}-${requestSequence}`;
+
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            pendingRequests.delete(requestId);
+            const error = new Error(
+                "FastALPR không phản hồi kịp thời. Hãy đưa biển số gần camera hơn rồi thử lại."
+            );
+            error.code = "FAST_ALPR_TIMEOUT";
+            reject(error);
+        }, getTimeoutMs());
+
+        pendingRequests.set(requestId, { reject, resolve, timer });
+        workerProcess.stdin.write(
+            `${JSON.stringify({
+                id: requestId,
+                image: imageBuffer.toString("base64"),
+            })}\n`,
+            (error) => {
+                if (!error) {
+                    return;
+                }
+
+                const pending = pendingRequests.get(requestId);
+                if (pending) {
+                    pendingRequests.delete(requestId);
+                    clearTimeout(pending.timer);
+                    pending.reject(error);
+                }
+            }
+        );
+    });
+};
+
+const recognizePlate = async (imageBuffer) => {
+    const result = await sendRecognitionRequest(imageBuffer);
+    const minimumConfidence = getMinimumConfidence();
+    const candidates = (Array.isArray(result.candidates) ? result.candidates : [])
+        .map((candidate) => ({
+            ...candidate,
+            plateNumber: extractPlateNumber(candidate.rawText),
+        }))
+        .filter((candidate) => candidate.plateNumber);
+    const selected = candidates.find(
+        (candidate) => Number(candidate.confidence || 0) >= minimumConfidence
+    );
+
+    return {
+        engine: "FAST_ALPR",
+        plateNumber: selected?.plateNumber || "",
+        rawText: selected?.rawText || result.rawText || "",
+        confidence: Number(selected?.confidence || result.confidence || 0),
+        detectionConfidence: Number(
+            selected?.detectionConfidence || result.detectionConfidence || 0
+        ),
+        ocrConfidence: Number(
+            selected?.ocrConfidence || result.ocrConfidence || 0
+        ),
+        region: selected?.region || result.region || null,
+        minimumConfidence,
+        needsConfirmation: !selected,
+        candidates,
+    };
+};
+
+const terminateRecognitionWorker = async () => {
+    const activeWorker = workerProcess;
+    if (!activeWorker) {
+        return;
+    }
+
+    resetWorkerState();
+    rejectPendingRequests(new Error("FastALPR worker is shutting down."));
+
+    if (activeWorker.stdin.writable) {
+        activeWorker.stdin.write(`${JSON.stringify({ type: "shutdown" })}\n`);
+        activeWorker.stdin.end();
+    }
+
+    setTimeout(() => {
+        if (!activeWorker.killed) {
+            activeWorker.kill();
+        }
+    }, 1000).unref();
 };
 
 module.exports = {
     extractPlateNumber,
+    formatPlateNumber,
     recognizePlate,
     terminateRecognitionWorker,
 };

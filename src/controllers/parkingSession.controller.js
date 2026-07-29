@@ -669,11 +669,25 @@ const recognizePlate = async (req, res) => {
             res,
             result.plateNumber
                 ? "Đã nhận diện biển số xe."
-                : "Chưa đọc rõ biển số xe từ ảnh.",
+                : result.rawText
+                    ? "Biển số chưa đủ rõ để tự động điền. Vui lòng giữ camera ổn định."
+                    : "Chưa tìm thấy biển số trong khung hình.",
             result
         );
     } catch (error) {
-        return errorResponse(res, "Lỗi nhận diện biển số xe.", 500, error.message);
+        const unavailable = [
+            "FAST_ALPR_UNAVAILABLE",
+            "FAST_ALPR_TIMEOUT",
+        ].includes(error.code);
+
+        return errorResponse(
+            res,
+            unavailable
+                ? "Chức năng đọc biển số đang khởi động. Vui lòng thử lại sau ít giây."
+                : "Không đọc được biển số xe từ khung hình.",
+            unavailable ? 503 : 500,
+            error.message
+        );
     }
 };
 
