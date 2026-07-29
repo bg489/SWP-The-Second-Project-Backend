@@ -2,6 +2,143 @@ const getFrontendUrl = () =>
     (process.env.FRONTEND_URL || process.env.APP_FRONTEND_URL || "http://localhost:5173")
         .replace(/\/$/, "");
 
+let gmailTokenCache = {
+    accessToken: null,
+    expiresAt: 0,
+};
+
+const getGmailApiConfig = () => {
+    const config = {
+        clientId: process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        fromEmail: process.env.GMAIL_FROM_EMAIL,
+        fromName: process.env.GMAIL_FROM_NAME || "Sunrise Parking",
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+    };
+
+    return Object.values({
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        fromEmail: config.fromEmail,
+        refreshToken: config.refreshToken,
+    }).every(Boolean)
+        ? config
+        : null;
+};
+
+const getGmailAccessToken = async (config) => {
+    if (
+        gmailTokenCache.accessToken &&
+        gmailTokenCache.expiresAt > Date.now() + 60000
+    ) {
+        return gmailTokenCache.accessToken;
+    }
+
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            grant_type: "refresh_token",
+            refresh_token: config.refreshToken,
+        }),
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.access_token) {
+        throw new Error(
+            data.error_description ||
+            data.error ||
+            "Không lấy được quyền gửi email từ Google"
+        );
+    }
+
+    gmailTokenCache = {
+        accessToken: data.access_token,
+        expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
+    };
+
+    return gmailTokenCache.accessToken;
+};
+
+const encodeMailHeader = (value) =>
+    `=?UTF-8?B?${Buffer.from(String(value || ""), "utf8").toString("base64")}?=`;
+
+const encodeMailBody = (value) =>
+    Buffer.from(String(value || ""), "utf8").toString("base64");
+
+const toBase64Url = (value) =>
+    Buffer.from(value, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+
+const buildRawGmailMessage = ({ config, html, subject, text, to }) => {
+    const boundary = `sunrise-parking-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2)}`;
+    const safeRecipient = String(to || "").replace(/[\r\n]/g, "");
+    const safeFromEmail = String(config.fromEmail).replace(/[\r\n]/g, "");
+    const safeFromName = String(config.fromName).replace(/[\r\n"]/g, "");
+    const lines = [
+        `From: "${safeFromName}" <${safeFromEmail}>`,
+        `To: ${safeRecipient}`,
+        `Subject: ${encodeMailHeader(subject)}`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        "",
+        `--${boundary}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        encodeMailBody(text),
+        `--${boundary}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        encodeMailBody(html),
+        `--${boundary}--`,
+        "",
+    ];
+
+    return toBase64Url(lines.join("\r\n"));
+};
+
+const sendWithGmailApi = async ({ config, html, subject, text, to }) => {
+    const accessToken = await getGmailAccessToken(config);
+    const response = await fetch(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                raw: buildRawGmailMessage({ config, html, subject, text, to }),
+            }),
+        }
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data?.error?.message ||
+            "Google không gửi được email"
+        );
+    }
+
+    return {
+        id: data.id,
+        previewOnly: false,
+        provider: "GMAIL_API",
+    };
+};
+
 const createTransport = () => {
     const host = process.env.SMTP_HOST;
     const user = process.env.SMTP_USER || process.env.GMAIL_USER;
@@ -61,6 +198,18 @@ const buildParkingMail = ({ actionLabel, body, buttonLabel, buttonUrl, otp, titl
 };
 
 const sendMail = async ({ html, subject, text, to }) => {
+    const gmailApiConfig = getGmailApiConfig();
+
+    if (gmailApiConfig) {
+        return sendWithGmailApi({
+            config: gmailApiConfig,
+            html,
+            subject,
+            text,
+            to,
+        });
+    }
+
     const transport = createTransport();
     const from =
         process.env.MAIL_FROM ||
@@ -71,7 +220,7 @@ const sendMail = async ({ html, subject, text, to }) => {
 
     if (!transport) {
         console.log("[mail:preview]", { to, subject, text });
-        return { previewOnly: true };
+        return { previewOnly: true, provider: "PREVIEW" };
     }
 
     await transport.sendMail({
@@ -82,7 +231,7 @@ const sendMail = async ({ html, subject, text, to }) => {
         to,
     });
 
-    return { previewOnly: false };
+    return { previewOnly: false, provider: "SMTP" };
 };
 
 module.exports = {
