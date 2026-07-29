@@ -75,7 +75,6 @@ const confirmFloorMismatch = async (req, res) => {
         }
 
         const floorCase = await floorMismatchCaseService.confirmFloorMismatch({
-            force: Boolean(req.body.force),
             id: Number(req.params.id),
             staffId: req.user.id,
         });
@@ -94,8 +93,57 @@ const confirmFloorMismatch = async (req, res) => {
     }
 };
 
+const getMyFloorMismatchCases = async (req, res) => {
+    try {
+        const cases = await floorMismatchCaseService.getCases({
+            status: req.query.status,
+            userId: req.user.id,
+        });
+
+        return successResponse(
+            res,
+            "Lấy danh sách xe đậu sai khu của bạn thành công",
+            cases
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            "Lỗi lấy danh sách xe đậu sai khu của bạn",
+            500,
+            error.message
+        );
+    }
+};
+
+const markMyFloorMismatchMoved = async (req, res) => {
+    try {
+        if (!isValidId(req.params.id)) {
+            return errorResponse(res, "Yêu cầu đậu sai khu không hợp lệ", 400);
+        }
+
+        const floorCase = await floorMismatchCaseService.markFloorMismatchMoved({
+            id: Number(req.params.id),
+            userId: req.user.id,
+        });
+
+        return successResponse(
+            res,
+            "Đã xác nhận bạn đã dời xe đúng hạn",
+            floorCase
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.message || "Lỗi xác nhận dời xe",
+            error.statusCode || 500
+        );
+    }
+};
+
 module.exports = {
     confirmFloorMismatch,
     getFloorMismatchCases,
+    getMyFloorMismatchCases,
+    markMyFloorMismatchMoved,
     reportFloorMismatch,
 };

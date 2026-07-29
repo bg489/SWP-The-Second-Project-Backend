@@ -49,7 +49,6 @@ const confirmWrongSlot = async (req, res) => {
         }
 
         const wrongSlotCase = await wrongSlotCaseService.confirmWrongSlot({
-            force: Boolean(req.body.force),
             id: Number(req.params.id),
             staffId: req.user.id,
         });
@@ -87,8 +86,57 @@ const getWrongSlotCases = async (req, res) => {
     }
 };
 
+const getMyWrongSlotCases = async (req, res) => {
+    try {
+        const cases = await wrongSlotCaseService.getCases({
+            status: req.query.status,
+            userId: req.user.id,
+        });
+
+        return successResponse(
+            res,
+            "Lấy danh sách tình trạng ô đỗ của bạn thành công",
+            cases
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            "Lỗi lấy tình trạng ô đỗ của bạn",
+            500,
+            error.message
+        );
+    }
+};
+
+const markMyWrongSlotMoved = async (req, res) => {
+    try {
+        if (!isValidId(req.params.id)) {
+            return errorResponse(res, "Yêu cầu đậu sai ô không hợp lệ", 400);
+        }
+
+        const wrongSlotCase = await wrongSlotCaseService.markWrongSlotMoved({
+            id: Number(req.params.id),
+            userId: req.user.id,
+        });
+
+        return successResponse(
+            res,
+            "Đã xác nhận bạn đã dời xe đúng hạn",
+            wrongSlotCase
+        );
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.message || "Lỗi xác nhận dời xe",
+            error.statusCode || 500
+        );
+    }
+};
+
 module.exports = {
     confirmWrongSlot,
+    getMyWrongSlotCases,
     getWrongSlotCases,
+    markMyWrongSlotMoved,
     reportWrongSlot,
 };

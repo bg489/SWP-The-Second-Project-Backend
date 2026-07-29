@@ -46,8 +46,42 @@ const updateNotificationPreferences = async (req, res) => {
     }
 };
 
+const markNotificationRead = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            return errorResponse(res, "Thông báo không hợp lệ", 400);
+        }
+
+        const notification = await notificationService.markNotificationRead({
+            id,
+            userId: req.user.id,
+        });
+
+        if (!notification) {
+            return errorResponse(res, "Không tìm thấy thông báo", 404);
+        }
+
+        return successResponse(res, "Đã đánh dấu thông báo là đã đọc", notification);
+    } catch (error) {
+        return errorResponse(res, "Lỗi cập nhật thông báo", 500, error.message);
+    }
+};
+
+const markAllNotificationsRead = async (req, res) => {
+    try {
+        const result = await notificationService.markAllNotificationsRead(req.user.id);
+        return successResponse(res, "Đã đọc tất cả thông báo", result);
+    } catch (error) {
+        return errorResponse(res, "Lỗi cập nhật thông báo", 500, error.message);
+    }
+};
+
 module.exports = {
     getMyNotifications,
     getNotificationPreferences,
+    markAllNotificationsRead,
+    markNotificationRead,
     updateNotificationPreferences,
 };

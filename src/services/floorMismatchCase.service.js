@@ -56,7 +56,9 @@ const getCaseById = async (id) => {
     return rows[0] || null;
 };
 
-const getCases = async ({ buildingId, status } = {}) => {
+const getCases = async ({ buildingId, status, userId } = {}) => {
+    await processExpiredFloorMismatchCases({ buildingId });
+
     const conditions = [];
     const params = [];
 
@@ -68,6 +70,11 @@ const getCases = async ({ buildingId, status } = {}) => {
     if (status) {
         conditions.push("c.status = ?");
         params.push(status);
+    }
+
+    if (userId) {
+        conditions.push("c.user_id = ?");
+        params.push(userId);
     }
 
     const whereSql =
@@ -519,7 +526,7 @@ const reportFloorMismatch = async ({
     }
 };
 
-const confirmFloorMismatch = async ({ force, id, staffId }) => {
+const confirmFloorMismatch = async ({ id, staffId }) => {
     const connection = await db.getConnection();
 
     try {
@@ -551,7 +558,7 @@ const confirmFloorMismatch = async ({ force, id, staffId }) => {
             ? new Date(floorCase.notify_until).getTime()
             : 0;
 
-        if (!force && deadline > Date.now()) {
+        if (deadline > Date.now()) {
             const error = new Error("Chua qua 15 phut cho user phan hoi");
             error.statusCode = 400;
             throw error;
@@ -684,6 +691,147 @@ const confirmFloorMismatch = async ({ force, id, staffId }) => {
     }
 };
 
+const processExpiredFloorMismatchCases = async ({ buildingId } = {}) => {
+    const conditions = [
+        "status = 'WAITING_USER'",
+        "notify_until IS NOT NULL",
+        "notify_until <= CURRENT_TIMESTAMP",
+    ];
+    const params = [];
+
+    if (buildingId) {
+        conditions.push("building_id = ?");
+        params.push(buildingId);
+    }
+
+    const [rows] = await db.query(
+        `SELECT id, staff_id AS staffId
+         FROM floor_mismatch_cases
+         WHERE ${conditions.join(" AND ")}
+         ORDER BY notify_until ASC
+         LIMIT 100`,
+        params
+    );
+    const processed = [];
+
+    for (const row of rows) {
+        try {
+            processed.push(await confirmFloorMismatch({
+                id: row.id,
+                staffId: row.staffId,
+            }));
+        } catch (error) {
+            if (!["Ca nay khong con cho xu ly", "Chua qua 15 phut cho user phan hoi"].includes(error.message)) {
+                console.error("[floor-mismatch:auto-confirm]", row.id, error.message);
+            }
+        }
+    }
+
+    return processed;
+};
+
+const markFloorMismatchMoved = async ({ id, userId }) => {
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [caseRows] = await connection.query(
+            `SELECT *
+             FROM floor_mismatch_cases
+             WHERE id = ?
+                AND user_id = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [id, userId]
+        );
+        const floorCase = caseRows[0];
+
+        if (!floorCase) {
+            const error = new Error("Không tìm thấy yêu cầu dời xe của bạn");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        if (
+            floorCase.status !== "WAITING_USER" ||
+            floorCase.mismatch_type !== "CAR_IN_MOTORBIKE_FLOOR"
+        ) {
+            const error = new Error("Yêu cầu này không còn chờ dời xe");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        if (
+            floorCase.notify_until &&
+            new Date(floorCase.notify_until).getTime() <= Date.now()
+        ) {
+            const error = new Error("Đã hết thời gian dời xe, hệ thống đang xử lý quá hạn");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const [slotRows] = await connection.query(
+            `SELECT id, floor_id AS floorId, slot_code AS slotCode
+             FROM parking_slots
+             WHERE id = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [floorCase.target_slot_id]
+        );
+        const targetSlot = slotRows[0];
+
+        if (!targetSlot) {
+            const error = new Error("Không tìm thấy ô được chỉ định");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        await connection.query(
+            `UPDATE parking_slots
+             SET status = 'OCCUPIED',
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [targetSlot.id]
+        );
+
+        await connection.query(
+            `UPDATE parking_sessions
+             SET floor_id = ?,
+                 slot_id = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?
+                AND status = 'ACTIVE'`,
+            [targetSlot.floorId, targetSlot.id, floorCase.parking_session_id]
+        );
+
+        await connection.query(
+            `UPDATE floor_mismatch_cases
+             SET status = 'USER_MOVED',
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [floorCase.id]
+        );
+
+        await notificationService.createNotification({
+            connection,
+            relatedId: floorCase.id,
+            relatedType: "FLOOR_MISMATCH_CASE",
+            title: "Đã xác nhận ô tô được dời đúng hạn",
+            message: `Bạn đã đưa xe về ô ${targetSlot.slotCode} trước thời hạn nên không phát sinh chi phí xử lý sai khu.`,
+            userId,
+        });
+
+        await connection.commit();
+        return getCaseById(floorCase.id);
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
 const restoreTemporarySlotAfterCheckout = async ({ connection, session }) => {
     if (!session?.id || session.vehicleType !== "CAR") {
         return [];
@@ -758,6 +906,8 @@ module.exports = {
     confirmFloorMismatch,
     getCaseById,
     getCases,
+    markFloorMismatchMoved,
+    processExpiredFloorMismatchCases,
     reportFloorMismatch,
     restoreTemporarySlotAfterCheckout,
 };

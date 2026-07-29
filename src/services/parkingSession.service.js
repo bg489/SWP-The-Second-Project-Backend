@@ -679,6 +679,10 @@ const completeSessionWithManualPayment = async ({
             connection,
             session,
         });
+        await wrongSlotCaseService.restoreOriginalSlotAfterReservedVehicleCheckout({
+            connection,
+            session,
+        });
         await floorMismatchCaseService.restoreTemporarySlotAfterCheckout({
             connection,
             session,
@@ -767,6 +771,10 @@ const completeSessionFromPayment = async ({ session }) => {
 
         await releaseSessionParkingResource(connection, session);
         await wrongSlotCaseService.restoreReservedSlotAfterOccupierCheckout({
+            connection,
+            session,
+        });
+        await wrongSlotCaseService.restoreOriginalSlotAfterReservedVehicleCheckout({
             connection,
             session,
         });

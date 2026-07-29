@@ -52,7 +52,7 @@ const getNotificationUser = async ({ executor = db, userId }) => {
     return rows[0] || null;
 };
 
-const buildNotificationLink = (relatedType) => {
+const buildNotificationLink = (relatedType, relatedId) => {
     const frontendUrl = emailService.getFrontendUrl();
 
     const paths = {
@@ -62,19 +62,26 @@ const buildNotificationLink = (relatedType) => {
         STAFF_ROLE_REQUEST_ADMIN: "/admin/staff-role-requests",
         STAFF_ROLE_REQUEST_MANAGER: "/manager/staff",
         VEHICLE: "/user/profile",
-        WRONG_SLOT_CASE: "/user/dashboard",
-        FLOOR_MISMATCH_CASE: "/user/dashboard",
+        WRONG_SLOT_CASE: `/user/parking-issues?type=wrong-slot&id=${relatedId || ""}`,
+        FLOOR_MISMATCH_CASE: `/user/parking-issues?type=floor-mismatch&id=${relatedId || ""}`,
     };
 
-    return `${frontendUrl}${paths[relatedType] || "/user/dashboard"}`;
+    return `${frontendUrl}${paths[relatedType] || "/user/notifications"}`;
 };
 
-const sendNotificationEmail = async ({ evidenceUrl, message, relatedType, title, user }) => {
+const sendNotificationEmail = async ({
+    evidenceUrl,
+    message,
+    relatedId,
+    relatedType,
+    title,
+    user,
+}) => {
     if (!user?.email || Number(user.emailNotificationsEnabled) === 0) {
         return;
     }
 
-    const detailLink = buildNotificationLink(relatedType);
+    const detailLink = buildNotificationLink(relatedType, relatedId);
     const evidenceText = evidenceUrl
         ? `<br/><br/>Ảnh minh chứng: <a href="${evidenceUrl}">${evidenceUrl}</a>`
         : "";
@@ -126,6 +133,7 @@ const createNotification = async ({
     void sendNotificationEmail({
         evidenceUrl,
         message,
+        relatedId,
         relatedType,
         title,
         user,
@@ -143,6 +151,52 @@ const getMyNotifications = async (userId) => {
     );
 
     return rows;
+};
+
+const markNotificationRead = async ({ id, userId }) => {
+    const [result] = await db.query(
+        `UPDATE user_notifications
+         SET status = 'READ',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?
+            AND user_id = ?
+            AND status = 'UNREAD'`,
+        [id, userId]
+    );
+
+    if (result.affectedRows === 0) {
+        const [rows] = await db.query(
+            `${notificationSelect}
+             WHERE id = ? AND user_id = ?
+             LIMIT 1`,
+            [id, userId]
+        );
+        return rows[0] || null;
+    }
+
+    const [rows] = await db.query(
+        `${notificationSelect}
+         WHERE id = ? AND user_id = ?
+         LIMIT 1`,
+        [id, userId]
+    );
+
+    return rows[0] || null;
+};
+
+const markAllNotificationsRead = async (userId) => {
+    const [result] = await db.query(
+        `UPDATE user_notifications
+         SET status = 'READ',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = ?
+            AND status = 'UNREAD'`,
+        [userId]
+    );
+
+    return {
+        updatedCount: Number(result.affectedRows || 0),
+    };
 };
 
 const getNotificationPreferences = async (userId) => {
@@ -169,5 +223,7 @@ module.exports = {
     createNotification,
     getMyNotifications,
     getNotificationPreferences,
+    markAllNotificationsRead,
+    markNotificationRead,
     updateNotificationPreferences,
 };

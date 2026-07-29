@@ -51,6 +51,35 @@ const getBuildingById = async (buildingId) => {
     return rows[0] || null;
 };
 
+const getBuildingPrefix = async ({ buildingId, buildingName }) => {
+    const [buildingCardRows] = await db.query(
+        `SELECT card_code AS cardCode
+         FROM temporary_qr_cards
+         WHERE building_id = ?
+         ORDER BY id ASC`,
+        [buildingId]
+    );
+    const existingPrefix = buildingCardRows
+        .map((row) => String(row.cardCode || "").match(/^([A-Z0-9]+)-\d+$/)?.[1])
+        .find(Boolean);
+
+    if (existingPrefix) {
+        return existingPrefix;
+    }
+
+    const basePrefix = buildBuildingPrefix(buildingName);
+    const [collisionRows] = await db.query(
+        `SELECT id
+         FROM temporary_qr_cards
+         WHERE building_id <> ?
+            AND card_code LIKE ?
+         LIMIT 1`,
+        [buildingId, `${basePrefix}-%`]
+    );
+
+    return collisionRows.length > 0 ? `${basePrefix}${buildingId}` : basePrefix;
+};
+
 const getNextCardStart = async ({ buildingId, prefix }) => {
     const [rows] = await db.query(
         `SELECT card_code AS cardCode
@@ -106,7 +135,10 @@ const createTempQrCardsBulk = async ({ buildingId, note, quantity, status }) => 
         throw error;
     }
 
-    const prefix = buildBuildingPrefix(building.name);
+    const prefix = await getBuildingPrefix({
+        buildingId,
+        buildingName: building.name,
+    });
     const startNumber = await getNextCardStart({ buildingId, prefix });
     const values = Array.from({ length: safeQuantity }, (_, index) => [
         buildingId,

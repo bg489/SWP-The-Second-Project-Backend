@@ -6,6 +6,17 @@ const authMiddleware = require("../middlewares/auth.middleware");
 const { parkingStaffMiddleware } = require("../middlewares/role.middleware");
 
 router.get(
+    "/my",
+    authMiddleware,
+    floorMismatchCaseController.getMyFloorMismatchCases
+);
+router.post(
+    "/my/:id/moved",
+    authMiddleware,
+    floorMismatchCaseController.markMyFloorMismatchMoved
+);
+
+router.get(
     "/",
     authMiddleware,
     parkingStaffMiddleware,

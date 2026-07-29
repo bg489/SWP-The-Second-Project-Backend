@@ -1,5 +1,31 @@
 const db = require("../config/db");
 
+const DEFAULT_TEMP_QR_CARD_QUANTITY = 20;
+
+const buildBuildingPrefix = (buildingName = "") => {
+    const normalized = buildingName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, " ")
+        .trim();
+    const prefix = normalized
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase();
+
+    return prefix || "QR";
+};
+
+const getDefaultTempQrCardQuantity = () => {
+    const configured = Number(process.env.DEFAULT_TEMP_QR_CARD_COUNT);
+
+    return Number.isInteger(configured) && configured >= 1 && configured <= 500
+        ? configured
+        : DEFAULT_TEMP_QR_CARD_QUANTITY;
+};
+
 const buildingSelectWithCounts = `
     SELECT
         b.id,
@@ -10,10 +36,12 @@ const buildingSelectWithCounts = `
         COUNT(DISTINCT f.id) AS floorCount,
         COUNT(DISTINCT CASE WHEN f.floor_type = 'MOTORBIKE' THEN f.id END) AS motorbikeFloorCount,
         COUNT(DISTINCT CASE WHEN f.floor_type = 'CAR' THEN f.id END) AS carFloorCount,
-        COUNT(DISTINCT s.id) AS carSlotCount
+        COUNT(DISTINCT s.id) AS carSlotCount,
+        COUNT(DISTINCT tq.id) AS tempQrCardCount
     FROM buildings b
     LEFT JOIN parking_floors f ON f.building_id = b.id
     LEFT JOIN parking_slots s ON s.floor_id = f.id
+    LEFT JOIN temporary_qr_cards tq ON tq.building_id = b.id
 `;
 
 const createBuilding = async ({
@@ -36,6 +64,32 @@ const createBuilding = async ({
         );
 
         const buildingId = result.insertId;
+        const basePrefix = buildBuildingPrefix(name);
+        const [prefixRows] = await connection.query(
+            `SELECT id
+             FROM temporary_qr_cards
+             WHERE card_code LIKE ?
+             LIMIT 1`,
+            [`${basePrefix}-%`]
+        );
+        const cardPrefix = prefixRows.length > 0
+            ? `${basePrefix}${buildingId}`
+            : basePrefix;
+        const cardQuantity = getDefaultTempQrCardQuantity();
+        const cardValues = Array.from({ length: cardQuantity }, (_, index) => [
+            buildingId,
+            `${cardPrefix}-${String(index + 1).padStart(4, "0")}`,
+            "READY",
+            "Thẻ QR tạm được tạo tự động cùng tòa nhà",
+        ]);
+        const cardPlaceholders = cardValues.map(() => "(?, ?, ?, ?)").join(", ");
+
+        await connection.query(
+            `INSERT INTO temporary_qr_cards
+                (building_id, card_code, status, note)
+             VALUES ${cardPlaceholders}`,
+            cardValues.flat()
+        );
 
         if (motorbikeTurnPrice) {
             await connection.query(
