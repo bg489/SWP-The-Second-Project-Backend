@@ -1,5 +1,11 @@
 const db = require("../config/db");
 
+const SPECIAL_PARKING_VIOLATION_CODES = new Set([
+    "WRONG_SLOT",
+    "MOTORBIKE_WRONG_FLOOR",
+    "CAR_WRONG_FLOOR_TOW",
+]);
+
 const buildDateRange = ({ from, to }, column) => {
     const conditions = [];
     const params = [];
@@ -575,6 +581,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
     const [violationRows] = await db.query(
         `SELECT
             v.id AS violationId,
+            vt.code AS violationCode,
             COALESCE(vt.name, v.violation_type) AS violationName,
             v.penalty_fee AS penaltyFee,
             v.detected_at AS detectedAt,
@@ -631,6 +638,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
             userNames: new Set(),
             vehicleTypes: new Set(),
             violationCount: 0,
+            violationCodes: new Set(),
             violationName: key,
         };
         const penaltyFee = Number(row.penaltyFee || 0);
@@ -668,6 +676,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
         group.userNames.add(row.ownerName || "Khách vãng lai");
         if (row.plateNumber) group.plateNumbers.add(row.plateNumber);
         if (row.vehicleType) group.vehicleTypes.add(row.vehicleType);
+        if (row.violationCode) group.violationCodes.add(row.violationCode);
 
         relatedVehicle.violationCount += 1;
         relatedVehicle.paidPenalty += penaltyFee;
@@ -677,6 +686,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
             id: Number(row.violationId),
             penaltyFee,
             status: row.violationStatus,
+            violationCode: row.violationCode || null,
         });
         group.relatedVehicles.set(vehicleKey, relatedVehicle);
         groupedViolations.set(key, group);
@@ -693,6 +703,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
         userNames: [...group.userNames].sort().join(", "),
         vehicleTypes: [...group.vehicleTypes].sort().join(", "),
         violationCount: group.violationCount,
+        violationCodes: [...group.violationCodes].sort(),
         violationName: group.violationName,
     })).sort((left, right) =>
         Number(right.paidPenalty || 0) - Number(left.paidPenalty || 0)
@@ -760,13 +771,31 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
             userNames: uniqueValues("ownerName"),
             vehicleTypes: null,
             violationCount: unclassifiedRows.length,
+            violationCodes: [],
             violationName: "Phí vi phạm chưa phân loại",
         });
     }
 
+    const specialRows = rows.filter((row) =>
+        row.violationCodes.some((code) => SPECIAL_PARKING_VIOLATION_CODES.has(code))
+    );
+    const regularRows = rows.filter((row) =>
+        !row.violationCodes.some((code) => SPECIAL_PARKING_VIOLATION_CODES.has(code))
+    );
+
     return {
         rows,
         paidPenalty: rows.reduce((sum, row) => sum + Number(row.paidPenalty || 0), 0),
+        regularPaidPenalty: regularRows.reduce(
+            (sum, row) => sum + Number(row.paidPenalty || 0),
+            0
+        ),
+        regularRows,
+        specialPaidPenalty: specialRows.reduce(
+            (sum, row) => sum + Number(row.paidPenalty || 0),
+            0
+        ),
+        specialRows,
         totalPenalty: rows.reduce((sum, row) => sum + Number(row.totalPenalty || 0), 0),
     };
 };
