@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { randomUUID } = require("crypto");
 const emailService = require("./email.service");
 const { localizeUserMessage } = require("../utils/userMessage");
 
@@ -70,6 +71,86 @@ const buildNotificationLink = (relatedType, relatedId) => {
     return `${frontendUrl}${paths[relatedType] || "/user/notifications"}`;
 };
 
+const escapeHtml = (value) =>
+    String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+const buildEvidenceEmail = (evidenceUrl) => {
+    const normalizedUrl = String(evidenceUrl || "").trim();
+
+    if (!normalizedUrl) {
+        return {
+            attachments: [],
+            html: "",
+            text: "",
+        };
+    }
+
+    const dataImageMatch = normalizedUrl.match(
+        /^data:image\/(jpeg|jpg|png|webp);base64,([\s\S]+)$/i
+    );
+
+    if (dataImageMatch) {
+        const encodedImage = dataImageMatch[2].replace(/\s/g, "");
+        const isValidBase64 =
+            encodedImage.length > 0 &&
+            encodedImage.length % 4 === 0 &&
+            /^[A-Za-z0-9+/]*={0,2}$/.test(encodedImage);
+
+        if (isValidBase64) {
+            const sourceExtension = dataImageMatch[1].toLowerCase();
+            const extension = sourceExtension === "jpeg" ? "jpg" : sourceExtension;
+            const contentType = extension === "jpg"
+                ? "image/jpeg"
+                : `image/${extension}`;
+            const cid = `evidence-${randomUUID()}@sunrise-parking`;
+
+            return {
+                attachments: [{
+                    cid,
+                    content: Buffer.from(encodedImage, "base64"),
+                    contentDisposition: "inline",
+                    contentType,
+                    filename: `anh-minh-chung.${extension}`,
+                }],
+                html: `
+                    <div style="margin:22px 0;padding:16px;border-radius:14px;background:#fff7fb;border:1px solid #f3d8e8;">
+                        <div style="margin-bottom:10px;font-weight:800;color:#3b2336;">Ảnh minh chứng</div>
+                        <img src="cid:${cid}" alt="Ảnh minh chứng" style="display:block;width:100%;max-width:520px;height:auto;border-radius:12px;border:1px solid #ead2e1;" />
+                    </div>
+                `,
+                text: "\n\nẢnh minh chứng được đính kèm trong email.",
+            };
+        }
+    }
+
+    if (/^https?:\/\//i.test(normalizedUrl)) {
+        const safeUrl = escapeHtml(normalizedUrl);
+
+        return {
+            attachments: [],
+            html: `
+                <div style="margin:22px 0;padding:16px;border-radius:14px;background:#fff7fb;border:1px solid #f3d8e8;">
+                    <div style="margin-bottom:10px;font-weight:800;color:#3b2336;">Ảnh minh chứng</div>
+                    <img src="${safeUrl}" alt="Ảnh minh chứng" style="display:block;width:100%;max-width:520px;height:auto;margin-bottom:12px;border-radius:12px;border:1px solid #ead2e1;" />
+                    <a href="${safeUrl}" style="color:#b54f8e;font-weight:700;">Mở ảnh minh chứng</a>
+                </div>
+            `,
+            text: `\n\nẢnh minh chứng: ${normalizedUrl}`,
+        };
+    }
+
+    return {
+        attachments: [],
+        html: "",
+        text: "\n\nẢnh minh chứng có trong phần chi tiết của hệ thống.",
+    };
+};
+
 const sendNotificationEmail = async ({
     evidenceUrl,
     message,
@@ -83,18 +164,18 @@ const sendNotificationEmail = async ({
     }
 
     const detailLink = buildNotificationLink(relatedType, relatedId);
-    const evidenceText = evidenceUrl
-        ? `<br/><br/>Ảnh minh chứng: <a href="${evidenceUrl}">${evidenceUrl}</a>`
-        : "";
+    const evidence = buildEvidenceEmail(evidenceUrl);
+    const messageHtml = escapeHtml(message).replace(/\r?\n/g, "<br/>");
 
     try {
         await emailService.sendMail({
+            attachments: evidence.attachments,
             to: user.email,
             subject: `Sunrise Parking - ${title}`,
-            text: `${title}\n\n${message}${evidenceUrl ? `\n\nẢnh minh chứng: ${evidenceUrl}` : ""}`,
+            text: `${title}\n\n${message}${evidence.text}`,
             html: emailService.buildParkingMail({
                 title,
-                body: `${message}${evidenceText}`,
+                bodyHtml: `${messageHtml}${evidence.html}`,
                 buttonLabel: "Xem trong hệ thống",
                 buttonUrl: detailLink,
             }),
