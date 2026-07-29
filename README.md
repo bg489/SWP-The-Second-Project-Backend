@@ -10,6 +10,7 @@ Backend Node.js/Express/MySQL cho hệ thống quản lý giữ xe chung cư.
 
 ```bash
 npm.cmd install
+npm.cmd run setup:fast-alpr
 ```
 
 4. Chạy server:
@@ -22,6 +23,16 @@ npm.cmd run dev
 
 ```txt
 http://localhost:5000/api-docs
+```
+
+## Nhận diện biển số bằng FastALPR
+
+Backend dùng FastALPR chạy trực tiếp bằng CPU, không cần API key và không gửi
+ảnh biển số sang dịch vụ bên thứ ba. Xem hướng dẫn cài local, kiểm thử và cấu
+hình Render tại:
+
+```txt
+docs/fast_alpr_setup.md
 ```
 
 ## Migration cho database Aiven hiện tại

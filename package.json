@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "setup:fast-alpr": "node scripts/setupFastAlpr.js",
+    "test:fast-alpr": "node scripts/testFastAlpr.js",
     "seed:users": "node src/seed/seedUsers.js",
     "seed:vehicles": "node src/seed/seedVehicles.js",
     "seed:floors": "node src/seed/seedFloors.js"
@@ -32,8 +34,7 @@
     "mysql2": "^3.22.4",
     "nodemailer": "^9.0.3",
     "swagger-jsdoc": "^6.3.0",
-    "swagger-ui-express": "^5.0.1",
-    "tesseract.js": "^7.0.0"
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

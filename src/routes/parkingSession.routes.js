@@ -12,7 +12,7 @@ const plateImageUpload = multer({
     storage: multer.memoryStorage(),
     fileFilter: (_req, file, callback) => {
         if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-            return callback(new Error("Vui lòng chọn ảnh JPEG, PNG hoặc WebP."));
+            return callback(new Error("Vui lòng dùng ảnh JPEG, PNG hoặc WebP."));
         }
 
         return callback(null, true);
@@ -22,7 +22,11 @@ const plateImageUpload = multer({
 const plateImageUploadMiddleware = (req, res, next) => {
     plateImageUpload.single("image")(req, res, (error) => {
         if (error) {
-            return errorResponse(res, error.message || "Ảnh biển số không hợp lệ.", 400);
+            return errorResponse(
+                res,
+                error.message || "Ảnh biển số không hợp lệ.",
+                400
+            );
         }
 
         return next();
@@ -135,7 +139,7 @@ router.get(
  * @swagger
  * /api/parking-sessions/recognize-plate:
  *   post:
- *     summary: Read a vehicle plate number from a captured image
+ *     summary: Read a vehicle plate number from a camera frame with FastALPR
  *     tags: [Parking Sessions]
  *     security:
  *       - bearerAuth: []
@@ -155,6 +159,8 @@ router.get(
  *         description: Plate recognition completed
  *       400:
  *         description: Invalid image
+ *       503:
+ *         description: FastALPR is unavailable or still starting
  */
 router.post(
     "/recognize-plate",
