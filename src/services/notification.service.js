@@ -66,6 +66,7 @@ const buildNotificationLink = (relatedType, relatedId) => {
         VEHICLE: "/user/profile",
         WRONG_SLOT_CASE: `/user/parking-issues?type=wrong-slot&id=${relatedId || ""}`,
         FLOOR_MISMATCH_CASE: `/user/parking-issues?type=floor-mismatch&id=${relatedId || ""}`,
+        HOURLY_SLOT_RESERVATION: `/user/slot-reservations?id=${relatedId || ""}`,
     };
 
     return `${frontendUrl}${paths[relatedType] || "/user/notifications"}`;

@@ -122,7 +122,7 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
     const sessionRange = buildDateRange({ from, to }, "ps.check_out_at");
     const paymentFilters = appendCondition(
         { params, whereSql },
-        "COALESCE(ps.building_id, mp.building_id, sr.building_id) = ?",
+        "COALESCE(ps.building_id, mp.building_id, sr.building_id, hsr.building_id) = ?",
         buildingId
     );
     const sessionFilters = appendCondition(
@@ -141,6 +141,7 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
          LEFT JOIN parking_sessions ps ON p.parking_session_id = ps.id
          LEFT JOIN monthly_passes mp ON p.monthly_pass_id = mp.id
          LEFT JOIN slot_registrations sr ON p.slot_registration_id = sr.id
+         LEFT JOIN hourly_slot_reservations hsr ON hsr.payment_id = p.id
          ${paymentFilters.whereSql}
          GROUP BY p.provider, p.status
          ORDER BY p.provider ASC, p.status ASC`,
@@ -152,11 +153,17 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
             CASE
                 WHEN p.monthly_pass_id IS NOT NULL THEN 'MONTHLY_PASS'
                 WHEN p.slot_registration_id IS NOT NULL THEN 'SLOT_REGISTRATION'
+                WHEN hsr.id IS NOT NULL THEN 'HOURLY_RESERVATION'
                 WHEN p.parking_session_id IS NOT NULL THEN 'PARKING_SESSION'
                 ELSE 'OTHER'
             END AS sourceType,
-            COALESCE(mp.vehicle_type, srv.vehicle_type, ps.vehicle_type) AS vehicleType,
-            ps.customer_type AS customerType,
+            COALESCE(
+                mp.vehicle_type,
+                srv.vehicle_type,
+                ps.vehicle_type,
+                CASE WHEN hsr.id IS NOT NULL THEN 'CAR' END
+            ) AS vehicleType,
+            COALESCE(ps.customer_type, hsr.customer_type) AS customerType,
             p.status,
             COUNT(*) AS paymentCount,
             COALESCE(SUM(p.amount), 0) AS totalAmount,
@@ -166,6 +173,8 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
                         AND p.parking_session_id IS NOT NULL
                         AND ps.pricing_type IN ('TURN', 'HOURLY')
                     THEN LEAST(COALESCE(p.amount, 0), COALESCE(ps.base_fee, 0))
+                    WHEN p.status = 'SUCCESS' AND hsr.id IS NOT NULL
+                    THEN COALESCE(p.amount, 0)
                     ELSE 0
                 END
             ), 0) AS ticketAmount,
@@ -190,7 +199,12 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
                         AND p.parking_session_id IS NOT NULL
                         AND ps.pricing_type IN ('TURN', 'HOURLY')
                         AND LEAST(COALESCE(p.amount, 0), COALESCE(ps.base_fee, 0)) > 0
-                    THEN 1 ELSE 0
+                    THEN 1
+                    WHEN p.status = 'SUCCESS'
+                        AND hsr.id IS NOT NULL
+                        AND COALESCE(p.amount, 0) > 0
+                    THEN 1
+                    ELSE 0
                 END
             ) AS ticketPaymentCount,
             SUM(
@@ -214,6 +228,7 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
          LEFT JOIN monthly_passes mp ON p.monthly_pass_id = mp.id
          LEFT JOIN slot_registrations sr ON p.slot_registration_id = sr.id
          LEFT JOIN vehicles srv ON sr.vehicle_id = srv.id
+         LEFT JOIN hourly_slot_reservations hsr ON hsr.payment_id = p.id
          ${paymentFilters.whereSql}
          GROUP BY sourceType, vehicleType, customerType, p.status
          ORDER BY sourceType ASC, vehicleType ASC, customerType ASC, p.status ASC`,
@@ -257,7 +272,7 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
         .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
     const walkInRevenue = sourceRows
         .filter((row) => row.status === "SUCCESS"
-            && row.sourceType === "PARKING_SESSION"
+            && ["PARKING_SESSION", "HOURLY_RESERVATION"].includes(row.sourceType)
             && row.customerType === "WALK_IN_GUEST")
         .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
     const ticketRevenue = sourceRows.reduce(
@@ -282,9 +297,11 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
         && row.vehicleType === "CAR";
     const successfulSessionPayment = (row) => row.status === "SUCCESS"
         && row.sourceType === "PARKING_SESSION";
+    const successfulTicketPayment = (row) => row.status === "SUCCESS"
+        && ["PARKING_SESSION", "HOURLY_RESERVATION"].includes(row.sourceType);
     const motorbikeTickets = (row) => successfulSessionPayment(row)
         && row.vehicleType === "MOTORBIKE";
-    const carTickets = (row) => successfulSessionPayment(row)
+    const carTickets = (row) => successfulTicketPayment(row)
         && row.vehicleType === "CAR";
     const otherPayments = (row) => row.status === "SUCCESS" && row.sourceType === "OTHER";
     const revenueBreakdown = [
@@ -336,7 +353,7 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
         paymentSources: sourceRows,
         sessions: sessionRows,
         completedMonthlyPayments: countSource(successfulMonthly),
-        completedTicketPayments: sumSource(successfulSessionPayment, "ticketPaymentCount"),
+        completedTicketPayments: sumSource(successfulTicketPayment, "ticketPaymentCount"),
         monthlyPassRevenue,
         paidRevenue: successfulPaymentTotal,
         pendingRevenue: pendingPaymentTotal,

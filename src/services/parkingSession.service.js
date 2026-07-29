@@ -3,6 +3,7 @@ const tempQrCardService = require("./tempQrCard.service");
 const violationService = require("./violation.service");
 const wrongSlotCaseService = require("./wrongSlotCase.service");
 const floorMismatchCaseService = require("./floorMismatchCase.service");
+const hourlySlotReservationService = require("./hourlySlotReservation.service");
 
 const sessionSelect = `
     SELECT
@@ -16,6 +17,12 @@ const sessionSelect = `
         ps.slot_id AS slotId,
         s.slot_code AS slotCode,
         ps.monthly_pass_id AS monthlyPassId,
+        hourlyReservation.id AS hourlyReservationId,
+        hourlyReservation.reservation_code AS hourlyReservationCode,
+        hourlyReservation.start_at AS hourlyReservationStartAt,
+        hourlyReservation.end_at AS hourlyReservationEndAt,
+        hourlyReservation.amount AS hourlyReservationAmount,
+        hourlyReservation.payment_method AS hourlyReservationPaymentMethod,
         ps.temp_qr_card_id AS tempQrCardId,
         tq.card_code AS tempQrCardCode,
         ps.session_qr_code AS sessionQrCode,
@@ -43,6 +50,8 @@ const sessionSelect = `
     INNER JOIN parking_floors f ON ps.floor_id = f.id
     LEFT JOIN parking_slots s ON ps.slot_id = s.id
     LEFT JOIN temporary_qr_cards tq ON ps.temp_qr_card_id = tq.id
+    LEFT JOIN hourly_slot_reservations hourlyReservation
+        ON hourlyReservation.parking_session_id = ps.id
 `;
 
 const getVehicleByPlateNumber = async (plateNumber) => {
@@ -179,6 +188,7 @@ const createSession = async ({
     allowReservedSlot,
     customerType,
     floorId,
+    hourlyReservation,
     monthlyPass,
     note,
     plateNumber,
@@ -277,6 +287,14 @@ const createSession = async ({
             await tempQrCardService.markCardInUse({
                 cardId: tempQrCardId,
                 connection,
+                sessionId: result.insertId,
+            });
+        }
+
+        if (hourlyReservation?.id) {
+            await hourlySlotReservationService.markReservationCheckedIn({
+                connection,
+                reservationId: hourlyReservation.id,
                 sessionId: result.insertId,
             });
         }
@@ -595,16 +613,23 @@ const releaseSessionParkingResource = async (connection, session) => {
     }
 
     if (session.vehicleType === "CAR" && session.slotId) {
-        const nextSlotStatus =
-            session.pricingType === "MONTHLY_PASS" ? "RESERVED" : "AVAILABLE";
+        if (session.hourlyReservationId) {
+            await hourlySlotReservationService.completeReservationForSession({
+                connection,
+                session,
+            });
+        } else {
+            const nextSlotStatus =
+                session.pricingType === "MONTHLY_PASS" ? "RESERVED" : "AVAILABLE";
 
-        await connection.query(
-            `UPDATE parking_slots
-             SET status = ?,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            [nextSlotStatus, session.slotId]
-        );
+            await connection.query(
+                `UPDATE parking_slots
+                 SET status = ?,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [nextSlotStatus, session.slotId]
+            );
+        }
     }
 
     if (session.tempQrCardId) {
@@ -632,7 +657,8 @@ const completeSessionWithManualPayment = async ({
 
         const transactionRef = `MANUAL${Date.now()}S${session.id}`;
         const paymentStatus = totalAmount > 0 ? "SUCCESS" : "SUCCESS";
-        const finalPaymentMethod = totalAmount > 0 ? paymentMethod : "MONTHLY_PASS";
+        const finalPaymentMethod =
+            totalAmount > 0 ? paymentMethod : paymentMethod || "MONTHLY_PASS";
 
         const [paymentResult] = await connection.query(
             `INSERT INTO payments

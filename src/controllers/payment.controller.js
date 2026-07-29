@@ -1,6 +1,7 @@
 const slotRegistrationService = require("../services/slotRegistration.service");
 const parkingSessionService = require("../services/parkingSession.service");
 const monthlyPassService = require("../services/monthlyPass.service");
+const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
 const { verifyReturnParams } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
@@ -57,15 +58,28 @@ const buildFrontendRouteUrl = (targetPath, exactUrl) => {
 
 const getFrontendPaymentReturnUrl = (result) => {
     const payment = result.data?.payment || {};
+    const hourlyReservation = result.data?.hourlyReservation;
     const isParkingCheckout = Boolean(
         result.data?.session || payment.parkingSessionId
     );
+    const isHourlyReservation = Boolean(hourlyReservation);
+    const isStaffReservation =
+        isHourlyReservation &&
+        ["STAFF", "MANAGER", "ADMIN"].includes(hourlyReservation.createdByRole);
     const targetPath = isParkingCheckout
         ? "/staff/check-out"
-        : "/user/qr-pass";
+        : isHourlyReservation
+          ? isStaffReservation
+              ? "/staff/slot-reservations"
+              : "/user/slot-reservations"
+          : "/user/qr-pass";
     const exactReturnUrl = isParkingCheckout
         ? process.env.FRONTEND_CHECKOUT_PAYMENT_RETURN_URL
-        : process.env.FRONTEND_PACKAGE_PAYMENT_RETURN_URL;
+        : isHourlyReservation
+          ? isStaffReservation
+              ? process.env.FRONTEND_STAFF_RESERVATION_PAYMENT_RETURN_URL
+              : process.env.FRONTEND_USER_RESERVATION_PAYMENT_RETURN_URL
+          : process.env.FRONTEND_PACKAGE_PAYMENT_RETURN_URL;
     const returnUrl = buildFrontendRouteUrl(targetPath, exactReturnUrl);
 
     return appendQuery(returnUrl, {
@@ -111,6 +125,11 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
         const monthlyPass = payment.monthlyPassId
             ? await monthlyPassService.getMonthlyPassById(payment.monthlyPassId)
             : null;
+        const hourlyReservation = payment.hourlyReservationId
+            ? await hourlySlotReservationService.getReservationById(
+                  payment.hourlyReservationId
+              )
+            : null;
 
         return {
             alreadyConfirmed: true,
@@ -124,6 +143,7 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
                 registration,
                 session,
                 monthlyPass,
+                hourlyReservation,
             },
         };
     }
@@ -131,6 +151,7 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
     await slotRegistrationService.markPaymentResult({
         ...paymentResult,
         monthlyPassId: payment.monthlyPassId,
+        hourlyReservationId: payment.hourlyReservationId,
         paymentId: payment.id,
         parkingSessionId: payment.parkingSessionId,
         registrationId: payment.slotRegistrationId,
@@ -142,6 +163,8 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
                   slotId: payment.sessionSlotId,
                   tempQrCardId: payment.sessionTempQrCardId,
                   vehicleType: payment.sessionVehicleType,
+                  hourlyReservationId:
+                      payment.sessionHourlyReservationId,
               }
             : null,
         slotId: payment.registrationSlotId,
@@ -155,6 +178,11 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
         : null;
     const monthlyPass = payment.monthlyPassId
         ? await monthlyPassService.getMonthlyPassById(payment.monthlyPassId)
+        : null;
+    const hourlyReservation = payment.hourlyReservationId
+        ? await hourlySlotReservationService.getReservationById(
+              payment.hourlyReservationId
+          )
         : null;
 
     return {
@@ -172,6 +200,7 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
             registration,
             session,
             monthlyPass,
+            hourlyReservation,
         },
     };
 };

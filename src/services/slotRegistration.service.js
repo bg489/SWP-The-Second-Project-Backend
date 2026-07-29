@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { generateQrCode } = require("./qrPass.service");
 const wrongSlotCaseService = require("./wrongSlotCase.service");
 const floorMismatchCaseService = require("./floorMismatchCase.service");
+const hourlySlotReservationService = require("./hourlySlotReservation.service");
 
 const registrationSelect = `
     SELECT
@@ -225,6 +226,8 @@ const getPaymentByTransactionRef = async (transactionRef) => {
             p.slot_registration_id AS slotRegistrationId,
             p.parking_session_id AS parkingSessionId,
             p.monthly_pass_id AS monthlyPassId,
+            hourlyReservation.id AS hourlyReservationId,
+            sessionHourlyReservation.id AS sessionHourlyReservationId,
             p.amount,
             p.status,
             p.transaction_ref AS transactionRef,
@@ -250,6 +253,10 @@ const getPaymentByTransactionRef = async (transactionRef) => {
          LEFT JOIN slot_registrations r ON p.slot_registration_id = r.id
          LEFT JOIN parking_sessions ps ON p.parking_session_id = ps.id
          LEFT JOIN monthly_passes mp ON p.monthly_pass_id = mp.id
+         LEFT JOIN hourly_slot_reservations hourlyReservation
+            ON hourlyReservation.payment_id = p.id
+         LEFT JOIN hourly_slot_reservations sessionHourlyReservation
+            ON sessionHourlyReservation.parking_session_id = ps.id
          WHERE p.transaction_ref = ?
          LIMIT 1`,
         [transactionRef]
@@ -264,6 +271,7 @@ const markPaymentResult = async ({
     paymentId,
     providerTransactionNo,
     monthlyPassId,
+    hourlyReservationId,
     registrationId,
     parkingSessionId,
     responseCode,
@@ -423,6 +431,14 @@ const markPaymentResult = async ({
             }
         }
 
+        if (hourlyReservationId) {
+            await hourlySlotReservationService.applyPaymentResult({
+                connection,
+                reservationId: hourlyReservationId,
+                status,
+            });
+        }
+
         if (parkingSessionId) {
             if (status === "SUCCESS") {
                 await connection.query(
@@ -446,18 +462,30 @@ const markPaymentResult = async ({
                 }
 
                 if (sessionStatus?.vehicleType === "CAR" && sessionStatus.slotId) {
-                    const nextSlotStatus =
-                        sessionStatus.pricingType === "MONTHLY_PASS"
-                            ? "RESERVED"
-                            : "AVAILABLE";
+                    if (sessionStatus.hourlyReservationId) {
+                        await hourlySlotReservationService.completeReservationForSession({
+                            connection,
+                            session: {
+                                hourlyReservationId:
+                                    sessionStatus.hourlyReservationId,
+                                slotId: sessionStatus.slotId,
+                                vehicleType: sessionStatus.vehicleType,
+                            },
+                        });
+                    } else {
+                        const nextSlotStatus =
+                            sessionStatus.pricingType === "MONTHLY_PASS"
+                                ? "RESERVED"
+                                : "AVAILABLE";
 
-                    await connection.query(
-                        `UPDATE parking_slots
-                         SET status = ?,
-                             updated_at = CURRENT_TIMESTAMP
-                         WHERE id = ?`,
-                        [nextSlotStatus, sessionStatus.slotId]
-                    );
+                        await connection.query(
+                            `UPDATE parking_slots
+                             SET status = ?,
+                                 updated_at = CURRENT_TIMESTAMP
+                             WHERE id = ?`,
+                            [nextSlotStatus, sessionStatus.slotId]
+                        );
+                    }
                 }
 
                 if (sessionStatus?.tempQrCardId) {
