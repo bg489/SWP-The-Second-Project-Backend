@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const emailService = require("./email.service");
+const { localizeUserMessage } = require("../utils/userMessage");
 
 const notificationSelect = `
     SELECT
@@ -114,6 +115,8 @@ const createNotification = async ({
 }) => {
     const executor = connection || db;
     const user = await getNotificationUser({ executor, userId });
+    const localizedTitle = localizeUserMessage(title);
+    const localizedMessage = localizeUserMessage(message);
 
     const [result] = await executor.query(
         `INSERT INTO user_notifications
@@ -121,8 +124,8 @@ const createNotification = async ({
          VALUES (?, ?, ?, ?, ?, ?)`,
         [
             userId,
-            title,
-            message,
+            localizedTitle,
+            localizedMessage,
             evidenceUrl || null,
             relatedType || null,
             relatedId || null,
@@ -132,10 +135,10 @@ const createNotification = async ({
     // Email delivery must not hold up user-facing actions such as approvals.
     void sendNotificationEmail({
         evidenceUrl,
-        message,
+        message: localizedMessage,
         relatedId,
         relatedType,
-        title,
+        title: localizedTitle,
         user,
     });
 

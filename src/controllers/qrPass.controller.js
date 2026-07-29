@@ -24,17 +24,25 @@ const getQrPasses = async (req, res) => {
     try {
         const passType = req.query.passType ? normalizeEnum(req.query.passType) : undefined;
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
+        const buildingId = req.query.buildingId;
         const vehicleId = req.query.vehicleId;
+        const normalizedBuildingId = isValidId(buildingId) ? buildingId : undefined;
+
+        await qrPassService.ensureQrPassesForManagement({
+            buildingId: normalizedBuildingId,
+            createdBy: req.user.id,
+        });
 
         const qrPasses = await qrPassService.getQrPasses({
+            buildingId: normalizedBuildingId,
             passType,
             status,
             vehicleId: isValidId(vehicleId) ? vehicleId : undefined,
         });
 
-        return successResponse(res, "Lay danh sach QR pass thanh cong", qrPasses);
+        return successResponse(res, "Lấy danh sách mã QR thành công", qrPasses);
     } catch (error) {
-        return errorResponse(res, "Loi lay danh sach QR pass", 500, error.message);
+        return errorResponse(res, "Lỗi lấy danh sách mã QR", 500, error.message);
     }
 };
 
@@ -55,9 +63,9 @@ const getMyQrPasses = async (req, res) => {
               )
             : qrPasses;
 
-        return successResponse(res, "Lay QR pass cua toi thanh cong", visibleQrPasses);
+        return successResponse(res, "Lấy danh sách mã QR của tôi thành công", visibleQrPasses);
     } catch (error) {
-        return errorResponse(res, "Loi lay QR pass cua toi", 500, error.message);
+        return errorResponse(res, "Lỗi lấy danh sách mã QR của tôi", 500, error.message);
     }
 };
 
