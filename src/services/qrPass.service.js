@@ -6,10 +6,27 @@ const qrPassSelect = `
         qp.id,
         qp.user_id AS userId,
         u.name AS ownerName,
+        u.email AS ownerEmail,
+        u.phone AS ownerPhone,
+        u.role AS ownerRole,
+        u.status AS ownerStatus,
+        u.building_id AS ownerBuildingId,
+        u.avatar_url AS ownerAvatarUrl,
+        u.avatar_crop_x AS ownerAvatarCropX,
+        u.avatar_crop_y AS ownerAvatarCropY,
+        u.avatar_crop_zoom AS ownerAvatarCropZoom,
+        u.created_at AS ownerCreatedAt,
+        ub.name AS ownerBuildingName,
+        ub.address AS ownerBuildingAddress,
         qp.vehicle_id AS vehicleId,
         v.plate_number AS plateNumber,
         v.vehicle_type AS vehicleType,
+        v.brand AS vehicleBrand,
+        v.color AS vehicleColor,
         v.status AS vehicleStatus,
+        v.plate_image_url AS plateImageUrl,
+        v.vehicle_portrait_image_url AS vehiclePortraitImageUrl,
+        v.vehicle_landscape_image_url AS vehicleLandscapeImageUrl,
         qp.monthly_pass_id AS monthlyPassId,
         qp.slot_registration_id AS slotRegistrationId,
         qp.qr_code AS qrCode,
@@ -35,6 +52,7 @@ const qrPassSelect = `
     FROM qr_passes qp
     INNER JOIN vehicles v ON qp.vehicle_id = v.id
     LEFT JOIN users u ON qp.user_id = u.id
+    LEFT JOIN buildings ub ON u.building_id = ub.id
     LEFT JOIN monthly_passes mp ON qp.monthly_pass_id = mp.id
     LEFT JOIN package_plans pp ON mp.package_plan_id = pp.id
     LEFT JOIN slot_registrations sr ON qp.slot_registration_id = sr.id
@@ -267,7 +285,13 @@ const getQrPassById = async (id) => {
     return rows[0] || null;
 };
 
-const getQrPasses = async ({ passType, status, userId, vehicleId } = {}) => {
+const getQrPasses = async ({
+    buildingId,
+    passType,
+    status,
+    userId,
+    vehicleId,
+} = {}) => {
     const conditions = [];
     const params = [];
 
@@ -279,6 +303,11 @@ const getQrPasses = async ({ passType, status, userId, vehicleId } = {}) => {
     if (vehicleId) {
         conditions.push("qp.vehicle_id = ?");
         params.push(vehicleId);
+    }
+
+    if (buildingId) {
+        conditions.push("COALESCE(mp.building_id, sr.building_id) = ?");
+        params.push(buildingId);
     }
 
     if (passType) {
@@ -341,6 +370,62 @@ const ensureQrPassesForUser = async (userId) => {
         await createQrPassForSlotRegistration({
             createdBy: userId,
             note: "Auto generated when user opens monthly pass QR page",
+            slotRegistrationId: row.id,
+        });
+    }
+};
+
+const ensureQrPassesForManagement = async ({ buildingId, createdBy } = {}) => {
+    const monthlyParams = [];
+    const monthlyBuildingFilter = buildingId ? "AND mp.building_id = ?" : "";
+
+    if (buildingId) {
+        monthlyParams.push(buildingId);
+    }
+
+    const [monthlyRows] = await db.query(
+        `SELECT mp.id
+         FROM monthly_passes mp
+         INNER JOIN vehicles v ON mp.vehicle_id = v.id
+         LEFT JOIN qr_passes qp ON qp.monthly_pass_id = mp.id
+         WHERE mp.status = 'ACTIVE'
+            AND v.status = 'APPROVED'
+            AND qp.id IS NULL
+            ${monthlyBuildingFilter}`,
+        monthlyParams
+    );
+
+    for (const row of monthlyRows) {
+        await createQrPassForMonthlyPass({
+            createdBy: createdBy || null,
+            monthlyPassId: row.id,
+            note: "Auto generated when manager opens monthly pass QR page",
+        });
+    }
+
+    const slotParams = [];
+    const slotBuildingFilter = buildingId ? "AND sr.building_id = ?" : "";
+
+    if (buildingId) {
+        slotParams.push(buildingId);
+    }
+
+    const [slotRows] = await db.query(
+        `SELECT sr.id
+         FROM slot_registrations sr
+         INNER JOIN vehicles v ON sr.vehicle_id = v.id
+         LEFT JOIN qr_passes qp ON qp.slot_registration_id = sr.id
+         WHERE sr.status = 'PAID'
+            AND v.status = 'APPROVED'
+            AND qp.id IS NULL
+            ${slotBuildingFilter}`,
+        slotParams
+    );
+
+    for (const row of slotRows) {
+        await createQrPassForSlotRegistration({
+            createdBy: createdBy || null,
+            note: "Auto generated when manager opens monthly pass QR page",
             slotRegistrationId: row.id,
         });
     }
@@ -485,6 +570,7 @@ const updateQrPassStatus = async ({ id, note, status }) => {
 module.exports = {
     createQrPassForMonthlyPass,
     createQrPassForSlotRegistration,
+    ensureQrPassesForManagement,
     ensureQrPassesForUser,
     generateQrCode,
     getMonthlyPassForQr,
