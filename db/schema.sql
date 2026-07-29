@@ -483,6 +483,77 @@ CREATE TABLE IF NOT EXISTS violations (
         ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(180) NOT NULL,
+    message TEXT NOT NULL,
+    evidence_url MEDIUMTEXT NULL,
+    status ENUM('UNREAD', 'READ', 'ACTION_TAKEN') NOT NULL DEFAULT 'UNREAD',
+    related_type VARCHAR(80) NULL,
+    related_id INT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_notifications_user_status (user_id, status),
+    CONSTRAINT fk_user_notifications_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS wrong_slot_cases (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    parking_session_id INT NOT NULL,
+    vehicle_id INT NULL,
+    user_id INT NULL,
+    building_id INT NOT NULL,
+    original_slot_id INT NULL,
+    observed_slot_id INT NOT NULL,
+    reserved_registration_id INT NULL,
+    reassigned_slot_id INT NULL,
+    restoration_status ENUM('NONE', 'TEMP_ASSIGNED', 'WAITING_RESERVED_EXIT', 'RESTORED') NOT NULL DEFAULT 'NONE',
+    evidence_url MEDIUMTEXT NULL,
+    note TEXT NULL,
+    status ENUM('ALLOWED', 'WAITING_USER', 'USER_MOVED', 'PENALIZED', 'CANCELLED') NOT NULL DEFAULT 'WAITING_USER',
+    notify_until DATETIME NULL,
+    violation_id INT NULL,
+    staff_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_wrong_slot_cases_status_deadline (status, notify_until),
+    INDEX idx_wrong_slot_cases_session (parking_session_id),
+    INDEX idx_wrong_slot_cases_restoration (restoration_status, reserved_registration_id),
+    CONSTRAINT fk_wrong_slot_cases_session
+        FOREIGN KEY (parking_session_id) REFERENCES parking_sessions(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_wrong_slot_cases_vehicle
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_building
+        FOREIGN KEY (building_id) REFERENCES buildings(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_wrong_slot_cases_original_slot
+        FOREIGN KEY (original_slot_id) REFERENCES parking_slots(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_observed_slot
+        FOREIGN KEY (observed_slot_id) REFERENCES parking_slots(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_wrong_slot_cases_reserved_registration
+        FOREIGN KEY (reserved_registration_id) REFERENCES slot_registrations(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_reassigned_slot
+        FOREIGN KEY (reassigned_slot_id) REFERENCES parking_slots(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_violation
+        FOREIGN KEY (violation_id) REFERENCES violations(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_staff
+        FOREIGN KEY (staff_id) REFERENCES users(id)
+        ON DELETE RESTRICT
+);
+
 CREATE TABLE IF NOT EXISTS floor_mismatch_cases (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NOT NULL,
@@ -496,7 +567,7 @@ CREATE TABLE IF NOT EXISTS floor_mismatch_cases (
     mismatch_type ENUM('MOTORBIKE_IN_CAR_FLOOR', 'CAR_IN_MOTORBIKE_FLOOR') NOT NULL,
     evidence_url MEDIUMTEXT NULL,
     note TEXT NULL,
-    status ENUM('LOCKED_AND_PENALIZED', 'WAITING_USER', 'TOWED', 'CANCELLED') NOT NULL DEFAULT 'WAITING_USER',
+    status ENUM('LOCKED_AND_PENALIZED', 'WAITING_USER', 'USER_MOVED', 'TOWED', 'CANCELLED') NOT NULL DEFAULT 'WAITING_USER',
     notify_until DATETIME NULL,
     violation_id INT NULL,
     staff_id INT NOT NULL,
