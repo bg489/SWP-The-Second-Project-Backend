@@ -19,6 +19,7 @@ const processExpiredViolationCases = async () => {
         await floorMismatchCaseService.processExpiredFloorMismatchCases();
         await hourlySlotReservationService.processReservationLifecycle();
         await smsService.processPendingSms();
+        await smsService.reconcileEsmsDeliveries();
     } catch (error) {
         console.error("[violation-deadline]", error.message);
     } finally {
