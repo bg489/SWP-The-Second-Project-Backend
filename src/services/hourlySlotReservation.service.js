@@ -3,6 +3,7 @@ const { randomUUID } = require("crypto");
 const db = require("../config/db");
 const notificationService = require("./notification.service");
 const pricingPolicyService = require("./pricingPolicy.service");
+const smsService = require("./sms.service");
 
 const ACTIVE_RESERVATION_STATUSES = [
     "PENDING_PAYMENT",
@@ -10,6 +11,30 @@ const ACTIVE_RESERVATION_STATUSES = [
     "CHECKED_IN",
     "COMPLETED",
 ];
+const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
+const formatSmsDateTime = (value) =>
+    new Intl.DateTimeFormat("vi-VN", {
+        day: "2-digit",
+        hour: "2-digit",
+        hour12: false,
+        minute: "2-digit",
+        month: "2-digit",
+        timeZone: VIETNAM_TIME_ZONE,
+        year: "numeric",
+    }).format(new Date(value));
+
+const buildGuestReservationSms = ({
+    endAt,
+    floorName,
+    plateNumber,
+    reservationCode,
+    slotCode,
+    startAt,
+}) =>
+    `Sunrise Parking: Đã giữ ô ${slotCode} tại ${floorName} cho xe ${plateNumber}, ` +
+    `từ ${formatSmsDateTime(startAt)} đến ${formatSmsDateTime(endAt)}. ` +
+    `Mã lượt ${reservationCode}.`;
 
 const reservationSelect = `
     SELECT
@@ -379,6 +404,7 @@ const ensureReservationSlotAvailable = async (
             s.floor_id AS floorId,
             s.slot_code AS slotCode,
             s.status,
+            f.name AS floorName,
             f.floor_type AS floorType,
             f.status AS floorStatus
          FROM parking_slots s
@@ -579,6 +605,7 @@ const createReservationWithPayment = async ({
         );
         const reservationCode = createReservationCode();
         const isPaid = paymentMethod === "CASH";
+        let smsOutboxId = null;
         const [reservationResult] = await connection.query(
             `INSERT INTO hourly_slot_reservations
                 (
@@ -653,11 +680,33 @@ const createReservationWithPayment = async ({
             });
         }
 
+        if (
+            isPaid &&
+            customerType === "WALK_IN_GUEST" &&
+            guestPhone
+        ) {
+            smsOutboxId = await smsService.queueSms({
+                connection,
+                content: buildGuestReservationSms({
+                    endAt,
+                    floorName: slot.floorName,
+                    plateNumber: finalPlateNumber,
+                    reservationCode,
+                    slotCode: slot.slotCode,
+                    startAt,
+                }),
+                phone: guestPhone,
+                relatedId: reservationResult.insertId,
+                relatedType: "HOURLY_SLOT_RESERVATION",
+            });
+        }
+
         await connection.commit();
 
         return {
             paymentId: paymentResult.insertId,
             reservationId: reservationResult.insertId,
+            smsOutboxId,
             transactionRef,
         };
     } catch (error) {
@@ -835,6 +884,7 @@ const applyPaymentResult = async ({
         [reservationId]
     );
     const reservation = rows[0];
+    let smsOutboxId = null;
 
     if (!reservation) {
         const error = new Error("Không tìm thấy lượt đặt ô theo giờ");
@@ -856,15 +906,18 @@ const applyPaymentResult = async ({
 
         await refreshSlotStatus(connection, reservation.slot_id);
 
-        if (reservation.user_id) {
-            const [slotRows] = await connection.query(
-                `SELECT slot_code AS slotCode
-                 FROM parking_slots
-                 WHERE id = ?
-                 LIMIT 1`,
-                [reservation.slot_id]
-            );
+        const [slotRows] = await connection.query(
+            `SELECT
+                s.slot_code AS slotCode,
+                f.name AS floorName
+             FROM parking_slots s
+             INNER JOIN parking_floors f ON f.id = s.floor_id
+             WHERE s.id = ?
+             LIMIT 1`,
+            [reservation.slot_id]
+        );
 
+        if (reservation.user_id) {
             await notificationService.createNotification({
                 connection,
                 relatedId: reservationId,
@@ -872,6 +925,25 @@ const applyPaymentResult = async ({
                 title: "Đặt ô ô tô thành công",
                 message: `Thanh toán thành công. Ô ${slotRows[0]?.slotCode || ""} đã được giữ theo khung giờ bạn chọn.`,
                 userId: reservation.user_id,
+            });
+        } else if (
+            reservation.customer_type === "WALK_IN_GUEST" &&
+            reservation.guest_phone &&
+            reservation.payment_status !== "PAID"
+        ) {
+            smsOutboxId = await smsService.queueSms({
+                connection,
+                content: buildGuestReservationSms({
+                    endAt: reservation.end_at,
+                    floorName: slotRows[0]?.floorName || "tầng ô tô",
+                    plateNumber: reservation.plate_number,
+                    reservationCode: reservation.reservation_code,
+                    slotCode: slotRows[0]?.slotCode || "",
+                    startAt: reservation.start_at,
+                }),
+                phone: reservation.guest_phone,
+                relatedId: reservationId,
+                relatedType: "HOURLY_SLOT_RESERVATION",
             });
         }
     } else {
@@ -886,6 +958,10 @@ const applyPaymentResult = async ({
         );
         await refreshSlotStatus(connection, reservation.slot_id);
     }
+
+    return {
+        smsOutboxId,
+    };
 };
 
 module.exports = {

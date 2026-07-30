@@ -32,7 +32,7 @@ const getEsmsConfig = () => {
         apiKey,
         brandname,
         endpoint: process.env.ESMS_API_URL || DEFAULT_ESMS_URL,
-        sandbox: process.env.ESMS_SANDBOX !== "false",
+        sandbox: process.env.ESMS_SANDBOX === "true",
         secretKey,
         smsType: String(
             process.env.ESMS_SMS_TYPE || (brandname ? "2" : "8")
@@ -44,12 +44,18 @@ const sendWithEsms = async ({ content, id, phone }) => {
     const config = getEsmsConfig();
 
     if (!config) {
-        console.log("[sms:preview]", { content, phone });
-        return {
-            previewOnly: true,
-            provider: "PREVIEW",
-            providerMessageId: null,
-        };
+        if (process.env.ESMS_ALLOW_PREVIEW === "true") {
+            console.log("[sms:preview]", { content, phone });
+            return {
+                previewOnly: true,
+                provider: "PREVIEW",
+                providerMessageId: null,
+            };
+        }
+
+        throw new Error(
+            "Máy chủ chưa cấu hình ESMS_API_KEY và ESMS_SECRET_KEY nên chưa thể gửi SMS."
+        );
     }
 
     const payload = {
@@ -67,12 +73,18 @@ const sendWithEsms = async ({ content, id, phone }) => {
         payload.Brandname = config.brandname;
     }
 
+    const configuredTimeout = Number(process.env.ESMS_TIMEOUT_MS);
+    const timeoutMs =
+        Number.isFinite(configuredTimeout) && configuredTimeout >= 1000
+            ? configuredTimeout
+            : 10000;
     const response = await fetch(config.endpoint, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(timeoutMs),
     });
     const data = await response.json().catch(() => ({}));
 
@@ -125,7 +137,7 @@ const queueSms = async ({
     return result.insertId;
 };
 
-const processPendingSms = async ({ limit = 20 } = {}) => {
+const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
     await db.query(
         `UPDATE sms_outbox
          SET status = 'FAILED',
@@ -136,15 +148,41 @@ const processPendingSms = async ({ limit = 20 } = {}) => {
             AND updated_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 10 MINUTE)`
     );
 
+    const requestedIds = Array.isArray(ids)
+        ? [
+              ...new Set(
+                  ids
+                      .map(Number)
+                      .filter((id) => Number.isInteger(id) && id > 0)
+              ),
+          ]
+        : [];
+
+    if (Array.isArray(ids) && ids.length > 0 && requestedIds.length === 0) {
+        return [];
+    }
+
+    const filters = [
+        "status IN ('PENDING', 'FAILED')",
+        "attempt_count < ?",
+        "next_attempt_at <= CURRENT_TIMESTAMP",
+    ];
+    const params = [MAX_ATTEMPTS];
+
+    if (requestedIds.length > 0) {
+        filters.push("id IN (?)");
+        params.push(requestedIds);
+    }
+
+    params.push(Math.max(1, Number(limit) || 20));
+
     const [rows] = await db.query(
         `SELECT id, phone, content, attempt_count AS attemptCount
          FROM sms_outbox
-         WHERE status IN ('PENDING', 'FAILED')
-            AND attempt_count < ?
-            AND next_attempt_at <= CURRENT_TIMESTAMP
+         WHERE ${filters.join("\n            AND ")}
          ORDER BY id ASC
          LIMIT ?`,
-        [MAX_ATTEMPTS, Number(limit)]
+        params
     );
     const results = [];
 

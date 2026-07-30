@@ -283,6 +283,7 @@ const markPaymentResult = async ({
     transactionStatus,
 }) => {
     const connection = await db.getConnection();
+    let smsOutboxId = null;
 
     try {
         await connection.beginTransaction();
@@ -432,11 +433,14 @@ const markPaymentResult = async ({
         }
 
         if (hourlyReservationId) {
-            await hourlySlotReservationService.applyPaymentResult({
-                connection,
-                reservationId: hourlyReservationId,
-                status,
-            });
+            const hourlyPaymentResult =
+                await hourlySlotReservationService.applyPaymentResult({
+                    connection,
+                    reservationId: hourlyReservationId,
+                    status,
+                });
+
+            smsOutboxId = hourlyPaymentResult?.smsOutboxId || null;
         }
 
         if (parkingSessionId) {
@@ -553,6 +557,10 @@ const markPaymentResult = async ({
         }
 
         await connection.commit();
+
+        return {
+            smsOutboxId,
+        };
     } catch (error) {
         await connection.rollback();
         throw error;
