@@ -3,6 +3,155 @@ const db = require("../config/db");
 const DEFAULT_ESMS_URL =
     "https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/";
 const MAX_ATTEMPTS = 3;
+const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
+const APPROVED_GENERIC_CUSTOMER_CARE_SMS =
+    "Cam on quy khach da su dung dich vu cua chung toi. Chuc quy khach mot ngay tot lanh!";
+const SMS_TEMPLATE_KEYS = Object.freeze({
+    WRONG_SLOT_OCCUPIER: "WRONG_SLOT_OCCUPIER",
+    WRONG_SLOT_VICTIM: "WRONG_SLOT_VICTIM",
+    WRONG_SLOT_VICTIM_UPDATE: "WRONG_SLOT_VICTIM_UPDATE",
+});
+const WRONG_SLOT_VICTIM_UPDATE_TYPES = Object.freeze({
+    ORIGINAL_RESTORED: "ORIGINAL_RESTORED",
+    ORIGINAL_RESTORED_AFTER_TEMP: "ORIGINAL_RESTORED_AFTER_TEMP",
+    TEMP_ASSIGNED: "TEMP_ASSIGNED",
+    TEMP_RETAINED: "TEMP_RETAINED",
+});
+
+const normalizeTemplateText = (value, maxLength) =>
+    String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[đĐ]/g, (character) => (character === "Đ" ? "D" : "d"))
+        .replace(/[^A-Za-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, maxLength);
+
+const normalizeTemplateToken = (value, maxLength) =>
+    normalizeTemplateText(value, maxLength)
+        .replace(/\s/g, "")
+        .toUpperCase()
+        .slice(0, maxLength);
+
+const formatTemplateDateTime = (value = new Date()) => {
+    const date = new Date(value);
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        hour: "2-digit",
+        hourCycle: "h23",
+        minute: "2-digit",
+        month: "2-digit",
+        timeZone: VIETNAM_TIME_ZONE,
+        year: "numeric",
+    }).formatToParts(safeDate);
+    const getPart = (type) =>
+        parts.find((part) => part.type === type)?.value || "";
+
+    return `${getPart("day")}/${getPart("month")}/${getPart(
+        "year"
+    )} ${getPart("hour")}:${getPart("minute")}`;
+};
+
+const buildWrongSlotVictimSms = ({
+    eventAt,
+    occupyingPlate,
+    slotCode,
+} = {}) => {
+    const orderReference = normalizeTemplateToken(
+        `O${slotCode || "SLOT"}BIXE${occupyingPlate || "KHONGRO"}`,
+        20
+    );
+
+    return (
+        "Baotrixemay da nhan duoc so tien thanh toan 0 VND luc " +
+        `${formatTemplateDateTime(eventAt)} cho don hang ${orderReference}. ` +
+        "Cam on quy khach!"
+    );
+};
+
+const buildWrongSlotOccupierSms = ({
+    occupyingPlate,
+    reservedPlate,
+    slotCode,
+} = {}) => {
+    const vehicleDetails = normalizeTemplateText(
+        [
+            occupyingPlate || "Xe cua ban",
+            "chiem o",
+            slotCode || "khong ro",
+            reservedPlate ? `cua xe ${reservedPlate}` : "",
+            "doi xe trong 15 phut",
+        ]
+            .filter(Boolean)
+            .join(" "),
+        70
+    );
+    const contact = "chu xe lien he Sunrise Parking";
+
+    return (
+        `Xe ${vehicleDetails} da hoan thanh. ` +
+        `Kinh moi ${contact} den nhan xe. Tran trong.`
+    );
+};
+
+const buildWrongSlotVictimUpdateSms = ({
+    originalSlotCode,
+    reservedPlate,
+    temporarySlotCode,
+    updateType,
+} = {}) => {
+    const plate = reservedPlate || "Xe bi chiem";
+    const originalSlot = originalSlotCode || "khong ro";
+    const temporarySlot = temporarySlotCode || "khong ro";
+    const descriptions = {
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED]:
+            `${plate} la xe bi chiem duoc tra lai o ${originalSlot}`,
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED_AFTER_TEMP]:
+            `${plate} roi o tam ${temporarySlot} o ${originalSlot} da duoc dat lai`,
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_ASSIGNED]:
+            `${plate} la xe bi chiem o ${originalSlot} duoc gan tam o ${temporarySlot}`,
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_RETAINED]:
+            `${plate} giu o tam ${temporarySlot} o ${originalSlot} dang tam khoa`,
+    };
+    const vehicleDetails = normalizeTemplateText(
+        descriptions[updateType] ||
+            `${plate} cap nhat o ${originalSlot} va o tam ${temporarySlot}`,
+        70
+    );
+    const contact = "chu xe bi chiem lien he Sunrise Parking";
+
+    return (
+        `Xe ${vehicleDetails} da hoan thanh. ` +
+        `Kinh moi ${contact} den nhan xe. Tran trong.`
+    );
+};
+
+const resolveApprovedSmsContent = ({
+    content,
+    relatedType,
+    templateData,
+    templateKey,
+}) => {
+    if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM) {
+        return buildWrongSlotVictimSms(templateData);
+    }
+
+    if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_OCCUPIER) {
+        return buildWrongSlotOccupierSms(templateData);
+    }
+
+    if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM_UPDATE) {
+        return buildWrongSlotVictimUpdateSms(templateData);
+    }
+
+    if (relatedType === "WRONG_SLOT_CASE") {
+        return APPROVED_GENERIC_CUSTOMER_CARE_SMS;
+    }
+
+    return String(content || "").trim();
+};
 
 const normalizeVietnamPhone = (value) => {
     const compact = String(value || "").replace(/[^\d+]/g, "");
@@ -61,7 +210,7 @@ const sendWithEsms = async ({ content, id, phone }) => {
     const payload = {
         ApiKey: config.apiKey,
         Content: content,
-        IsUnicode: "1",
+        IsUnicode: /[^\x00-\x7F]/.test(content) ? "1" : "0",
         Phone: phone,
         RequestId: `SUNRISE-${id}-${Date.now()}`.slice(0, 50),
         Sandbox: config.sandbox ? "1" : "0",
@@ -109,9 +258,17 @@ const queueSms = async ({
     phone,
     relatedId,
     relatedType,
+    templateData,
+    templateKey,
 }) => {
     const executor = connection || db;
     const normalizedPhone = normalizeVietnamPhone(phone);
+    const approvedContent = resolveApprovedSmsContent({
+        content,
+        relatedType,
+        templateData,
+        templateKey,
+    });
 
     if (!/^0\d{9,10}$/.test(normalizedPhone)) {
         console.warn("[sms:skip-invalid-phone]", {
@@ -128,7 +285,7 @@ const queueSms = async ({
          VALUES (?, ?, ?, ?)`,
         [
             normalizedPhone,
-            String(content || "").trim().slice(0, 1000),
+            approvedContent.slice(0, 1000),
             relatedType || null,
             relatedId || null,
         ]
@@ -260,4 +417,7 @@ module.exports = {
     normalizeVietnamPhone,
     processPendingSms,
     queueSms,
+    resolveApprovedSmsContent,
+    SMS_TEMPLATE_KEYS,
+    WRONG_SLOT_VICTIM_UPDATE_TYPES,
 };

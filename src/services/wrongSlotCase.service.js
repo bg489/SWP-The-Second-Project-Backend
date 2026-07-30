@@ -130,9 +130,11 @@ const getReservedRegistrationBySlot = async (executor, slotId) => {
             r.building_id AS buildingId,
             r.floor_id AS floorId,
             r.slot_id AS slotId,
-            v.plate_number AS plateNumber
+            v.plate_number AS plateNumber,
+            u.phone AS userPhone
          FROM slot_registrations r
          INNER JOIN vehicles v ON r.vehicle_id = v.id
+         INNER JOIN users u ON r.user_id = u.id
          WHERE r.slot_id = ?
             AND r.status IN ('PENDING_PAYMENT', 'PAID')
          ORDER BY FIELD(r.status, 'PAID', 'PENDING_PAYMENT'), r.id DESC
@@ -160,8 +162,10 @@ const getReservedHourlyReservationBySlot = async (executor, slotId) => {
             r.start_at AS startAt,
             r.end_at AS endAt,
             r.status,
-            r.parking_session_id AS parkingSessionId
+            r.parking_session_id AS parkingSessionId,
+            u.phone AS userPhone
          FROM hourly_slot_reservations r
+         LEFT JOIN users u ON r.user_id = u.id
          WHERE r.slot_id = ?
             AND r.payment_status = 'PAID'
             AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
@@ -197,8 +201,10 @@ const getReservedHourlyReservationById = async (executor, id) => {
             r.start_at AS startAt,
             r.end_at AS endAt,
             r.status,
-            r.parking_session_id AS parkingSessionId
+            r.parking_session_id AS parkingSessionId,
+            u.phone AS userPhone
          FROM hourly_slot_reservations r
+         LEFT JOIN users u ON r.user_id = u.id
          WHERE r.id = ?
             AND r.payment_status = 'PAID'
             AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
@@ -224,24 +230,56 @@ const isHourlyReservationForSession = (reservation, session) => {
         normalizePlateLookup(session.plate_number);
 };
 
-const queueReservedHourlyAlert = async ({
+const queueReservedContactAlert = async ({
     connection,
     content,
+    includeRegisteredUser = false,
     relatedId,
     reservation,
+    templateData,
+    templateKey,
 }) => {
-    if (!reservation || reservation.userId) {
+    const phone =
+        reservation?.guestPhone ||
+        (includeRegisteredUser ? reservation?.userPhone : null);
+
+    if (!reservation || !phone) {
         return null;
     }
 
     return smsService.queueSms({
         connection,
         content,
-        phone: reservation.guestPhone,
+        phone,
         relatedId,
         relatedType: "WRONG_SLOT_CASE",
+        templateData,
+        templateKey,
     });
 };
+
+const queueVictimSlotUpdateAlert = async ({
+    connection,
+    originalSlotCode,
+    relatedId,
+    reservation,
+    temporarySlotCode,
+    updateType,
+}) =>
+    queueReservedContactAlert({
+        connection,
+        content: "",
+        includeRegisteredUser: true,
+        relatedId,
+        reservation,
+        templateData: {
+            originalSlotCode,
+            reservedPlate: reservation?.plateNumber,
+            temporarySlotCode,
+            updateType,
+        },
+        templateKey: smsService.SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM_UPDATE,
+    });
 
 const unlockSlotForReservationRefresh = async (executor, slotId) => {
     if (!slotId) {
@@ -346,11 +384,28 @@ const reportWrongSlot = async ({
         await connection.beginTransaction();
 
         const [sessionRows] = await connection.query(
-            `SELECT *
-             FROM parking_sessions
-             WHERE id = ?
-                AND status = 'ACTIVE'
-                AND vehicle_type = 'CAR'
+            `SELECT
+                ps.*,
+                COALESCE(
+                    (
+                        SELECT sessionUser.phone
+                        FROM users sessionUser
+                        WHERE sessionUser.id = ps.user_id
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT sessionReservation.guest_phone
+                        FROM hourly_slot_reservations sessionReservation
+                        WHERE sessionReservation.parking_session_id = ps.id
+                            AND sessionReservation.guest_phone IS NOT NULL
+                        ORDER BY sessionReservation.id DESC
+                        LIMIT 1
+                    )
+                ) AS sms_phone
+             FROM parking_sessions ps
+             WHERE ps.id = ?
+                AND ps.status = 'ACTIVE'
+                AND ps.vehicle_type = 'CAR'
              LIMIT 1
              FOR UPDATE`,
             [parkingSessionId]
@@ -494,6 +549,27 @@ const reportWrongSlot = async ({
                 });
             }
 
+            const reservedConflict =
+                reservedRegistrationConflict || reservedHourlyConflict;
+            const reservedPlateNumber = reservedConflict?.plateNumber || "";
+
+            if (session.sms_phone) {
+                await smsService.queueSms({
+                    connection,
+                    content: "",
+                    phone: session.sms_phone,
+                    relatedId: caseResult.insertId,
+                    relatedType: "WRONG_SLOT_CASE",
+                    templateData: {
+                        occupyingPlate: session.plate_number,
+                        reservedPlate: reservedPlateNumber,
+                        slotCode: observedSlot.slot_code,
+                    },
+                    templateKey:
+                        smsService.SMS_TEMPLATE_KEYS.WRONG_SLOT_OCCUPIER,
+                });
+            }
+
             const reservedUserId =
                 reservedRegistrationConflict?.userId ||
                 reservedHourlyConflict?.userId;
@@ -516,12 +592,22 @@ const reportWrongSlot = async ({
                     message: reservedMessage,
                     userId: reservedUserId,
                 });
-            } else if (reservedHourlyConflict) {
-                await queueReservedHourlyAlert({
+            }
+
+            if (reservedConflict) {
+                await queueReservedContactAlert({
                     connection,
                     content: `Sunrise Parking: ${reservedMessage}`,
+                    includeRegisteredUser: true,
                     relatedId: caseResult.insertId,
-                    reservation: reservedHourlyConflict,
+                    reservation: reservedConflict,
+                    templateData: {
+                        eventAt: new Date(),
+                        occupyingPlate: session.plate_number,
+                        slotCode: observedSlot.slot_code,
+                    },
+                    templateKey:
+                        smsService.SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM,
                 });
             }
         }
@@ -544,9 +630,13 @@ const confirmWrongSlot = async ({ id, staffId }) => {
         await connection.beginTransaction();
 
         const [caseRows] = await connection.query(
-            `SELECT *
-             FROM wrong_slot_cases
-             WHERE id = ?
+            `SELECT
+                c.*,
+                observedSlot.slot_code AS observedSlotCode
+             FROM wrong_slot_cases c
+             INNER JOIN parking_slots observedSlot
+                ON c.observed_slot_id = observedSlot.id
+             WHERE c.id = ?
              LIMIT 1
              FOR UPDATE`,
             [id]
@@ -731,14 +821,18 @@ const confirmWrongSlot = async ({ id, staffId }) => {
                         message: reassignedMessage,
                         userId: reservedUserId,
                     });
-                } else if (reservedHourlyReservation) {
-                    await queueReservedHourlyAlert({
-                        connection,
-                        content: `Sunrise Parking: ${reassignedMessage}`,
-                        relatedId: wrongCase.id,
-                        reservation: reservedHourlyReservation,
-                    });
                 }
+
+                await queueVictimSlotUpdateAlert({
+                    connection,
+                    originalSlotCode: wrongCase.observedSlotCode,
+                    relatedId: wrongCase.id,
+                    reservation:
+                        reservedRegistration || reservedHourlyReservation,
+                    temporarySlotCode: reassignedSlot.slotCode,
+                    updateType:
+                        smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_ASSIGNED,
+                });
             }
         }
 
@@ -986,7 +1080,7 @@ const markWrongSlotMoved = async ({
                         userId: reservedHourlyReservation.userId,
                     });
                 } else {
-                    await queueReservedHourlyAlert({
+                    await queueReservedContactAlert({
                         connection,
                         content: `Sunrise Parking: ${returnedMessage}`,
                         relatedId: wrongCase.id,
@@ -1021,6 +1115,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
             rr.user_id AS reservedUserId,
             rr.vehicle_id AS reservedVehicleId,
             rr.slot_id AS currentReservedSlotId,
+            reservedUser.phone AS userPhone,
             v.plate_number AS reservedPlateNumber,
             obs.slot_code AS observedSlotCode,
             obs.floor_id AS observedFloorId,
@@ -1028,6 +1123,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
          FROM wrong_slot_cases c
          INNER JOIN slot_registrations rr ON c.reserved_registration_id = rr.id
          INNER JOIN vehicles v ON rr.vehicle_id = v.id
+         INNER JOIN users reservedUser ON rr.user_id = reservedUser.id
          INNER JOIN parking_slots obs ON c.observed_slot_id = obs.id
          LEFT JOIN parking_slots rs ON c.reassigned_slot_id = rs.id
          WHERE c.parking_session_id = ?
@@ -1042,7 +1138,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
 
     for (const wrongCase of caseRows) {
         const [activeRows] = await executor.query(
-            `SELECT id
+            `SELECT id, slot_id AS slotId
              FROM parking_sessions
              WHERE vehicle_id = ?
                 AND status IN ('ACTIVE', 'PENDING_PAYMENT')
@@ -1050,8 +1146,12 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
             [wrongCase.reservedVehicleId]
         );
         const reservedVehicleInside = Boolean(activeRows[0]);
+        const reservedVehicleInTemporarySlot =
+            reservedVehicleInside &&
+            Number(activeRows[0].slotId) ===
+                Number(wrongCase.reassignedSlotId);
 
-        if (!reservedVehicleInside) {
+        if (!reservedVehicleInTemporarySlot) {
             await executor.query(
                 `UPDATE slot_registrations
                  SET slot_id = ?,
@@ -1091,6 +1191,19 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                 userId: wrongCase.reservedUserId,
             });
 
+            await queueVictimSlotUpdateAlert({
+                connection: executor,
+                originalSlotCode: wrongCase.observedSlotCode,
+                relatedId: wrongCase.id,
+                reservation: {
+                    plateNumber: wrongCase.reservedPlateNumber,
+                    userPhone: wrongCase.userPhone,
+                },
+                temporarySlotCode: wrongCase.reassignedSlotCode,
+                updateType:
+                    smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED,
+            });
+
             await executor.query(
                 `UPDATE wrong_slot_cases
                  SET restoration_status = 'RESTORED',
@@ -1119,9 +1232,22 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                 connection: executor,
                 relatedId: wrongCase.id,
                 relatedType: "WRONG_SLOT_CASE",
-                title: "Ô đăng ký của bạn đã trống trở lại",
-                message: `Xe chiếm ô ${wrongCase.observedSlotCode} đã rời bãi. Nếu xe của bạn đang ở ${wrongCase.reassignedSlotCode}, bạn có thể yêu cầu nhân viên hỗ trợ đổi lại ô đăng ký.`,
+                title: "Tiếp tục sử dụng ô tạm",
+                message: `Xe chiếm ô ${wrongCase.observedSlotCode} đã rời bãi. Xe của bạn vẫn giữ nguyên tại ô tạm ${wrongCase.reassignedSlotCode}; ô ban đầu được tạm khóa đến khi xe của bạn rời bãi.`,
                 userId: wrongCase.reservedUserId,
+            });
+
+            await queueVictimSlotUpdateAlert({
+                connection: executor,
+                originalSlotCode: wrongCase.observedSlotCode,
+                relatedId: wrongCase.id,
+                reservation: {
+                    plateNumber: wrongCase.reservedPlateNumber,
+                    userPhone: wrongCase.userPhone,
+                },
+                temporarySlotCode: wrongCase.reassignedSlotCode,
+                updateType:
+                    smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_RETAINED,
             });
         }
 
@@ -1130,6 +1256,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
             observedSlotCode: wrongCase.observedSlotCode,
             reassignedSlotCode: wrongCase.reassignedSlotCode,
             reservedVehicleInside,
+            reservedVehicleInTemporarySlot,
         });
     }
 
@@ -1142,6 +1269,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
             reservation.customer_type AS customerType,
             reservation.user_id AS userId,
             reservation.vehicle_id AS vehicleId,
+            reservedUser.phone AS userPhone,
             reservation.guest_name AS guestName,
             reservation.guest_phone AS guestPhone,
             reservation.plate_number AS plateNumber,
@@ -1154,6 +1282,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
          FROM wrong_slot_cases c
          INNER JOIN hourly_slot_reservations reservation
             ON c.reserved_hourly_reservation_id = reservation.id
+         LEFT JOIN users reservedUser ON reservation.user_id = reservedUser.id
          INNER JOIN parking_slots obs ON c.observed_slot_id = obs.id
          LEFT JOIN parking_slots rs ON c.reassigned_slot_id = rs.id
          WHERE c.parking_session_id = ?
@@ -1168,7 +1297,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
     for (const wrongCase of hourlyCaseRows) {
         const [activeRows] = wrongCase.reservedParkingSessionId
             ? await executor.query(
-                  `SELECT id
+                  `SELECT id, slot_id AS slotId
                    FROM parking_sessions
                    WHERE id = ?
                       AND status IN ('ACTIVE', 'PENDING_PAYMENT')
@@ -1177,6 +1306,10 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
               )
             : [[]];
         const reservedVehicleInside = Boolean(activeRows[0]);
+        const reservedVehicleInTemporarySlot =
+            reservedVehicleInside &&
+            Number(activeRows[0].slotId) ===
+                Number(wrongCase.reassignedSlotId);
         const reservationStillActive =
             new Date(wrongCase.endAt).getTime() > Date.now() &&
             ["BOOKED", "CHECKED_IN", "COMPLETED"].includes(
@@ -1203,7 +1336,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                  WHERE id = ?`,
                 [wrongCase.id]
             );
-        } else if (!reservedVehicleInside) {
+        } else if (!reservedVehicleInTemporarySlot) {
             await executor.query(
                 `UPDATE hourly_slot_reservations
                  SET slot_id = ?,
@@ -1242,14 +1375,17 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                     message: returnedMessage,
                     userId: wrongCase.userId,
                 });
-            } else {
-                await queueReservedHourlyAlert({
-                    connection: executor,
-                    content: `Sunrise Parking: ${returnedMessage}`,
-                    relatedId: wrongCase.id,
-                    reservation: wrongCase,
-                });
             }
+
+            await queueVictimSlotUpdateAlert({
+                connection: executor,
+                originalSlotCode: wrongCase.observedSlotCode,
+                relatedId: wrongCase.id,
+                reservation: wrongCase,
+                temporarySlotCode: wrongCase.reassignedSlotCode,
+                updateType:
+                    smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED,
+            });
 
             await executor.query(
                 `UPDATE wrong_slot_cases
@@ -1289,14 +1425,17 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                     message: availableMessage,
                     userId: wrongCase.userId,
                 });
-            } else {
-                await queueReservedHourlyAlert({
-                    connection: executor,
-                    content: `Sunrise Parking: ${availableMessage}`,
-                    relatedId: wrongCase.id,
-                    reservation: wrongCase,
-                });
             }
+
+            await queueVictimSlotUpdateAlert({
+                connection: executor,
+                originalSlotCode: wrongCase.observedSlotCode,
+                relatedId: wrongCase.id,
+                reservation: wrongCase,
+                temporarySlotCode: wrongCase.reassignedSlotCode,
+                updateType:
+                    smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_RETAINED,
+            });
         }
 
         restored.push({
@@ -1304,6 +1443,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
             observedSlotCode: wrongCase.observedSlotCode,
             reassignedSlotCode: wrongCase.reassignedSlotCode,
             reservedVehicleInside,
+            reservedVehicleInTemporarySlot,
         });
     }
 
@@ -1326,11 +1466,15 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
             c.reassigned_slot_id AS temporarySlotId,
             c.reserved_registration_id AS reservedRegistrationId,
             rr.user_id AS reservedUserId,
+            reservedUser.phone AS userPhone,
+            reservedVehicle.plate_number AS reservedPlateNumber,
             originalSlot.floor_id AS originalFloorId,
             originalSlot.slot_code AS originalSlotCode,
             temporarySlot.slot_code AS temporarySlotCode
          FROM wrong_slot_cases c
          INNER JOIN slot_registrations rr ON c.reserved_registration_id = rr.id
+         INNER JOIN users reservedUser ON rr.user_id = reservedUser.id
+         INNER JOIN vehicles reservedVehicle ON rr.vehicle_id = reservedVehicle.id
          INNER JOIN parking_slots originalSlot ON c.observed_slot_id = originalSlot.id
          LEFT JOIN parking_slots temporarySlot ON c.reassigned_slot_id = temporarySlot.id
          WHERE rr.vehicle_id = ?
@@ -1394,6 +1538,20 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
             userId: wrongCase.reservedUserId,
         });
 
+        await queueVictimSlotUpdateAlert({
+            connection: executor,
+            originalSlotCode: wrongCase.originalSlotCode,
+            relatedId: wrongCase.id,
+            reservation: {
+                plateNumber: wrongCase.reservedPlateNumber,
+                userPhone: wrongCase.userPhone,
+            },
+            temporarySlotCode: wrongCase.temporarySlotCode,
+            updateType:
+                smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES
+                    .ORIGINAL_RESTORED_AFTER_TEMP,
+        });
+
         restored.push({
             caseId: wrongCase.id,
             originalSlotCode: wrongCase.originalSlotCode,
@@ -1410,6 +1568,7 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
                 c.reserved_hourly_reservation_id AS reservedHourlyReservationId,
                 reservation.customer_type AS customerType,
                 reservation.user_id AS userId,
+                reservedUser.phone AS userPhone,
                 reservation.guest_phone AS guestPhone,
                 reservation.plate_number AS plateNumber,
                 originalSlot.floor_id AS originalFloorId,
@@ -1418,6 +1577,8 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
              FROM wrong_slot_cases c
              INNER JOIN hourly_slot_reservations reservation
                 ON c.reserved_hourly_reservation_id = reservation.id
+             LEFT JOIN users reservedUser
+                ON reservation.user_id = reservedUser.id
              INNER JOIN parking_slots originalSlot
                 ON c.observed_slot_id = originalSlot.id
              LEFT JOIN parking_slots temporarySlot
@@ -1484,14 +1645,18 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
                     message: restoredMessage,
                     userId: wrongCase.userId,
                 });
-            } else {
-                await queueReservedHourlyAlert({
-                    connection: executor,
-                    content: `Sunrise Parking: ${restoredMessage}`,
-                    relatedId: wrongCase.id,
-                    reservation: wrongCase,
-                });
             }
+
+            await queueVictimSlotUpdateAlert({
+                connection: executor,
+                originalSlotCode: wrongCase.originalSlotCode,
+                relatedId: wrongCase.id,
+                reservation: wrongCase,
+                temporarySlotCode: wrongCase.temporarySlotCode,
+                updateType:
+                    smsService.WRONG_SLOT_VICTIM_UPDATE_TYPES
+                        .ORIGINAL_RESTORED_AFTER_TEMP,
+            });
 
             restored.push({
                 caseId: wrongCase.id,

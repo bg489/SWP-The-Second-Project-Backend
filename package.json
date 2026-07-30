@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "test:sms": "node --test src/services/sms.service.test.js",
     "setup:fast-alpr": "node scripts/setupFastAlpr.js",
     "test:fast-alpr": "node scripts/testFastAlpr.js",
     "seed:users": "node src/seed/seedUsers.js",
