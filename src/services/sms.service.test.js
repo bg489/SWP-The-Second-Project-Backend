@@ -4,6 +4,7 @@ const test = require("node:test");
 const {
     resolveApprovedSmsContent,
     SMS_TEMPLATE_KEYS,
+    WRONG_SLOT_VICTIM_UPDATE_TYPES,
 } = require("./sms.service");
 
 test("identifies the victim with the occupied slot and occupying vehicle", () => {
@@ -48,6 +49,47 @@ test("uses the approved generic template for other wrong-slot updates", () => {
         }),
         "Cam on quy khach da su dung dich vu cua chung toi. Chuc quy khach mot ngay tot lanh!"
     );
+});
+
+test("uses approved templates for every victim slot transition", () => {
+    const cases = [
+        {
+            expected:
+                "Xe 30A11122 la xe bi chiem o B3302 duoc gan tam o B3303 da hoan thanh. Kinh moi chu xe bi chiem lien he Sunrise Parking den nhan xe. Tran trong.",
+            updateType: WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_ASSIGNED,
+        },
+        {
+            expected:
+                "Xe 30A11122 giu o tam B3303 o B3302 dang tam khoa da hoan thanh. Kinh moi chu xe bi chiem lien he Sunrise Parking den nhan xe. Tran trong.",
+            updateType: WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_RETAINED,
+        },
+        {
+            expected:
+                "Xe 30A11122 la xe bi chiem duoc tra lai o B3302 da hoan thanh. Kinh moi chu xe bi chiem lien he Sunrise Parking den nhan xe. Tran trong.",
+            updateType: WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED,
+        },
+        {
+            expected:
+                "Xe 30A11122 roi o tam B3303 o B3302 da duoc dat lai da hoan thanh. Kinh moi chu xe bi chiem lien he Sunrise Parking den nhan xe. Tran trong.",
+            updateType:
+                WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED_AFTER_TEMP,
+        },
+    ];
+
+    for (const testCase of cases) {
+        const content = resolveApprovedSmsContent({
+            relatedType: "WRONG_SLOT_CASE",
+            templateData: {
+                originalSlotCode: "B33-02",
+                reservedPlate: "30A-111.22",
+                temporarySlotCode: "B33-03",
+                updateType: testCase.updateType,
+            },
+            templateKey: SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM_UPDATE,
+        });
+
+        assert.equal(content, testCase.expected);
+    }
 });
 
 test("keeps approved reservation payment content unchanged", () => {

@@ -9,6 +9,13 @@ const APPROVED_GENERIC_CUSTOMER_CARE_SMS =
 const SMS_TEMPLATE_KEYS = Object.freeze({
     WRONG_SLOT_OCCUPIER: "WRONG_SLOT_OCCUPIER",
     WRONG_SLOT_VICTIM: "WRONG_SLOT_VICTIM",
+    WRONG_SLOT_VICTIM_UPDATE: "WRONG_SLOT_VICTIM_UPDATE",
+});
+const WRONG_SLOT_VICTIM_UPDATE_TYPES = Object.freeze({
+    ORIGINAL_RESTORED: "ORIGINAL_RESTORED",
+    ORIGINAL_RESTORED_AFTER_TEMP: "ORIGINAL_RESTORED_AFTER_TEMP",
+    TEMP_ASSIGNED: "TEMP_ASSIGNED",
+    TEMP_RETAINED: "TEMP_RETAINED",
 });
 
 const normalizeTemplateText = (value, maxLength) =>
@@ -89,6 +96,38 @@ const buildWrongSlotOccupierSms = ({
     );
 };
 
+const buildWrongSlotVictimUpdateSms = ({
+    originalSlotCode,
+    reservedPlate,
+    temporarySlotCode,
+    updateType,
+} = {}) => {
+    const plate = reservedPlate || "Xe bi chiem";
+    const originalSlot = originalSlotCode || "khong ro";
+    const temporarySlot = temporarySlotCode || "khong ro";
+    const descriptions = {
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED]:
+            `${plate} la xe bi chiem duoc tra lai o ${originalSlot}`,
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.ORIGINAL_RESTORED_AFTER_TEMP]:
+            `${plate} roi o tam ${temporarySlot} o ${originalSlot} da duoc dat lai`,
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_ASSIGNED]:
+            `${plate} la xe bi chiem o ${originalSlot} duoc gan tam o ${temporarySlot}`,
+        [WRONG_SLOT_VICTIM_UPDATE_TYPES.TEMP_RETAINED]:
+            `${plate} giu o tam ${temporarySlot} o ${originalSlot} dang tam khoa`,
+    };
+    const vehicleDetails = normalizeTemplateText(
+        descriptions[updateType] ||
+            `${plate} cap nhat o ${originalSlot} va o tam ${temporarySlot}`,
+        70
+    );
+    const contact = "chu xe bi chiem lien he Sunrise Parking";
+
+    return (
+        `Xe ${vehicleDetails} da hoan thanh. ` +
+        `Kinh moi ${contact} den nhan xe. Tran trong.`
+    );
+};
+
 const resolveApprovedSmsContent = ({
     content,
     relatedType,
@@ -101,6 +140,10 @@ const resolveApprovedSmsContent = ({
 
     if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_OCCUPIER) {
         return buildWrongSlotOccupierSms(templateData);
+    }
+
+    if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM_UPDATE) {
+        return buildWrongSlotVictimUpdateSms(templateData);
     }
 
     if (relatedType === "WRONG_SLOT_CASE") {
@@ -376,4 +419,5 @@ module.exports = {
     queueSms,
     resolveApprovedSmsContent,
     SMS_TEMPLATE_KEYS,
+    WRONG_SLOT_VICTIM_UPDATE_TYPES,
 };
