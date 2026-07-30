@@ -13,28 +13,60 @@ const ACTIVE_RESERVATION_STATUSES = [
 ];
 const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
-const formatSmsDateTime = (value) =>
-    new Intl.DateTimeFormat("vi-VN", {
+const formatSmsPaymentTime = (value) => {
+    const parts = new Intl.DateTimeFormat("en-GB", {
         day: "2-digit",
         hour: "2-digit",
-        hour12: false,
+        hourCycle: "h23",
         minute: "2-digit",
         month: "2-digit",
         timeZone: VIETNAM_TIME_ZONE,
         year: "numeric",
-    }).format(new Date(value));
+    }).formatToParts(new Date(value));
+    const getPart = (type) =>
+        parts.find((part) => part.type === type)?.value || "";
 
+    return `${getPart("day")}/${getPart("month")}/${getPart(
+        "year"
+    )} ${getPart("hour")}:${getPart("minute")}`;
+};
+
+const formatSmsAmount = (value) => {
+    const amount = Number(value);
+
+    return String(
+        Number.isFinite(amount) ? Math.max(0, Math.round(amount)) : 0
+    ).slice(0, 20);
+};
+
+const buildSmsOrderReference = ({ reservationId, slotCode }) => {
+    const normalizedSlot =
+        String(slotCode || "SLOT")
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "") || "SLOT";
+    const normalizedId = String(Number(reservationId) || "").slice(-8);
+    const suffix = normalizedId ? `R${normalizedId}` : "";
+    const slotLength = Math.max(1, 20 - "SP".length - suffix.length);
+
+    return `SP${normalizedSlot.slice(0, slotLength)}${suffix}`;
+};
+
+// This text must match the active Baotrixemay payment template exactly.
 const buildGuestReservationSms = ({
-    endAt,
-    floorName,
-    plateNumber,
-    reservationCode,
+    amount,
+    paidAt,
+    reservationId,
     slotCode,
-    startAt,
 }) =>
-    `Sunrise Parking: Đã giữ ô ${slotCode} tại ${floorName} cho xe ${plateNumber}, ` +
-    `từ ${formatSmsDateTime(startAt)} đến ${formatSmsDateTime(endAt)}. ` +
-    `Mã lượt ${reservationCode}.`;
+    `Baotrixemay da nhan duoc so tien thanh toan ${formatSmsAmount(
+        amount
+    )} VND luc ${formatSmsPaymentTime(paidAt)} cho don hang ${buildSmsOrderReference(
+        {
+            reservationId,
+            slotCode,
+        }
+    )}. Cam on quy khach!`;
 
 const reservationSelect = `
     SELECT
@@ -688,12 +720,10 @@ const createReservationWithPayment = async ({
             smsOutboxId = await smsService.queueSms({
                 connection,
                 content: buildGuestReservationSms({
-                    endAt,
-                    floorName: slot.floorName,
-                    plateNumber: finalPlateNumber,
-                    reservationCode,
+                    amount,
+                    paidAt: new Date(),
+                    reservationId: reservationResult.insertId,
                     slotCode: slot.slotCode,
-                    startAt,
                 }),
                 phone: guestPhone,
                 relatedId: reservationResult.insertId,
@@ -934,12 +964,10 @@ const applyPaymentResult = async ({
             smsOutboxId = await smsService.queueSms({
                 connection,
                 content: buildGuestReservationSms({
-                    endAt: reservation.end_at,
-                    floorName: slotRows[0]?.floorName || "tầng ô tô",
-                    plateNumber: reservation.plate_number,
-                    reservationCode: reservation.reservation_code,
+                    amount: reservation.amount,
+                    paidAt: new Date(),
+                    reservationId,
                     slotCode: slotRows[0]?.slotCode || "",
-                    startAt: reservation.start_at,
                 }),
                 phone: reservation.guest_phone,
                 relatedId: reservationId,

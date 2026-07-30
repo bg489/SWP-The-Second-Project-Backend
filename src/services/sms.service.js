@@ -3,6 +3,16 @@ const db = require("../config/db");
 const DEFAULT_ESMS_URL =
     "https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/";
 const MAX_ATTEMPTS = 3;
+const APPROVED_GENERIC_CUSTOMER_CARE_SMS =
+    "Cam on quy khach da su dung dich vu cua chung toi. Chuc quy khach mot ngay tot lanh!";
+
+const resolveApprovedSmsContent = ({ content, relatedType }) => {
+    if (relatedType === "WRONG_SLOT_CASE") {
+        return APPROVED_GENERIC_CUSTOMER_CARE_SMS;
+    }
+
+    return String(content || "").trim();
+};
 
 const normalizeVietnamPhone = (value) => {
     const compact = String(value || "").replace(/[^\d+]/g, "");
@@ -61,7 +71,7 @@ const sendWithEsms = async ({ content, id, phone }) => {
     const payload = {
         ApiKey: config.apiKey,
         Content: content,
-        IsUnicode: "1",
+        IsUnicode: /[^\x00-\x7F]/.test(content) ? "1" : "0",
         Phone: phone,
         RequestId: `SUNRISE-${id}-${Date.now()}`.slice(0, 50),
         Sandbox: config.sandbox ? "1" : "0",
@@ -112,6 +122,10 @@ const queueSms = async ({
 }) => {
     const executor = connection || db;
     const normalizedPhone = normalizeVietnamPhone(phone);
+    const approvedContent = resolveApprovedSmsContent({
+        content,
+        relatedType,
+    });
 
     if (!/^0\d{9,10}$/.test(normalizedPhone)) {
         console.warn("[sms:skip-invalid-phone]", {
@@ -128,7 +142,7 @@ const queueSms = async ({
          VALUES (?, ?, ?, ?)`,
         [
             normalizedPhone,
-            String(content || "").trim().slice(0, 1000),
+            approvedContent.slice(0, 1000),
             relatedType || null,
             relatedId || null,
         ]
@@ -260,4 +274,5 @@ module.exports = {
     normalizeVietnamPhone,
     processPendingSms,
     queueSms,
+    resolveApprovedSmsContent,
 };
