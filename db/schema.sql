@@ -570,6 +570,25 @@ CREATE TABLE IF NOT EXISTS user_notifications (
         ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS sms_outbox (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phone VARCHAR(20) NOT NULL,
+    content VARCHAR(1000) NOT NULL,
+    provider VARCHAR(40) NOT NULL DEFAULT 'ESMS',
+    status ENUM('PENDING', 'SENDING', 'SENT', 'FAILED', 'PREVIEW') NOT NULL DEFAULT 'PENDING',
+    provider_message_id VARCHAR(150) NULL,
+    error_message VARCHAR(500) NULL,
+    attempt_count INT NOT NULL DEFAULT 0,
+    next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    related_type VARCHAR(80) NULL,
+    related_id INT NULL,
+    sent_at DATETIME NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sms_outbox_delivery (status, next_attempt_at, attempt_count),
+    INDEX idx_sms_outbox_related (related_type, related_id)
+);
+
 CREATE TABLE IF NOT EXISTS wrong_slot_cases (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NOT NULL,
@@ -579,6 +598,7 @@ CREATE TABLE IF NOT EXISTS wrong_slot_cases (
     original_slot_id INT NULL,
     observed_slot_id INT NOT NULL,
     reserved_registration_id INT NULL,
+    reserved_hourly_reservation_id INT NULL,
     reassigned_slot_id INT NULL,
     restoration_status ENUM('NONE', 'TEMP_ASSIGNED', 'WAITING_RESERVED_EXIT', 'RESTORED') NOT NULL DEFAULT 'NONE',
     evidence_url MEDIUMTEXT NULL,
@@ -592,6 +612,7 @@ CREATE TABLE IF NOT EXISTS wrong_slot_cases (
     INDEX idx_wrong_slot_cases_status_deadline (status, notify_until),
     INDEX idx_wrong_slot_cases_session (parking_session_id),
     INDEX idx_wrong_slot_cases_restoration (restoration_status, reserved_registration_id),
+    INDEX idx_wrong_slot_cases_hourly_reservation (reserved_hourly_reservation_id),
     CONSTRAINT fk_wrong_slot_cases_session
         FOREIGN KEY (parking_session_id) REFERENCES parking_sessions(id)
         ON DELETE CASCADE,
@@ -612,6 +633,9 @@ CREATE TABLE IF NOT EXISTS wrong_slot_cases (
         ON DELETE CASCADE,
     CONSTRAINT fk_wrong_slot_cases_reserved_registration
         FOREIGN KEY (reserved_registration_id) REFERENCES slot_registrations(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_wrong_slot_cases_hourly_reservation
+        FOREIGN KEY (reserved_hourly_reservation_id) REFERENCES hourly_slot_reservations(id)
         ON DELETE SET NULL,
     CONSTRAINT fk_wrong_slot_cases_reassigned_slot
         FOREIGN KEY (reassigned_slot_id) REFERENCES parking_slots(id)

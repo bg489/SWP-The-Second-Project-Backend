@@ -741,6 +741,44 @@ const getReservationForCheckIn = async ({
     return rows[0] || null;
 };
 
+const getBlockingReservationForSlot = async ({
+    plateNumber,
+    slotId,
+    vehicleId,
+}) => {
+    const [rows] = await db.query(
+        `${reservationSelect}
+         WHERE r.slot_id = ?
+            AND r.payment_status = 'PAID'
+            AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
+            AND r.end_at > CURRENT_TIMESTAMP
+         ORDER BY
+            CASE
+                WHEN CURRENT_TIMESTAMP BETWEEN r.start_at AND r.end_at THEN 0
+                ELSE 1
+            END,
+            r.start_at ASC,
+            r.id ASC
+         LIMIT 1`,
+        [slotId]
+    );
+    const reservation = rows[0];
+
+    if (!reservation) {
+        return null;
+    }
+
+    const sameVehicle =
+        reservation.vehicleId &&
+        vehicleId &&
+        Number(reservation.vehicleId) === Number(vehicleId);
+    const samePlate =
+        normalizePlateLookup(reservation.plateNumber) ===
+        normalizePlateLookup(plateNumber);
+
+    return sameVehicle || samePlate ? null : reservation;
+};
+
 const markReservationCheckedIn = async ({
     connection,
     reservationId,
@@ -856,6 +894,7 @@ module.exports = {
     completeReservationForSession,
     createReservationWithPayment,
     getAvailableSlots,
+    getBlockingReservationForSlot,
     getReservationById,
     getReservationForCheckIn,
     getReservationQuote,

@@ -1,4 +1,5 @@
 const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
+const smsService = require("../services/sms.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
@@ -291,6 +292,16 @@ const createGuestReservation = async (req, res) => {
             return errorResponse(res, "Vui lòng nhập số điện thoại của khách.", 400);
         }
 
+        const normalizedGuestPhone = smsService.normalizeVietnamPhone(guestPhone);
+
+        if (!/^0\d{9,10}$/.test(normalizedGuestPhone)) {
+            return errorResponse(
+                res,
+                "Số điện thoại của khách không hợp lệ.",
+                400
+            );
+        }
+
         if (!String(plateNumber || "").trim()) {
             return errorResponse(res, "Vui lòng nhập biển số xe.", 400);
         }
@@ -341,7 +352,7 @@ const createGuestReservation = async (req, res) => {
                 createdBy: req.user.id,
                 customerType: "WALK_IN_GUEST",
                 guestName: String(guestName).trim(),
-                guestPhone: String(guestPhone).trim(),
+                guestPhone: normalizedGuestPhone,
                 note,
                 paymentMethod,
                 paymentUrl,

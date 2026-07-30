@@ -393,6 +393,27 @@ const checkIn = async (req, res) => {
                 return errorResponse(res, "Ô đỗ phải thuộc tầng ô tô.", 400);
             }
 
+            const blockingHourlyReservation =
+                await hourlySlotReservationService.getBlockingReservationForSlot({
+                    plateNumber,
+                    slotId,
+                    vehicleId: isApprovedRegisteredVehicle
+                        ? vehicle.id
+                        : null,
+                });
+
+            if (blockingHourlyReservation) {
+                return errorResponse(
+                    res,
+                    `Ô ${slot.slotCode} đã được đặt trước cho xe khác đến ${new Date(
+                        blockingHourlyReservation.endAt
+                    ).toLocaleString("vi-VN", {
+                        timeZone: "Asia/Ho_Chi_Minh",
+                    })}. Vui lòng chọn ô khác.`,
+                    409
+                );
+            }
+
             if (pricingType === "MONTHLY_PASS" || hourlyReservation) {
                 if (!["AVAILABLE", "RESERVED"].includes(slot.status)) {
                     return errorResponse(res, "Ô đỗ của gói tháng chưa sẵn sàng.", 400);

@@ -1,5 +1,7 @@
 const db = require("../config/db");
+const hourlySlotReservationService = require("./hourlySlotReservation.service");
 const notificationService = require("./notification.service");
+const smsService = require("./sms.service");
 
 const caseSelect = `
     SELECT
@@ -17,13 +19,25 @@ const caseSelect = `
         c.observed_slot_id AS observedSlotId,
         obs.slot_code AS observedSlotCode,
         c.reserved_registration_id AS reservedRegistrationId,
-        rr.user_id AS reservedUserId,
-        reservedUser.name AS reservedUserName,
-        rv.plate_number AS reservedPlateNumber,
+        c.reserved_hourly_reservation_id AS reservedHourlyReservationId,
+        COALESCE(rr.user_id, hourlyReservation.user_id) AS reservedUserId,
+        COALESCE(
+            reservedUser.name,
+            hourlyReservedUser.name,
+            hourlyReservation.guest_name
+        ) AS reservedUserName,
+        COALESCE(rv.plate_number, hourlyReservation.plate_number) AS reservedPlateNumber,
+        hourlyReservation.customer_type AS reservedCustomerType,
+        hourlyReservation.guest_phone AS reservedGuestPhone,
+        hourlyReservation.start_at AS reservedStartAt,
+        hourlyReservation.end_at AS reservedEndAt,
         c.reassigned_slot_id AS reassignedSlotId,
         rs.slot_code AS reassignedSlotCode,
-        rr.slot_id AS reservedCurrentSlotId,
-        currentReservedSlot.slot_code AS reservedCurrentSlotCode,
+        COALESCE(rr.slot_id, hourlyReservation.slot_id) AS reservedCurrentSlotId,
+        COALESCE(
+            currentReservedSlot.slot_code,
+            hourlyCurrentSlot.slot_code
+        ) AS reservedCurrentSlotCode,
         c.restoration_status AS restorationStatus,
         c.evidence_url AS evidenceUrl,
         c.note,
@@ -45,8 +59,20 @@ const caseSelect = `
     LEFT JOIN vehicles rv ON rr.vehicle_id = rv.id
     LEFT JOIN users reservedUser ON rr.user_id = reservedUser.id
     LEFT JOIN parking_slots currentReservedSlot ON rr.slot_id = currentReservedSlot.id
+    LEFT JOIN hourly_slot_reservations hourlyReservation
+        ON c.reserved_hourly_reservation_id = hourlyReservation.id
+    LEFT JOIN users hourlyReservedUser
+        ON hourlyReservation.user_id = hourlyReservedUser.id
+    LEFT JOIN parking_slots hourlyCurrentSlot
+        ON hourlyReservation.slot_id = hourlyCurrentSlot.id
     LEFT JOIN parking_slots rs ON c.reassigned_slot_id = rs.id
 `;
+
+const normalizePlateLookup = (value) =>
+    String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s.-]/g, "");
 
 const getCaseById = async (id) => {
     const [rows] = await db.query(
@@ -76,8 +102,10 @@ const getCases = async ({ buildingId, status, userId } = {}) => {
     }
 
     if (userId) {
-        conditions.push("(c.user_id = ? OR rr.user_id = ?)");
-        params.push(userId, userId);
+        conditions.push(
+            "(c.user_id = ? OR rr.user_id = ? OR hourlyReservation.user_id = ?)"
+        );
+        params.push(userId, userId, userId);
     }
 
     const whereSql =
@@ -114,6 +142,120 @@ const getReservedRegistrationBySlot = async (executor, slotId) => {
     );
 
     return rows[0] || null;
+};
+
+const getReservedHourlyReservationBySlot = async (executor, slotId) => {
+    const [rows] = await executor.query(
+        `SELECT
+            r.id,
+            r.customer_type AS customerType,
+            r.user_id AS userId,
+            r.vehicle_id AS vehicleId,
+            r.guest_name AS guestName,
+            r.guest_phone AS guestPhone,
+            r.plate_number AS plateNumber,
+            r.building_id AS buildingId,
+            r.floor_id AS floorId,
+            r.slot_id AS slotId,
+            r.start_at AS startAt,
+            r.end_at AS endAt,
+            r.status,
+            r.parking_session_id AS parkingSessionId
+         FROM hourly_slot_reservations r
+         WHERE r.slot_id = ?
+            AND r.payment_status = 'PAID'
+            AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
+            AND r.end_at > CURRENT_TIMESTAMP
+         ORDER BY
+            CASE
+                WHEN CURRENT_TIMESTAMP BETWEEN r.start_at AND r.end_at THEN 0
+                ELSE 1
+            END,
+            r.start_at ASC,
+            r.id ASC
+         LIMIT 1
+         FOR UPDATE`,
+        [slotId]
+    );
+
+    return rows[0] || null;
+};
+
+const getReservedHourlyReservationById = async (executor, id) => {
+    const [rows] = await executor.query(
+        `SELECT
+            r.id,
+            r.customer_type AS customerType,
+            r.user_id AS userId,
+            r.vehicle_id AS vehicleId,
+            r.guest_name AS guestName,
+            r.guest_phone AS guestPhone,
+            r.plate_number AS plateNumber,
+            r.building_id AS buildingId,
+            r.floor_id AS floorId,
+            r.slot_id AS slotId,
+            r.start_at AS startAt,
+            r.end_at AS endAt,
+            r.status,
+            r.parking_session_id AS parkingSessionId
+         FROM hourly_slot_reservations r
+         WHERE r.id = ?
+            AND r.payment_status = 'PAID'
+            AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
+            AND r.end_at > CURRENT_TIMESTAMP
+         LIMIT 1
+         FOR UPDATE`,
+        [id]
+    );
+
+    return rows[0] || null;
+};
+
+const isHourlyReservationForSession = (reservation, session) => {
+    if (!reservation || !session) {
+        return false;
+    }
+
+    if (reservation.vehicleId && session.vehicle_id) {
+        return Number(reservation.vehicleId) === Number(session.vehicle_id);
+    }
+
+    return normalizePlateLookup(reservation.plateNumber) ===
+        normalizePlateLookup(session.plate_number);
+};
+
+const queueReservedHourlyAlert = async ({
+    connection,
+    content,
+    relatedId,
+    reservation,
+}) => {
+    if (!reservation || reservation.userId) {
+        return null;
+    }
+
+    return smsService.queueSms({
+        connection,
+        content,
+        phone: reservation.guestPhone,
+        relatedId,
+        relatedType: "WRONG_SLOT_CASE",
+    });
+};
+
+const unlockSlotForReservationRefresh = async (executor, slotId) => {
+    if (!slotId) {
+        return;
+    }
+
+    await executor.query(
+        `UPDATE parking_slots
+         SET status = 'AVAILABLE',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?
+            AND status = 'LOCKED'`,
+        [slotId]
+    );
 };
 
 const findReplacementSlot = async (executor, { buildingId, excludeSlotId }) => {
@@ -167,19 +309,6 @@ const moveSessionToObservedSlot = async ({
     originalSlotId,
     session,
 }) => {
-    if (originalSlotId && Number(originalSlotId) !== Number(observedSlotId)) {
-        const originalStatus =
-            session.pricing_type === "MONTHLY_PASS" ? "RESERVED" : "AVAILABLE";
-
-        await connection.query(
-            `UPDATE parking_slots
-             SET status = ?,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            [originalStatus, originalSlotId]
-        );
-    }
-
     await connection.query(
         `UPDATE parking_slots
          SET status = 'OCCUPIED',
@@ -195,6 +324,13 @@ const moveSessionToObservedSlot = async ({
          WHERE id = ?`,
         [observedSlotId, session.id]
     );
+
+    if (originalSlotId && Number(originalSlotId) !== Number(observedSlotId)) {
+        await hourlySlotReservationService.refreshSlotStatus(
+            connection,
+            originalSlotId
+        );
+    }
 };
 
 const reportWrongSlot = async ({
@@ -222,7 +358,7 @@ const reportWrongSlot = async ({
         const session = sessionRows[0];
 
         if (!session) {
-            const error = new Error("Khong tim thay phien oto dang gui");
+            const error = new Error("Không tìm thấy phiên ô tô đang gửi");
             error.statusCode = 404;
             throw error;
         }
@@ -238,13 +374,15 @@ const reportWrongSlot = async ({
         const observedSlot = slotRows[0];
 
         if (!observedSlot) {
-            const error = new Error("Khong tim thay slot xe dang dau");
+            const error = new Error("Không tìm thấy ô đỗ xe đang đậu");
             error.statusCode = 404;
             throw error;
         }
 
         if (Number(observedSlot.building_id) !== Number(session.building_id)) {
-            const error = new Error("Slot khong thuoc toa nha cua phien gui xe");
+            const error = new Error(
+                "Ô đỗ không thuộc tòa nhà của phiên gửi xe"
+            );
             error.statusCode = 400;
             throw error;
         }
@@ -253,10 +391,32 @@ const reportWrongSlot = async ({
             connection,
             observedSlotId
         );
-        const isReservedForAnotherVehicle =
+        const reservedHourlyReservation =
+            await getReservedHourlyReservationBySlot(
+                connection,
+                observedSlotId
+            );
+        const isMonthlyReservedForAnotherVehicle =
             reservedRegistration &&
             Number(reservedRegistration.vehicleId) !== Number(session.vehicle_id);
-        const status = isReservedForAnotherVehicle ? "WAITING_USER" : "ALLOWED";
+        const isHourlyReservedForAnotherVehicle =
+            reservedHourlyReservation &&
+            !isHourlyReservationForSession(
+                reservedHourlyReservation,
+                session
+            );
+        const reservedRegistrationConflict =
+            isMonthlyReservedForAnotherVehicle
+                ? reservedRegistration
+                : null;
+        const reservedHourlyConflict =
+            isHourlyReservedForAnotherVehicle
+                ? reservedHourlyReservation
+                : null;
+        const status =
+            reservedRegistrationConflict || reservedHourlyConflict
+                ? "WAITING_USER"
+                : "ALLOWED";
 
         const [caseResult] = await connection.query(
             `INSERT INTO wrong_slot_cases
@@ -268,13 +428,14 @@ const reportWrongSlot = async ({
                     original_slot_id,
                     observed_slot_id,
                     reserved_registration_id,
+                    reserved_hourly_reservation_id,
                     evidence_url,
                     note,
                     status,
                     notify_until,
                     staff_id
                 )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE), ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE), ?)`,
             [
                 session.id,
                 session.vehicle_id || null,
@@ -282,7 +443,8 @@ const reportWrongSlot = async ({
                 session.building_id,
                 session.slot_id || null,
                 observedSlotId,
-                reservedRegistration?.id || null,
+                reservedRegistrationConflict?.id || null,
+                reservedHourlyConflict?.id || null,
                 evidenceUrl || null,
                 note || null,
                 status,
@@ -304,9 +466,9 @@ const reportWrongSlot = async ({
                     evidenceUrl,
                     relatedId: caseResult.insertId,
                     relatedType: "WRONG_SLOT_CASE",
-                    title: "Nhac nho dau dung o da duoc phan",
+                    title: "Nhắc nhở đậu đúng ô đã được phân",
                     message:
-                        "Xe cua ban dang dau o khac voi o da ghi nhan. O nay hien chua co ai dat nen khong phat sinh phi, vui long dau dung o trong nhung lan sau.",
+                        "Xe của bạn đang đậu ở ô khác với ô đã ghi nhận. Ô này hiện chưa có ai đặt nên không phát sinh phí, vui lòng đậu đúng ô trong những lần sau.",
                     userId: session.user_id,
                 });
             }
@@ -325,22 +487,43 @@ const reportWrongSlot = async ({
                     evidenceUrl,
                     relatedId: caseResult.insertId,
                     relatedType: "WRONG_SLOT_CASE",
-                    title: "Can doi xe khoi o dau da dat",
+                    title: "Cần dời xe khỏi ô đỗ đã đặt",
                     message:
-                        "Xe cua ban dang dau vao o da co xe khac dat truoc. Vui long doi xe trong 15 phut de khong phat sinh phi vi pham.",
+                        "Xe của bạn đang đậu vào ô đã có xe khác đặt trước. Vui lòng dời xe trong 15 phút để không phát sinh phí vi phạm.",
                     userId: session.user_id,
                 });
             }
 
-            await notificationService.createNotification({
-                connection,
-                evidenceUrl,
-                relatedId: caseResult.insertId,
-                relatedType: "WRONG_SLOT_CASE",
-                title: "Ô đăng ký của bạn đang bị chiếm",
-                message: `Ô ${observedSlot.slot_code} đang bị xe ${session.plate_number} đậu nhầm. Hệ thống đang đếm ngược 15 phút; nếu xe chưa dời, bạn sẽ được gán một ô tạm trong cùng tòa nhà.`,
-                userId: reservedRegistration.userId,
-            });
+            const reservedUserId =
+                reservedRegistrationConflict?.userId ||
+                reservedHourlyConflict?.userId;
+            const reservedMessage =
+                `Ô ${observedSlot.slot_code} đã đặt cho xe ${
+                    reservedRegistrationConflict?.plateNumber ||
+                    reservedHourlyConflict?.plateNumber ||
+                    ""
+                } đang bị xe ${session.plate_number} đậu nhầm. ` +
+                "Hệ thống đang đếm ngược 15 phút; nếu xe chưa dời, " +
+                "bạn sẽ được gán một ô tạm trong cùng tòa nhà.";
+
+            if (reservedUserId) {
+                await notificationService.createNotification({
+                    connection,
+                    evidenceUrl,
+                    relatedId: caseResult.insertId,
+                    relatedType: "WRONG_SLOT_CASE",
+                    title: "Ô đã đặt của bạn đang bị chiếm",
+                    message: reservedMessage,
+                    userId: reservedUserId,
+                });
+            } else if (reservedHourlyConflict) {
+                await queueReservedHourlyAlert({
+                    connection,
+                    content: `Sunrise Parking: ${reservedMessage}`,
+                    relatedId: caseResult.insertId,
+                    reservation: reservedHourlyConflict,
+                });
+            }
         }
 
         await connection.commit();
@@ -371,13 +554,13 @@ const confirmWrongSlot = async ({ id, staffId }) => {
         const wrongCase = caseRows[0];
 
         if (!wrongCase) {
-            const error = new Error("Khong tim thay ca dau sai slot");
+            const error = new Error("Không tìm thấy trường hợp đậu sai ô");
             error.statusCode = 404;
             throw error;
         }
 
         if (wrongCase.status !== "WAITING_USER") {
-            const error = new Error("Ca nay khong con cho xu ly");
+            const error = new Error("Trường hợp này không còn chờ xử lý");
             error.statusCode = 400;
             throw error;
         }
@@ -387,7 +570,9 @@ const confirmWrongSlot = async ({ id, staffId }) => {
             : 0;
 
         if (deadline > Date.now()) {
-            const error = new Error("Chua qua 15 phut cho user phan hoi");
+            const error = new Error(
+                "Chưa qua 15 phút chờ người dùng phản hồi"
+            );
             error.statusCode = 400;
             throw error;
         }
@@ -403,7 +588,7 @@ const confirmWrongSlot = async ({ id, staffId }) => {
         const session = sessionRows[0];
 
         if (!session) {
-            const error = new Error("Khong tim thay phien gui xe");
+            const error = new Error("Không tìm thấy phiên gửi xe");
             error.statusCode = 404;
             throw error;
         }
@@ -444,9 +629,9 @@ const confirmWrongSlot = async ({ id, staffId }) => {
                 evidenceUrl: wrongCase.evidence_url || null,
                 relatedId: wrongCase.id,
                 relatedType: "WRONG_SLOT_CASE",
-                title: "Da tinh phi vi pham dau sai o",
+                title: "Đã tính phí vi phạm đậu sai ô",
                 message:
-                    "Xe cua ban khong duoc doi sau 15 phut nen he thong da ghi nhan phi vi pham. Phi nay se duoc cong khi xe ra bai.",
+                    "Xe của bạn không được dời sau 15 phút nên hệ thống đã ghi nhận phí vi phạm. Phí này sẽ được cộng khi xe ra bãi.",
                 userId: session.user_id,
             });
         }
@@ -457,15 +642,22 @@ const confirmWrongSlot = async ({ id, staffId }) => {
                   wrongCase.observed_slot_id
               )
             : null;
+        const reservedHourlyReservation =
+            wrongCase.reserved_hourly_reservation_id
+                ? await getReservedHourlyReservationById(
+                      connection,
+                      wrongCase.reserved_hourly_reservation_id
+                  )
+                : null;
         let reassignedSlot = null;
 
-        if (reservedRegistration) {
+        if (reservedRegistration || reservedHourlyReservation) {
             reassignedSlot = await findReplacementSlot(connection, {
                 buildingId: wrongCase.building_id,
                 excludeSlotId: wrongCase.observed_slot_id,
             });
 
-            if (reassignedSlot) {
+            if (reassignedSlot && reservedRegistration) {
                 await connection.query(
                     `UPDATE slot_registrations
                      SET slot_id = ?,
@@ -478,7 +670,38 @@ const confirmWrongSlot = async ({ id, staffId }) => {
                         reservedRegistration.id,
                     ]
                 );
+            } else if (reassignedSlot && reservedHourlyReservation) {
+                await connection.query(
+                    `UPDATE hourly_slot_reservations
+                     SET slot_id = ?,
+                         floor_id = ?,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?`,
+                    [
+                        reassignedSlot.id,
+                        reassignedSlot.floorId,
+                        reservedHourlyReservation.id,
+                    ]
+                );
 
+                if (reservedHourlyReservation.parkingSessionId) {
+                    await connection.query(
+                        `UPDATE parking_sessions
+                         SET slot_id = ?,
+                             floor_id = ?,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = ?
+                            AND status IN ('ACTIVE', 'PENDING_PAYMENT')`,
+                        [
+                            reassignedSlot.id,
+                            reassignedSlot.floorId,
+                            reservedHourlyReservation.parkingSessionId,
+                        ]
+                    );
+                }
+            }
+
+            if (reassignedSlot) {
                 await connection.query(
                     `UPDATE parking_slots
                      SET status = 'RESERVED',
@@ -487,14 +710,35 @@ const confirmWrongSlot = async ({ id, staffId }) => {
                     [reassignedSlot.id]
                 );
 
-                await notificationService.createNotification({
-                    connection,
-                    relatedId: wrongCase.id,
-                    relatedType: "WRONG_SLOT_CASE",
-                    title: "O dau xe cua ban da duoc doi",
-                    message: `O da dat truoc cua ban tam thoi duoc chuyen sang ${reassignedSlot.slotCode} de dam bao cho dau xe.`,
-                    userId: reservedRegistration.userId,
-                });
+                const reservedUserId =
+                    reservedRegistration?.userId ||
+                    reservedHourlyReservation?.userId;
+                const reservedPlateNumber =
+                    reservedRegistration?.plateNumber ||
+                    reservedHourlyReservation?.plateNumber ||
+                    "";
+                const reassignedMessage =
+                    `Ô đã đặt cho xe ${reservedPlateNumber} tạm thời ` +
+                    `được chuyển sang ${reassignedSlot.slotCode} vì ô ban đầu ` +
+                    "vẫn đang bị chiếm.";
+
+                if (reservedUserId) {
+                    await notificationService.createNotification({
+                        connection,
+                        relatedId: wrongCase.id,
+                        relatedType: "WRONG_SLOT_CASE",
+                        title: "Ô đậu xe của bạn đã được đổi tạm thời",
+                        message: reassignedMessage,
+                        userId: reservedUserId,
+                    });
+                } else if (reservedHourlyReservation) {
+                    await queueReservedHourlyAlert({
+                        connection,
+                        content: `Sunrise Parking: ${reassignedMessage}`,
+                        relatedId: wrongCase.id,
+                        reservation: reservedHourlyReservation,
+                    });
+                }
             }
         }
 
@@ -564,7 +808,12 @@ const processExpiredWrongSlotCases = async ({ buildingId } = {}) => {
                 staffId: row.staffId,
             }));
         } catch (error) {
-            if (!["Ca nay khong con cho xu ly", "Chua qua 15 phut cho user phan hoi"].includes(error.message)) {
+            if (
+                ![
+                    "Trường hợp này không còn chờ xử lý",
+                    "Chưa qua 15 phút chờ người dùng phản hồi",
+                ].includes(error.message)
+            ) {
                 console.error("[wrong-slot:auto-confirm]", row.id, error.message);
             }
         }
@@ -709,6 +958,44 @@ const markWrongSlotMoved = async ({
             }
         }
 
+        if (wrongCase.reserved_hourly_reservation_id) {
+            const reservedHourlyReservation =
+                await getReservedHourlyReservationById(
+                    connection,
+                    wrongCase.reserved_hourly_reservation_id
+                );
+
+            await hourlySlotReservationService.refreshSlotStatus(
+                connection,
+                wrongCase.observed_slot_id
+            );
+
+            if (reservedHourlyReservation) {
+                const returnedMessage =
+                    `Xe đậu nhầm đã được dời trước thời hạn. ` +
+                    `Ô đã đặt cho xe ${reservedHourlyReservation.plateNumber} ` +
+                    "tiếp tục được giữ như ban đầu.";
+
+                if (reservedHourlyReservation.userId) {
+                    await notificationService.createNotification({
+                        connection,
+                        relatedId: wrongCase.id,
+                        relatedType: "WRONG_SLOT_CASE",
+                        title: "Ô đã đặt của bạn đã được trả lại",
+                        message: returnedMessage,
+                        userId: reservedHourlyReservation.userId,
+                    });
+                } else {
+                    await queueReservedHourlyAlert({
+                        connection,
+                        content: `Sunrise Parking: ${returnedMessage}`,
+                        relatedId: wrongCase.id,
+                        reservation: reservedHourlyReservation,
+                    });
+                }
+            }
+        }
+
         await connection.commit();
         return getCaseById(wrongCase.id);
     } catch (error) {
@@ -799,8 +1086,8 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                 connection: executor,
                 relatedId: wrongCase.id,
                 relatedType: "WRONG_SLOT_CASE",
-                title: "O dang ky cua ban da duoc tra lai",
-                message: `Xe chiem o da roi bai. O dang ky cua ban da duoc chuyen lai ve ${wrongCase.observedSlotCode}.`,
+                title: "Ô đăng ký của bạn đã được trả lại",
+                message: `Xe chiếm ô đã rời bãi. Ô đăng ký của bạn đã được chuyển lại về ${wrongCase.observedSlotCode}.`,
                 userId: wrongCase.reservedUserId,
             });
 
@@ -832,10 +1119,184 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                 connection: executor,
                 relatedId: wrongCase.id,
                 relatedType: "WRONG_SLOT_CASE",
-                title: "O dang ky cua ban da trong tro lai",
-                message: `Xe chiem o ${wrongCase.observedSlotCode} da roi bai. Neu xe cua ban dang o ${wrongCase.reassignedSlotCode}, ban co the yeu cau nhan vien ho tro doi lai o dang ky.`,
+                title: "Ô đăng ký của bạn đã trống trở lại",
+                message: `Xe chiếm ô ${wrongCase.observedSlotCode} đã rời bãi. Nếu xe của bạn đang ở ${wrongCase.reassignedSlotCode}, bạn có thể yêu cầu nhân viên hỗ trợ đổi lại ô đăng ký.`,
                 userId: wrongCase.reservedUserId,
             });
+        }
+
+        restored.push({
+            caseId: wrongCase.id,
+            observedSlotCode: wrongCase.observedSlotCode,
+            reassignedSlotCode: wrongCase.reassignedSlotCode,
+            reservedVehicleInside,
+        });
+    }
+
+    const [hourlyCaseRows] = await executor.query(
+        `SELECT
+            c.id,
+            c.observed_slot_id AS observedSlotId,
+            c.reassigned_slot_id AS reassignedSlotId,
+            c.reserved_hourly_reservation_id AS reservedHourlyReservationId,
+            reservation.customer_type AS customerType,
+            reservation.user_id AS userId,
+            reservation.vehicle_id AS vehicleId,
+            reservation.guest_name AS guestName,
+            reservation.guest_phone AS guestPhone,
+            reservation.plate_number AS plateNumber,
+            reservation.status AS reservationStatus,
+            reservation.end_at AS endAt,
+            reservation.parking_session_id AS reservedParkingSessionId,
+            obs.slot_code AS observedSlotCode,
+            obs.floor_id AS observedFloorId,
+            rs.slot_code AS reassignedSlotCode
+         FROM wrong_slot_cases c
+         INNER JOIN hourly_slot_reservations reservation
+            ON c.reserved_hourly_reservation_id = reservation.id
+         INNER JOIN parking_slots obs ON c.observed_slot_id = obs.id
+         LEFT JOIN parking_slots rs ON c.reassigned_slot_id = rs.id
+         WHERE c.parking_session_id = ?
+            AND c.status = 'PENALIZED'
+            AND c.restoration_status IN ('TEMP_ASSIGNED', 'WAITING_RESERVED_EXIT')
+            AND c.reserved_hourly_reservation_id IS NOT NULL
+            AND c.reassigned_slot_id IS NOT NULL
+         FOR UPDATE`,
+        [session.id]
+    );
+
+    for (const wrongCase of hourlyCaseRows) {
+        const [activeRows] = wrongCase.reservedParkingSessionId
+            ? await executor.query(
+                  `SELECT id
+                   FROM parking_sessions
+                   WHERE id = ?
+                      AND status IN ('ACTIVE', 'PENDING_PAYMENT')
+                   LIMIT 1`,
+                  [wrongCase.reservedParkingSessionId]
+              )
+            : [[]];
+        const reservedVehicleInside = Boolean(activeRows[0]);
+        const reservationStillActive =
+            new Date(wrongCase.endAt).getTime() > Date.now() &&
+            ["BOOKED", "CHECKED_IN", "COMPLETED"].includes(
+                wrongCase.reservationStatus
+            );
+
+        if (!reservationStillActive) {
+            await unlockSlotForReservationRefresh(
+                executor,
+                wrongCase.observedSlotId
+            );
+            await hourlySlotReservationService.refreshSlotStatus(
+                executor,
+                wrongCase.observedSlotId
+            );
+            await hourlySlotReservationService.refreshSlotStatus(
+                executor,
+                wrongCase.reassignedSlotId
+            );
+            await executor.query(
+                `UPDATE wrong_slot_cases
+                 SET restoration_status = 'RESTORED',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [wrongCase.id]
+            );
+        } else if (!reservedVehicleInside) {
+            await executor.query(
+                `UPDATE hourly_slot_reservations
+                 SET slot_id = ?,
+                     floor_id = ?,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [
+                    wrongCase.observedSlotId,
+                    wrongCase.observedFloorId,
+                    wrongCase.reservedHourlyReservationId,
+                ]
+            );
+            await unlockSlotForReservationRefresh(
+                executor,
+                wrongCase.observedSlotId
+            );
+            await hourlySlotReservationService.refreshSlotStatus(
+                executor,
+                wrongCase.observedSlotId
+            );
+            await hourlySlotReservationService.refreshSlotStatus(
+                executor,
+                wrongCase.reassignedSlotId
+            );
+
+            const returnedMessage =
+                `Xe chiếm ô đã rời bãi. Ô ${wrongCase.observedSlotCode} ` +
+                `đã được trả lại cho xe ${wrongCase.plateNumber}.`;
+
+            if (wrongCase.userId) {
+                await notificationService.createNotification({
+                    connection: executor,
+                    relatedId: wrongCase.id,
+                    relatedType: "WRONG_SLOT_CASE",
+                    title: "Ô đã đặt của bạn đã được trả lại",
+                    message: returnedMessage,
+                    userId: wrongCase.userId,
+                });
+            } else {
+                await queueReservedHourlyAlert({
+                    connection: executor,
+                    content: `Sunrise Parking: ${returnedMessage}`,
+                    relatedId: wrongCase.id,
+                    reservation: wrongCase,
+                });
+            }
+
+            await executor.query(
+                `UPDATE wrong_slot_cases
+                 SET restoration_status = 'RESTORED',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [wrongCase.id]
+            );
+        } else {
+            await executor.query(
+                `UPDATE parking_slots
+                 SET status = 'LOCKED',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [wrongCase.observedSlotId]
+            );
+            await executor.query(
+                `UPDATE wrong_slot_cases
+                 SET restoration_status = 'WAITING_RESERVED_EXIT',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [wrongCase.id]
+            );
+
+            const availableMessage =
+                `Xe chiếm ô ${wrongCase.observedSlotCode} đã rời bãi. ` +
+                `Xe ${wrongCase.plateNumber} đang ở ô tạm ` +
+                `${wrongCase.reassignedSlotCode}; ô ban đầu sẽ được khôi phục ` +
+                "sau khi xe rời ô tạm.";
+
+            if (wrongCase.userId) {
+                await notificationService.createNotification({
+                    connection: executor,
+                    relatedId: wrongCase.id,
+                    relatedType: "WRONG_SLOT_CASE",
+                    title: "Ô đã đặt của bạn đã trống trở lại",
+                    message: availableMessage,
+                    userId: wrongCase.userId,
+                });
+            } else {
+                await queueReservedHourlyAlert({
+                    connection: executor,
+                    content: `Sunrise Parking: ${availableMessage}`,
+                    relatedId: wrongCase.id,
+                    reservation: wrongCase,
+                });
+            }
         }
 
         restored.push({
@@ -853,7 +1314,7 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
     connection,
     session,
 }) => {
-    if (!session?.vehicleId || session.vehicleType !== "CAR") {
+    if (!session?.id || session.vehicleType !== "CAR") {
         return [];
     }
 
@@ -938,6 +1399,106 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
             originalSlotCode: wrongCase.originalSlotCode,
             temporarySlotCode: wrongCase.temporarySlotCode,
         });
+    }
+
+    if (session.hourlyReservationId) {
+        const [hourlyCaseRows] = await executor.query(
+            `SELECT
+                c.id,
+                c.observed_slot_id AS originalReservedSlotId,
+                c.reassigned_slot_id AS temporarySlotId,
+                c.reserved_hourly_reservation_id AS reservedHourlyReservationId,
+                reservation.customer_type AS customerType,
+                reservation.user_id AS userId,
+                reservation.guest_phone AS guestPhone,
+                reservation.plate_number AS plateNumber,
+                originalSlot.floor_id AS originalFloorId,
+                originalSlot.slot_code AS originalSlotCode,
+                temporarySlot.slot_code AS temporarySlotCode
+             FROM wrong_slot_cases c
+             INNER JOIN hourly_slot_reservations reservation
+                ON c.reserved_hourly_reservation_id = reservation.id
+             INNER JOIN parking_slots originalSlot
+                ON c.observed_slot_id = originalSlot.id
+             LEFT JOIN parking_slots temporarySlot
+                ON c.reassigned_slot_id = temporarySlot.id
+             WHERE c.reserved_hourly_reservation_id = ?
+                AND c.status = 'PENALIZED'
+                AND c.restoration_status = 'WAITING_RESERVED_EXIT'
+             FOR UPDATE`,
+            [session.hourlyReservationId]
+        );
+
+        for (const wrongCase of hourlyCaseRows) {
+            await executor.query(
+                `UPDATE hourly_slot_reservations
+                 SET slot_id = ?,
+                     floor_id = ?,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [
+                    wrongCase.originalReservedSlotId,
+                    wrongCase.originalFloorId,
+                    wrongCase.reservedHourlyReservationId,
+                ]
+            );
+            await unlockSlotForReservationRefresh(
+                executor,
+                wrongCase.originalReservedSlotId
+            );
+            await hourlySlotReservationService.refreshSlotStatus(
+                executor,
+                wrongCase.originalReservedSlotId
+            );
+
+            if (
+                wrongCase.temporarySlotId &&
+                Number(wrongCase.temporarySlotId) !==
+                    Number(wrongCase.originalReservedSlotId)
+            ) {
+                await hourlySlotReservationService.refreshSlotStatus(
+                    executor,
+                    wrongCase.temporarySlotId
+                );
+            }
+
+            await executor.query(
+                `UPDATE wrong_slot_cases
+                 SET restoration_status = 'RESTORED',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [wrongCase.id]
+            );
+
+            const restoredMessage =
+                `Sau khi xe ${wrongCase.plateNumber} rời ô tạm ` +
+                `${wrongCase.temporarySlotCode || ""}, ô đã đặt ` +
+                `${wrongCase.originalSlotCode} đã được khôi phục.`;
+
+            if (wrongCase.userId) {
+                await notificationService.createNotification({
+                    connection: executor,
+                    relatedId: wrongCase.id,
+                    relatedType: "WRONG_SLOT_CASE",
+                    title: "Ô đã đặt ban đầu đã được khôi phục",
+                    message: restoredMessage,
+                    userId: wrongCase.userId,
+                });
+            } else {
+                await queueReservedHourlyAlert({
+                    connection: executor,
+                    content: `Sunrise Parking: ${restoredMessage}`,
+                    relatedId: wrongCase.id,
+                    reservation: wrongCase,
+                });
+            }
+
+            restored.push({
+                caseId: wrongCase.id,
+                originalSlotCode: wrongCase.originalSlotCode,
+                temporarySlotCode: wrongCase.temporarySlotCode,
+            });
+        }
     }
 
     return restored;
