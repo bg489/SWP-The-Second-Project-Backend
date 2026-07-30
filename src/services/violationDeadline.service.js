@@ -1,6 +1,7 @@
 const floorMismatchCaseService = require("./floorMismatchCase.service");
 const wrongSlotCaseService = require("./wrongSlotCase.service");
 const hourlySlotReservationService = require("./hourlySlotReservation.service");
+const smsService = require("./sms.service");
 
 const DEFAULT_INTERVAL_MS = 15000;
 let workerTimer = null;
@@ -17,6 +18,7 @@ const processExpiredViolationCases = async () => {
         await wrongSlotCaseService.processExpiredWrongSlotCases();
         await floorMismatchCaseService.processExpiredFloorMismatchCases();
         await hourlySlotReservationService.processReservationLifecycle();
+        await smsService.processPendingSms();
     } catch (error) {
         console.error("[violation-deadline]", error.message);
     } finally {
