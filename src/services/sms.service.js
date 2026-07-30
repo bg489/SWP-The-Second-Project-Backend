@@ -2,6 +2,8 @@ const db = require("../config/db");
 
 const DEFAULT_ESMS_URL =
     "https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/";
+const DEFAULT_ESMS_STATUS_URL =
+    "https://rest.esms.vn/MainService.svc/json/GetSmsReceiverStatus_get";
 const MAX_ATTEMPTS = 3;
 const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
 const APPROVED_GENERIC_CUSTOMER_CARE_SMS =
@@ -167,6 +169,14 @@ const normalizeVietnamPhone = (value) => {
     return compact;
 };
 
+const resolveEsmsSmsType = ({ brandname, configuredType }) => {
+    if (String(brandname || "").trim()) {
+        return "2";
+    }
+
+    return String(configuredType || "8").trim();
+};
+
 const getEsmsConfig = () => {
     const apiKey = process.env.ESMS_API_KEY;
     const secretKey = process.env.ESMS_SECRET_KEY;
@@ -183,9 +193,12 @@ const getEsmsConfig = () => {
         endpoint: process.env.ESMS_API_URL || DEFAULT_ESMS_URL,
         sandbox: process.env.ESMS_SANDBOX === "true",
         secretKey,
-        smsType: String(
-            process.env.ESMS_SMS_TYPE || (brandname ? "2" : "8")
-        ),
+        statusEndpoint:
+            process.env.ESMS_STATUS_API_URL || DEFAULT_ESMS_STATUS_URL,
+        smsType: resolveEsmsSmsType({
+            brandname,
+            configuredType: process.env.ESMS_SMS_TYPE,
+        }),
     };
 };
 
@@ -252,6 +265,67 @@ const sendWithEsms = async ({ content, id, phone }) => {
     };
 };
 
+const isEsmsTrue = (value) =>
+    value === true ||
+    value === 1 ||
+    ["1", "true"].includes(String(value || "").trim().toLowerCase());
+
+const resolveEsmsDeliveryResult = (data) => {
+    if (String(data?.CodeResult) !== "100") {
+        throw new Error(
+            data?.ErrorMessage ||
+            `Không kiểm tra được trạng thái SMS (${data?.CodeResult || "?"})`
+        );
+    }
+
+    const receivers = Array.isArray(data.ReceiverList)
+        ? data.ReceiverList
+        : [];
+
+    if (
+        receivers.length === 0 ||
+        receivers.some((receiver) => !isEsmsTrue(receiver.IsSent))
+    ) {
+        return {
+            delivered: false,
+            final: false,
+        };
+    }
+
+    return {
+        delivered: receivers.every((receiver) =>
+            isEsmsTrue(receiver.SentResult)
+        ),
+        final: true,
+    };
+};
+
+const getEsmsDeliveryResult = async ({ config, providerMessageId }) => {
+    const url = new URL(config.statusEndpoint);
+    url.searchParams.set("ApiKey", config.apiKey);
+    url.searchParams.set("SecretKey", config.secretKey);
+    url.searchParams.set("RefId", providerMessageId);
+
+    const configuredTimeout = Number(process.env.ESMS_TIMEOUT_MS);
+    const timeoutMs =
+        Number.isFinite(configuredTimeout) && configuredTimeout >= 1000
+            ? configuredTimeout
+            : 10000;
+    const response = await fetch(url, {
+        signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(
+            data.ErrorMessage ||
+            `Không kiểm tra được trạng thái SMS (${response.status})`
+        );
+    }
+
+    return resolveEsmsDeliveryResult(data);
+};
+
 const queueSms = async ({
     connection,
     content,
@@ -302,6 +376,7 @@ const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
              next_attempt_at = CURRENT_TIMESTAMP,
              updated_at = CURRENT_TIMESTAMP
          WHERE status = 'SENDING'
+            AND provider_message_id IS NULL
             AND updated_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 10 MINUTE)`
     );
 
@@ -364,7 +439,7 @@ const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
                 id: row.id,
                 phone: row.phone,
             });
-            const finalStatus = delivery.previewOnly ? "PREVIEW" : "SENT";
+            const finalStatus = delivery.previewOnly ? "PREVIEW" : "SENDING";
 
             await db.query(
                 `UPDATE sms_outbox
@@ -372,13 +447,17 @@ const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
                      provider = ?,
                      provider_message_id = ?,
                      error_message = NULL,
-                     sent_at = CURRENT_TIMESTAMP,
+                     sent_at = CASE
+                        WHEN ? = 'PREVIEW' THEN CURRENT_TIMESTAMP
+                        ELSE NULL
+                     END,
                      updated_at = CURRENT_TIMESTAMP
                  WHERE id = ?`,
                 [
                     finalStatus,
                     delivery.provider,
                     delivery.providerMessageId,
+                    finalStatus,
                     row.id,
                 ]
             );
@@ -413,10 +492,89 @@ const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
     return results;
 };
 
+const reconcileEsmsDeliveries = async ({ limit = 20 } = {}) => {
+    const config = getEsmsConfig();
+
+    if (!config || config.sandbox) {
+        return [];
+    }
+
+    const [rows] = await db.query(
+        `SELECT
+            id,
+            provider_message_id AS providerMessageId
+         FROM sms_outbox
+         WHERE status = 'SENDING'
+            AND provider = 'ESMS'
+            AND provider_message_id IS NOT NULL
+         ORDER BY updated_at ASC
+         LIMIT ?`,
+        [Math.max(1, Number(limit) || 20)]
+    );
+    const results = [];
+
+    for (const row of rows) {
+        try {
+            const delivery = await getEsmsDeliveryResult({
+                config,
+                providerMessageId: row.providerMessageId,
+            });
+
+            if (!delivery.final) {
+                results.push({ id: row.id, status: "SENDING" });
+                continue;
+            }
+
+            if (delivery.delivered) {
+                await db.query(
+                    `UPDATE sms_outbox
+                     SET status = 'SENT',
+                         error_message = NULL,
+                         sent_at = CURRENT_TIMESTAMP,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?
+                        AND status = 'SENDING'`,
+                    [row.id]
+                );
+                results.push({ id: row.id, status: "SENT" });
+                continue;
+            }
+
+            await db.query(
+                `UPDATE sms_outbox
+                 SET status = 'FAILED',
+                     attempt_count = ?,
+                     error_message = 'Nhà mạng từ chối phát SMS',
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?
+                    AND status = 'SENDING'`,
+                [MAX_ATTEMPTS, row.id]
+            );
+            results.push({
+                error: "Nhà mạng từ chối phát SMS",
+                id: row.id,
+                status: "FAILED",
+            });
+        } catch (error) {
+            console.error("[sms:delivery-status]", row.id, error.message);
+            results.push({
+                error: error.message,
+                id: row.id,
+                status: "SENDING",
+            });
+        }
+    }
+
+    return results;
+};
+
 module.exports = {
     normalizeVietnamPhone,
     processPendingSms,
     queueSms,
+    reconcileEsmsDeliveries,
+    resolveEsmsDeliveryResult,
+    resolveEsmsSmsType,
     resolveApprovedSmsContent,
     SMS_TEMPLATE_KEYS,
     WRONG_SLOT_VICTIM_UPDATE_TYPES,

@@ -2,10 +2,62 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+    resolveEsmsDeliveryResult,
+    resolveEsmsSmsType,
     resolveApprovedSmsContent,
     SMS_TEMPLATE_KEYS,
     WRONG_SLOT_VICTIM_UPDATE_TYPES,
 } = require("./sms.service");
+
+test("uses customer-care type for an approved Brandname", () => {
+    assert.equal(
+        resolveEsmsSmsType({
+            brandname: "Baotrixemay",
+            configuredType: "8",
+        }),
+        "2"
+    );
+    assert.equal(
+        resolveEsmsSmsType({
+            brandname: "",
+            configuredType: "8",
+        }),
+        "8"
+    );
+});
+
+test("distinguishes pending, delivered, and rejected carrier results", () => {
+    assert.deepEqual(
+        resolveEsmsDeliveryResult({
+            CodeResult: "100",
+            ReceiverList: [],
+        }),
+        {
+            delivered: false,
+            final: false,
+        }
+    );
+    assert.deepEqual(
+        resolveEsmsDeliveryResult({
+            CodeResult: "100",
+            ReceiverList: [{ IsSent: true, SentResult: true }],
+        }),
+        {
+            delivered: true,
+            final: true,
+        }
+    );
+    assert.deepEqual(
+        resolveEsmsDeliveryResult({
+            CodeResult: "100",
+            ReceiverList: [{ IsSent: "true", SentResult: "false" }],
+        }),
+        {
+            delivered: false,
+            final: true,
+        }
+    );
+});
 
 test("identifies the victim with the occupied slot and occupying vehicle", () => {
     const content = resolveApprovedSmsContent({
