@@ -1,16 +1,51 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { resolveApprovedSmsContent } = require("./sms.service");
+const {
+    resolveApprovedSmsContent,
+    SMS_TEMPLATE_KEYS,
+} = require("./sms.service");
 
-test("uses the approved generic template for wrong-slot alerts", () => {
+test("identifies the victim with the occupied slot and occupying vehicle", () => {
     const content = resolveApprovedSmsContent({
-        content: "Sunrise Parking: O B33-02 cua ban dang bi chiem.",
         relatedType: "WRONG_SLOT_CASE",
+        templateData: {
+            eventAt: new Date("2026-07-30T13:30:00Z"),
+            occupyingPlate: "51G-888.88",
+            slotCode: "B33-02",
+        },
+        templateKey: SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM,
     });
 
     assert.equal(
         content,
+        "Baotrixemay da nhan duoc so tien thanh toan 0 VND luc 30/07/2026 20:30 cho don hang OB3302BIXE51G88888. Cam on quy khach!"
+    );
+});
+
+test("identifies the occupier with both vehicles and the occupied slot", () => {
+    const content = resolveApprovedSmsContent({
+        relatedType: "WRONG_SLOT_CASE",
+        templateData: {
+            occupyingPlate: "51G-888.88",
+            reservedPlate: "30A-111.22",
+            slotCode: "B33-02",
+        },
+        templateKey: SMS_TEMPLATE_KEYS.WRONG_SLOT_OCCUPIER,
+    });
+
+    assert.equal(
+        content,
+        "Xe 51G88888 chiem o B3302 cua xe 30A11122 doi xe trong 15 phut da hoan thanh. Kinh moi chu xe lien he Sunrise Parking den nhan xe. Tran trong."
+    );
+});
+
+test("uses the approved generic template for other wrong-slot updates", () => {
+    assert.equal(
+        resolveApprovedSmsContent({
+            content: "Sunrise Parking: O B33-02 cua ban da duoc tra lai.",
+            relatedType: "WRONG_SLOT_CASE",
+        }),
         "Cam on quy khach da su dung dich vu cua chung toi. Chuc quy khach mot ngay tot lanh!"
     );
 });

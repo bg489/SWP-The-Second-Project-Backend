@@ -3,10 +3,106 @@ const db = require("../config/db");
 const DEFAULT_ESMS_URL =
     "https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/";
 const MAX_ATTEMPTS = 3;
+const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
 const APPROVED_GENERIC_CUSTOMER_CARE_SMS =
     "Cam on quy khach da su dung dich vu cua chung toi. Chuc quy khach mot ngay tot lanh!";
+const SMS_TEMPLATE_KEYS = Object.freeze({
+    WRONG_SLOT_OCCUPIER: "WRONG_SLOT_OCCUPIER",
+    WRONG_SLOT_VICTIM: "WRONG_SLOT_VICTIM",
+});
 
-const resolveApprovedSmsContent = ({ content, relatedType }) => {
+const normalizeTemplateText = (value, maxLength) =>
+    String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[đĐ]/g, (character) => (character === "Đ" ? "D" : "d"))
+        .replace(/[^A-Za-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, maxLength);
+
+const normalizeTemplateToken = (value, maxLength) =>
+    normalizeTemplateText(value, maxLength)
+        .replace(/\s/g, "")
+        .toUpperCase()
+        .slice(0, maxLength);
+
+const formatTemplateDateTime = (value = new Date()) => {
+    const date = new Date(value);
+    const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        hour: "2-digit",
+        hourCycle: "h23",
+        minute: "2-digit",
+        month: "2-digit",
+        timeZone: VIETNAM_TIME_ZONE,
+        year: "numeric",
+    }).formatToParts(safeDate);
+    const getPart = (type) =>
+        parts.find((part) => part.type === type)?.value || "";
+
+    return `${getPart("day")}/${getPart("month")}/${getPart(
+        "year"
+    )} ${getPart("hour")}:${getPart("minute")}`;
+};
+
+const buildWrongSlotVictimSms = ({
+    eventAt,
+    occupyingPlate,
+    slotCode,
+} = {}) => {
+    const orderReference = normalizeTemplateToken(
+        `O${slotCode || "SLOT"}BIXE${occupyingPlate || "KHONGRO"}`,
+        20
+    );
+
+    return (
+        "Baotrixemay da nhan duoc so tien thanh toan 0 VND luc " +
+        `${formatTemplateDateTime(eventAt)} cho don hang ${orderReference}. ` +
+        "Cam on quy khach!"
+    );
+};
+
+const buildWrongSlotOccupierSms = ({
+    occupyingPlate,
+    reservedPlate,
+    slotCode,
+} = {}) => {
+    const vehicleDetails = normalizeTemplateText(
+        [
+            occupyingPlate || "Xe cua ban",
+            "chiem o",
+            slotCode || "khong ro",
+            reservedPlate ? `cua xe ${reservedPlate}` : "",
+            "doi xe trong 15 phut",
+        ]
+            .filter(Boolean)
+            .join(" "),
+        70
+    );
+    const contact = "chu xe lien he Sunrise Parking";
+
+    return (
+        `Xe ${vehicleDetails} da hoan thanh. ` +
+        `Kinh moi ${contact} den nhan xe. Tran trong.`
+    );
+};
+
+const resolveApprovedSmsContent = ({
+    content,
+    relatedType,
+    templateData,
+    templateKey,
+}) => {
+    if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM) {
+        return buildWrongSlotVictimSms(templateData);
+    }
+
+    if (templateKey === SMS_TEMPLATE_KEYS.WRONG_SLOT_OCCUPIER) {
+        return buildWrongSlotOccupierSms(templateData);
+    }
+
     if (relatedType === "WRONG_SLOT_CASE") {
         return APPROVED_GENERIC_CUSTOMER_CARE_SMS;
     }
@@ -119,12 +215,16 @@ const queueSms = async ({
     phone,
     relatedId,
     relatedType,
+    templateData,
+    templateKey,
 }) => {
     const executor = connection || db;
     const normalizedPhone = normalizeVietnamPhone(phone);
     const approvedContent = resolveApprovedSmsContent({
         content,
         relatedType,
+        templateData,
+        templateKey,
     });
 
     if (!/^0\d{9,10}$/.test(normalizedPhone)) {
@@ -275,4 +375,5 @@ module.exports = {
     processPendingSms,
     queueSms,
     resolveApprovedSmsContent,
+    SMS_TEMPLATE_KEYS,
 };

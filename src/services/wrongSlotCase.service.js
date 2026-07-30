@@ -130,9 +130,11 @@ const getReservedRegistrationBySlot = async (executor, slotId) => {
             r.building_id AS buildingId,
             r.floor_id AS floorId,
             r.slot_id AS slotId,
-            v.plate_number AS plateNumber
+            v.plate_number AS plateNumber,
+            u.phone AS userPhone
          FROM slot_registrations r
          INNER JOIN vehicles v ON r.vehicle_id = v.id
+         INNER JOIN users u ON r.user_id = u.id
          WHERE r.slot_id = ?
             AND r.status IN ('PENDING_PAYMENT', 'PAID')
          ORDER BY FIELD(r.status, 'PAID', 'PENDING_PAYMENT'), r.id DESC
@@ -160,8 +162,10 @@ const getReservedHourlyReservationBySlot = async (executor, slotId) => {
             r.start_at AS startAt,
             r.end_at AS endAt,
             r.status,
-            r.parking_session_id AS parkingSessionId
+            r.parking_session_id AS parkingSessionId,
+            u.phone AS userPhone
          FROM hourly_slot_reservations r
+         LEFT JOIN users u ON r.user_id = u.id
          WHERE r.slot_id = ?
             AND r.payment_status = 'PAID'
             AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
@@ -197,8 +201,10 @@ const getReservedHourlyReservationById = async (executor, id) => {
             r.start_at AS startAt,
             r.end_at AS endAt,
             r.status,
-            r.parking_session_id AS parkingSessionId
+            r.parking_session_id AS parkingSessionId,
+            u.phone AS userPhone
          FROM hourly_slot_reservations r
+         LEFT JOIN users u ON r.user_id = u.id
          WHERE r.id = ?
             AND r.payment_status = 'PAID'
             AND r.status IN ('BOOKED', 'CHECKED_IN', 'COMPLETED')
@@ -224,22 +230,31 @@ const isHourlyReservationForSession = (reservation, session) => {
         normalizePlateLookup(session.plate_number);
 };
 
-const queueReservedHourlyAlert = async ({
+const queueReservedContactAlert = async ({
     connection,
     content,
+    includeRegisteredUser = false,
     relatedId,
     reservation,
+    templateData,
+    templateKey,
 }) => {
-    if (!reservation || reservation.userId) {
+    const phone =
+        reservation?.guestPhone ||
+        (includeRegisteredUser ? reservation?.userPhone : null);
+
+    if (!reservation || !phone) {
         return null;
     }
 
     return smsService.queueSms({
         connection,
         content,
-        phone: reservation.guestPhone,
+        phone,
         relatedId,
         relatedType: "WRONG_SLOT_CASE",
+        templateData,
+        templateKey,
     });
 };
 
@@ -346,11 +361,28 @@ const reportWrongSlot = async ({
         await connection.beginTransaction();
 
         const [sessionRows] = await connection.query(
-            `SELECT *
-             FROM parking_sessions
-             WHERE id = ?
-                AND status = 'ACTIVE'
-                AND vehicle_type = 'CAR'
+            `SELECT
+                ps.*,
+                COALESCE(
+                    (
+                        SELECT sessionUser.phone
+                        FROM users sessionUser
+                        WHERE sessionUser.id = ps.user_id
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT sessionReservation.guest_phone
+                        FROM hourly_slot_reservations sessionReservation
+                        WHERE sessionReservation.parking_session_id = ps.id
+                            AND sessionReservation.guest_phone IS NOT NULL
+                        ORDER BY sessionReservation.id DESC
+                        LIMIT 1
+                    )
+                ) AS sms_phone
+             FROM parking_sessions ps
+             WHERE ps.id = ?
+                AND ps.status = 'ACTIVE'
+                AND ps.vehicle_type = 'CAR'
              LIMIT 1
              FOR UPDATE`,
             [parkingSessionId]
@@ -494,6 +526,27 @@ const reportWrongSlot = async ({
                 });
             }
 
+            const reservedConflict =
+                reservedRegistrationConflict || reservedHourlyConflict;
+            const reservedPlateNumber = reservedConflict?.plateNumber || "";
+
+            if (session.sms_phone) {
+                await smsService.queueSms({
+                    connection,
+                    content: "",
+                    phone: session.sms_phone,
+                    relatedId: caseResult.insertId,
+                    relatedType: "WRONG_SLOT_CASE",
+                    templateData: {
+                        occupyingPlate: session.plate_number,
+                        reservedPlate: reservedPlateNumber,
+                        slotCode: observedSlot.slot_code,
+                    },
+                    templateKey:
+                        smsService.SMS_TEMPLATE_KEYS.WRONG_SLOT_OCCUPIER,
+                });
+            }
+
             const reservedUserId =
                 reservedRegistrationConflict?.userId ||
                 reservedHourlyConflict?.userId;
@@ -516,12 +569,22 @@ const reportWrongSlot = async ({
                     message: reservedMessage,
                     userId: reservedUserId,
                 });
-            } else if (reservedHourlyConflict) {
-                await queueReservedHourlyAlert({
+            }
+
+            if (reservedConflict) {
+                await queueReservedContactAlert({
                     connection,
                     content: `Sunrise Parking: ${reservedMessage}`,
+                    includeRegisteredUser: true,
                     relatedId: caseResult.insertId,
-                    reservation: reservedHourlyConflict,
+                    reservation: reservedConflict,
+                    templateData: {
+                        eventAt: new Date(),
+                        occupyingPlate: session.plate_number,
+                        slotCode: observedSlot.slot_code,
+                    },
+                    templateKey:
+                        smsService.SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM,
                 });
             }
         }
@@ -732,7 +795,7 @@ const confirmWrongSlot = async ({ id, staffId }) => {
                         userId: reservedUserId,
                     });
                 } else if (reservedHourlyReservation) {
-                    await queueReservedHourlyAlert({
+                    await queueReservedContactAlert({
                         connection,
                         content: `Sunrise Parking: ${reassignedMessage}`,
                         relatedId: wrongCase.id,
@@ -986,7 +1049,7 @@ const markWrongSlotMoved = async ({
                         userId: reservedHourlyReservation.userId,
                     });
                 } else {
-                    await queueReservedHourlyAlert({
+                    await queueReservedContactAlert({
                         connection,
                         content: `Sunrise Parking: ${returnedMessage}`,
                         relatedId: wrongCase.id,
@@ -1243,7 +1306,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                     userId: wrongCase.userId,
                 });
             } else {
-                await queueReservedHourlyAlert({
+                await queueReservedContactAlert({
                     connection: executor,
                     content: `Sunrise Parking: ${returnedMessage}`,
                     relatedId: wrongCase.id,
@@ -1290,7 +1353,7 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
                     userId: wrongCase.userId,
                 });
             } else {
-                await queueReservedHourlyAlert({
+                await queueReservedContactAlert({
                     connection: executor,
                     content: `Sunrise Parking: ${availableMessage}`,
                     relatedId: wrongCase.id,
@@ -1485,7 +1548,7 @@ const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
                     userId: wrongCase.userId,
                 });
             } else {
-                await queueReservedHourlyAlert({
+                await queueReservedContactAlert({
                     connection: executor,
                     content: `Sunrise Parking: ${restoredMessage}`,
                     relatedId: wrongCase.id,
