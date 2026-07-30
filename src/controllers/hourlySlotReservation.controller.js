@@ -1,6 +1,10 @@
 const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
 const smsService = require("../services/sms.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
+const {
+    isValidVietnamPhone,
+    normalizeOptionalPhone,
+} = require("../utils/phone");
 const { successResponse, errorResponse } = require("../utils/response");
 
 const VALID_STAFF_PAYMENT_METHODS = ["CASH", "VNPAY"];
@@ -304,16 +308,16 @@ const createGuestReservation = async (req, res) => {
             return errorResponse(res, "Vui lòng nhập tên khách gửi xe.", 400);
         }
 
-        if (!String(guestPhone || "").trim()) {
+        const normalizedGuestPhone = normalizeOptionalPhone(guestPhone);
+
+        if (!normalizedGuestPhone) {
             return errorResponse(res, "Vui lòng nhập số điện thoại của khách.", 400);
         }
 
-        const normalizedGuestPhone = smsService.normalizeVietnamPhone(guestPhone);
-
-        if (!/^0\d{9,10}$/.test(normalizedGuestPhone)) {
+        if (!isValidVietnamPhone(normalizedGuestPhone)) {
             return errorResponse(
                 res,
-                "Số điện thoại của khách không hợp lệ.",
+                "Số điện thoại của khách phải có đúng 10 chữ số và bắt đầu bằng 0.",
                 400
             );
         }
