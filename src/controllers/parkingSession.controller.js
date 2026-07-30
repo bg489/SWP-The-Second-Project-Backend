@@ -296,8 +296,11 @@ const checkIn = async (req, res) => {
             return errorResponse(res, "Xe có gói tháng cần quét mã QR để nhận vào.", 400);
         }
 
-        if (pricingType !== "MONTHLY_PASS" && !hourlyReservation) {
-            if (!isValidId(tempQrCardId) && !tempQrCardCode) {
+        if (pricingType !== "MONTHLY_PASS") {
+            const hasTempQrCard =
+                isValidId(tempQrCardId) || Boolean(tempQrCardCode);
+
+            if (!hourlyReservation && !hasTempQrCard) {
                 return errorResponse(
                     res,
                     "Khách gửi lẻ cần có thẻ QR tạm.",
@@ -305,23 +308,33 @@ const checkIn = async (req, res) => {
                 );
             }
 
-            tempQrCard = isValidId(tempQrCardId)
-                ? await tempQrCardService.getTempQrCardById(tempQrCardId)
-                : await tempQrCardService.getTempQrCardByCode(tempQrCardCode);
+            if (hasTempQrCard) {
+                tempQrCard = isValidId(tempQrCardId)
+                    ? await tempQrCardService.getTempQrCardById(tempQrCardId)
+                    : await tempQrCardService.getTempQrCardByCode(tempQrCardCode);
 
-            if (!tempQrCard) {
-                return errorResponse(res, "Khong tim thay the QR tam", 404);
-            }
+                if (!tempQrCard) {
+                    return errorResponse(res, "Không tìm thấy thẻ QR tạm.", 404);
+                }
 
-            if (
-                tempQrCard.buildingId &&
-                Number(tempQrCard.buildingId) !== Number(buildingId)
-            ) {
-                return errorResponse(res, "Thẻ QR tạm không thuộc tòa nhà đang phụ trách.", 400);
-            }
+                if (
+                    tempQrCard.buildingId &&
+                    Number(tempQrCard.buildingId) !== Number(buildingId)
+                ) {
+                    return errorResponse(
+                        res,
+                        "Thẻ QR tạm không thuộc tòa nhà đang phụ trách.",
+                        400
+                    );
+                }
 
-            if (tempQrCard.status !== "READY") {
-                return errorResponse(res, "Thẻ QR tạm chưa sẵn sàng sử dụng.", 400);
+                if (tempQrCard.status !== "READY") {
+                    return errorResponse(
+                        res,
+                        "Thẻ QR tạm chưa sẵn sàng sử dụng.",
+                        400
+                    );
+                }
             }
         }
 

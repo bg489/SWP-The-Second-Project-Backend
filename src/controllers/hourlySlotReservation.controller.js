@@ -5,6 +5,7 @@ const { successResponse, errorResponse } = require("../utils/response");
 
 const VALID_STAFF_PAYMENT_METHODS = ["CASH", "VNPAY"];
 const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
+const MAX_RESERVATION_MONTHS = 2;
 
 const isValidId = (value) => {
     const parsed = Number(value);
@@ -55,6 +56,21 @@ const parseReservationPeriod = ({ endAt, startAt }) => {
     if (parsedStartAt.getTime() < Date.now() - 60 * 1000) {
         return {
             error: "Thời gian bắt đầu không được nằm trong quá khứ.",
+        };
+    }
+
+    const maximumReservationTime = new Date();
+
+    maximumReservationTime.setMonth(
+        maximumReservationTime.getMonth() + MAX_RESERVATION_MONTHS
+    );
+
+    if (
+        parsedStartAt.getTime() > maximumReservationTime.getTime() ||
+        parsedEndAt.getTime() > maximumReservationTime.getTime()
+    ) {
+        return {
+            error: "Chỉ được đặt ô trước tối đa 2 tháng.",
         };
     }
 
@@ -364,6 +380,27 @@ const createGuestReservation = async (req, res) => {
             await hourlySlotReservationService.getReservationById(
                 result.reservationId
             );
+        let sms = null;
+
+        if (result.smsOutboxId) {
+            try {
+                const deliveries = await smsService.processPendingSms({
+                    ids: [result.smsOutboxId],
+                    limit: 1,
+                });
+
+                sms = deliveries[0] || {
+                    id: result.smsOutboxId,
+                    status: "PENDING",
+                };
+            } catch (smsError) {
+                sms = {
+                    error: smsError.message,
+                    id: result.smsOutboxId,
+                    status: "FAILED",
+                };
+            }
+        }
 
         return successResponse(
             res,
@@ -379,6 +416,7 @@ const createGuestReservation = async (req, res) => {
                     provider: paymentMethod,
                     transactionRef,
                 },
+                sms,
             },
             201
         );

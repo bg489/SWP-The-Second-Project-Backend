@@ -2,6 +2,7 @@ const slotRegistrationService = require("../services/slotRegistration.service");
 const parkingSessionService = require("../services/parkingSession.service");
 const monthlyPassService = require("../services/monthlyPass.service");
 const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
+const smsService = require("../services/sms.service");
 const { verifyReturnParams } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
@@ -85,6 +86,8 @@ const getFrontendPaymentReturnUrl = (result) => {
     return appendQuery(returnUrl, {
         paymentStatus: payment.status || "FAILED",
         responseCode: payment.responseCode || "",
+        smsError: result.data?.sms?.error || "",
+        smsStatus: result.data?.sms?.status || "",
         transactionRef: payment.transactionRef || "",
     });
 };
@@ -148,7 +151,7 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
         };
     }
 
-    await slotRegistrationService.markPaymentResult({
+    const paymentUpdate = await slotRegistrationService.markPaymentResult({
         ...paymentResult,
         monthlyPassId: payment.monthlyPassId,
         hourlyReservationId: payment.hourlyReservationId,
@@ -169,6 +172,27 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
             : null,
         slotId: payment.registrationSlotId,
     });
+    let sms = null;
+
+    if (paymentUpdate?.smsOutboxId) {
+        try {
+            const deliveries = await smsService.processPendingSms({
+                ids: [paymentUpdate.smsOutboxId],
+                limit: 1,
+            });
+
+            sms = deliveries[0] || {
+                id: paymentUpdate.smsOutboxId,
+                status: "PENDING",
+            };
+        } catch (smsError) {
+            sms = {
+                error: smsError.message,
+                id: paymentUpdate.smsOutboxId,
+                status: "FAILED",
+            };
+        }
+    }
 
     const registration = payment.slotRegistrationId
         ? await slotRegistrationService.getRegistrationById(payment.slotRegistrationId)
@@ -201,6 +225,7 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
             session,
             monthlyPass,
             hourlyReservation,
+            sms,
         },
     };
 };
