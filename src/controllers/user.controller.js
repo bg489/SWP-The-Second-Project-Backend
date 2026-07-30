@@ -6,6 +6,10 @@ const emailService = require("../services/email.service");
 const profileUpdateService = require("../services/profileUpdate.service");
 const { ROLES, AUTHENTICATED_ROLES } = require("../constants/roles");
 const { USER_STATUSES } = require("../utils/constants");
+const {
+    isValidVietnamPhone,
+    normalizeOptionalPhone,
+} = require("../utils/phone");
 const { successResponse, errorResponse } = require("../utils/response");
 
 const BUSINESS_ROLES = [
@@ -54,12 +58,6 @@ const isValidAvatarUrl = (value) => {
     }
 };
 
-const normalizePhone = (value) => {
-    if (value === undefined || value === null || value === "") return null;
-
-    return String(value).replace(/\D/g, "");
-};
-
 const parseCropNumber = ({ fallback, max, min, value }) => {
     if (value === undefined || value === null || value === "") {
         return fallback;
@@ -79,7 +77,9 @@ const buildProfilePayload = (body, currentUser) => {
         typeof body.name === "string"
             ? body.name.trim()
             : currentUser.name;
-    const phone = normalizePhone(body.phone);
+    const phone = body.phone === undefined
+        ? currentUser.phone || null
+        : normalizeOptionalPhone(body.phone);
     const avatarUrl =
         body.avatarUrl === undefined
             ? undefined
@@ -109,7 +109,7 @@ const buildProfilePayload = (body, currentUser) => {
         throw error;
     }
 
-    if (phone && !/^0\d{9}$/.test(phone)) {
+    if (!isValidVietnamPhone(phone)) {
         const error = new Error("Số điện thoại phải gồm 10 số và bắt đầu bằng 0");
         error.statusCode = 400;
         throw error;

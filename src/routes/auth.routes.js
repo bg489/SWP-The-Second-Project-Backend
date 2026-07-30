@@ -35,6 +35,26 @@ router.post("/register", authController.register);
 
 /**
  * @swagger
+ * /api/auth/verify-registration:
+ *   post:
+ *     summary: Verify a newly registered account by email OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegistrationVerificationRequest'
+ *     responses:
+ *       200:
+ *         description: Email verified; the account can log in
+ */
+router.post("/verify-registration", authController.verifyRegistration);
+
+router.post("/resend-registration-otp", authController.resendRegistrationOtp);
+
+/**
+ * @swagger
  * /api/auth/login:
  *   post:
  *     summary: Login by email or phone
@@ -55,13 +75,41 @@ router.post("/register", authController.register);
  */
 router.post("/login", authController.login);
 
+/**
+ * @swagger
+ * /api/auth/google:
+ *   post:
+ *     summary: Sign in or register with a Google ID token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GoogleLoginRequest'
+ *     responses:
+ *       200:
+ *         description: Google sign-in completed
+ */
+router.post("/google", authController.googleLogin);
+
 router.post("/forgot-password", authController.requestPasswordReset);
 
 router.post("/verify-reset", authController.verifyPasswordReset);
 
 router.post("/reset-password", authController.resetPassword);
 
-router.post("/refresh", authMiddleware, authController.refresh);
+router.post(
+    "/google/complete-onboarding",
+    authMiddleware.allowIncompleteOnboarding,
+    authController.completeGoogleOnboarding
+);
+
+router.post(
+    "/refresh",
+    authMiddleware.allowIncompleteOnboarding,
+    authController.refresh
+);
 
 /**
  * @swagger
@@ -77,6 +125,10 @@ router.post("/refresh", authMiddleware, authController.refresh);
  *       401:
  *         description: Token không hợp lệ hoặc hết hạn
  */
-router.get("/me", authMiddleware, authController.getCurrentUser);
+router.get(
+    "/me",
+    authMiddleware.allowIncompleteOnboarding,
+    authController.getCurrentUser
+);
 
 module.exports = router;

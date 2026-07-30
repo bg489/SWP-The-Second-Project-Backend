@@ -25,6 +25,18 @@ const findUserByEmail = async (email) => {
     return rows[0] || null;
 };
 
+const findUserByGoogleSubject = async (googleSubject) => {
+    const [rows] = await db.query(
+        `SELECT *
+         FROM users
+         WHERE google_subject = ?
+         LIMIT 1`,
+        [googleSubject]
+    );
+
+    return rows[0] || null;
+};
+
 const findExistingUserForRegister = async (email, phone) => {
     if (phone) {
         const [rows] = await db.query(
@@ -52,15 +64,25 @@ const findExistingUserForRegister = async (email, phone) => {
 const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
     const [result] = await db.query(
         `INSERT INTO users
-            (name, email, phone, password_hash, role, status, building_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            (
+                name,
+                email,
+                phone,
+                password_hash,
+                role,
+                status,
+                building_id,
+                auth_provider,
+                onboarding_completed
+            )
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'LOCAL', 1)`,
         [
             name,
             email,
             phone || null,
             passwordHash,
             ROLES.USER,
-            USER_STATUSES.PENDING,
+            USER_STATUSES.ACTIVE,
             buildingId || null,
         ]
     );
@@ -71,9 +93,51 @@ const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
         email,
         phone: phone || null,
         role: ROLES.USER,
-        status: USER_STATUSES.PENDING,
+        status: USER_STATUSES.ACTIVE,
         buildingId: buildingId || null,
+        authProvider: "LOCAL",
+        emailVerified: false,
+        onboardingCompleted: true,
+        requiresBuildingSelection: false,
     };
+};
+
+const createGoogleUser = async ({
+    avatarUrl,
+    email,
+    googleSubject,
+    name,
+    passwordHash,
+}) => {
+    const [result] = await db.query(
+        `INSERT INTO users
+            (
+                name,
+                email,
+                phone,
+                password_hash,
+                role,
+                status,
+                building_id,
+                avatar_url,
+                email_verified_at,
+                auth_provider,
+                google_subject,
+                onboarding_completed
+            )
+         VALUES (?, ?, NULL, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, 'GOOGLE', ?, 0)`,
+        [
+            name,
+            email,
+            passwordHash,
+            ROLES.USER,
+            USER_STATUSES.ACTIVE,
+            avatarUrl,
+            googleSubject,
+        ]
+    );
+
+    return getUserById(result.insertId);
 };
 
 const getUserById = async (id) => {
@@ -91,6 +155,9 @@ const getUserById = async (id) => {
             u.avatar_crop_y AS avatarCropY,
             u.avatar_crop_zoom AS avatarCropZoom,
             u.email_notifications_enabled AS emailNotificationsEnabled,
+            u.email_verified_at AS emailVerifiedAt,
+            u.auth_provider AS authProvider,
+            u.onboarding_completed AS onboardingCompleted,
             u.created_at AS createdAt,
             u.updated_at AS updatedAt,
             b.name AS buildingName,
@@ -106,9 +173,17 @@ const getUserById = async (id) => {
         return null;
     }
 
-    return {
+    const user = {
         ...rows[0],
         role: normalizeRole(rows[0].role),
+        emailVerified: Boolean(rows[0].emailVerifiedAt),
+        emailNotificationsEnabled: Boolean(rows[0].emailNotificationsEnabled),
+        onboardingCompleted: Boolean(rows[0].onboardingCompleted),
+    };
+
+    return {
+        ...user,
+        requiresBuildingSelection: !user.onboardingCompleted,
     };
 };
 
@@ -370,6 +445,97 @@ const updateUserBuilding = async ({ id, buildingId }) => {
     }
 };
 
+const linkGoogleIdentity = async ({ avatarUrl, googleSubject, id }) => {
+    await db.query(
+        `UPDATE users
+         SET google_subject = ?,
+             auth_provider = CASE
+                 WHEN auth_provider = 'LOCAL' THEN 'BOTH'
+                 ELSE auth_provider
+             END,
+             email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP),
+             avatar_url = COALESCE(avatar_url, ?),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [googleSubject, avatarUrl || null, id]
+    );
+
+    return getUserById(id);
+};
+
+const markEmailVerified = async (id) => {
+    await db.query(
+        `UPDATE users
+         SET email_verified_at = CURRENT_TIMESTAMP,
+             status = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [USER_STATUSES.ACTIVE, id]
+    );
+
+    return getUserById(id);
+};
+
+const completeGoogleOnboarding = async ({ buildingId, id }) => {
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [buildingRows] = await connection.query(
+            `SELECT id
+             FROM buildings
+             WHERE id = ?
+             LIMIT 1`,
+            [buildingId]
+        );
+
+        if (buildingRows.length === 0) {
+            const error = new Error("Không tìm thấy tòa nhà đã chọn.");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const [userRows] = await connection.query(
+            `SELECT id, role, onboarding_completed AS onboardingCompleted
+             FROM users
+             WHERE id = ?
+             FOR UPDATE`,
+            [id]
+        );
+        const user = userRows[0];
+
+        if (!user) {
+            const error = new Error("Không tìm thấy người dùng.");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        if (normalizeRole(user.role) !== ROLES.USER) {
+            const error = new Error("Chỉ tài khoản cư dân mới cần chọn tòa nhà lần đầu.");
+            error.statusCode = 403;
+            throw error;
+        }
+
+        await connection.query(
+            `UPDATE users
+             SET building_id = ?,
+                 onboarding_completed = 1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [buildingId, id]
+        );
+
+        await connection.commit();
+        return getUserById(id);
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
 const updateUserAvatar = async ({ id, avatarUrl }) => {
     await db.query(
         `UPDATE users
@@ -442,8 +608,10 @@ const updateEmailNotifications = async ({ enabled, id }) => {
 module.exports = {
     findUserByEmailOrPhone,
     findUserByEmail,
+    findUserByGoogleSubject,
     findExistingUserForRegister,
     createUser,
+    createGoogleUser,
     getUserById,
     getVehiclesByUserId,
     getUsers,
@@ -453,6 +621,9 @@ module.exports = {
     updateUserRoleStatus,
     updateUserStatus,
     updateUserBuilding,
+    linkGoogleIdentity,
+    markEmailVerified,
+    completeGoogleOnboarding,
     updateUserAvatar,
     updateUserPassword,
     updateUserProfile,

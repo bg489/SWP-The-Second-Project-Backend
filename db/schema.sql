@@ -74,11 +74,29 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_crop_y DECIMAL(6, 2) NOT NULL DEFAULT 50.00,
     avatar_crop_zoom DECIMAL(6, 2) NOT NULL DEFAULT 1.00,
     email_notifications_enabled TINYINT(1) NOT NULL DEFAULT 1,
+    email_verified_at DATETIME NULL,
+    auth_provider ENUM('LOCAL', 'GOOGLE', 'BOTH') NOT NULL DEFAULT 'LOCAL',
+    google_subject VARCHAR(255) NULL UNIQUE,
+    onboarding_completed TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_users_building
         FOREIGN KEY (building_id) REFERENCES buildings(id)
         ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_verification_user (user_id),
+    INDEX idx_email_verification_expires (expires_at),
+    CONSTRAINT fk_email_verification_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS staff_role_requests (

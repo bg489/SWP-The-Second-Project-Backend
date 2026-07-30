@@ -50,12 +50,43 @@ const options = {
                 },
                 RegisterRequest: {
                     type: "object",
-                    required: ["name", "email", "password"],
+                    required: ["name", "email", "password", "buildingId"],
                     properties: {
                         name: { type: "string", example: "Nguyen Van A" },
                         email: { type: "string", example: "user@example.com" },
-                        phone: { type: "string", example: "0901234567" },
+                        phone: {
+                            type: "string",
+                            nullable: true,
+                            pattern: "^0\\d{9}$",
+                            example: "0901234567",
+                            description: "Optional. When provided, it must contain exactly 10 digits and start with 0.",
+                        },
                         password: { type: "string", example: "123456" },
+                        buildingId: { type: "integer", example: 1 },
+                    },
+                },
+                RegistrationVerificationRequest: {
+                    type: "object",
+                    required: ["email", "otp"],
+                    properties: {
+                        email: { type: "string", example: "user@example.com" },
+                        otp: { type: "string", example: "123456" },
+                    },
+                },
+                GoogleLoginRequest: {
+                    type: "object",
+                    required: ["credential"],
+                    properties: {
+                        credential: {
+                            type: "string",
+                            description: "Google Identity Services ID token returned in the credential field.",
+                        },
+                    },
+                },
+                GoogleOnboardingRequest: {
+                    type: "object",
+                    required: ["buildingId"],
+                    properties: {
                         buildingId: { type: "integer", example: 1 },
                     },
                 },
@@ -97,7 +128,7 @@ const options = {
                             type: "string",
                             enum: ["PENDING", "ACTIVE", "LOCKED", "INACTIVE"],
                             example: "ACTIVE",
-                            description: "Admin sets ACTIVE to approve a registered account.",
+                            description: "New local accounts become usable after email OTP verification without admin approval.",
                         },
                     },
                 },
