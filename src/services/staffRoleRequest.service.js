@@ -18,14 +18,17 @@ const requestSelect = `
         m.avatar_url AS managerAvatarUrl,
 
         r.user_id AS userId,
-        u.name AS userName,
-        u.email AS userEmail,
-        u.phone AS userPhone,
+        r.candidate_name AS candidateName,
+        r.candidate_email AS candidateEmail,
+        r.candidate_phone AS candidatePhone,
+        COALESCE(u.name, r.candidate_name) AS userName,
+        COALESCE(u.email, r.candidate_email) AS userEmail,
+        COALESCE(u.phone, r.candidate_phone) AS userPhone,
         u.role AS userRole,
         u.status AS userStatus,
         u.avatar_url AS userAvatarUrl,
         u.created_at AS userCreatedAt,
-        (SELECT COUNT(*) FROM vehicles v WHERE v.user_id = u.id) AS vehicleCount,
+        COALESCE((SELECT COUNT(*) FROM vehicles v WHERE v.user_id = u.id), 0) AS vehicleCount,
 
         r.building_id AS buildingId,
         b.name AS buildingName,
@@ -48,10 +51,10 @@ const requestSelect = `
         r.updated_at AS updatedAt
     FROM staff_role_requests r
     INNER JOIN users m ON r.manager_id = m.id
-    INNER JOIN users u ON r.user_id = u.id
+    LEFT JOIN users u ON r.user_id = u.id
     INNER JOIN buildings b ON r.building_id = b.id
     LEFT JOIN users a ON r.admin_id = a.id
-    LEFT JOIN staff_profiles sp ON sp.user_id = u.id
+    LEFT JOIN staff_profiles sp ON sp.user_id = r.user_id
 `;
 
 const staffProfileSelect = `
@@ -105,7 +108,6 @@ const getManagerContext = async ({ executor = db, managerId, lock = false }) => 
          LIMIT 1${lock ? " FOR UPDATE" : ""}`,
         [managerId]
     );
-
     const manager = rows[0] || null;
 
     if (!manager || manager.role !== ROLES.MANAGER) {
@@ -146,81 +148,14 @@ const getRequestById = async (id, executor = db) => {
     return rows[0] || null;
 };
 
-const getManagerCandidates = async ({ buildingId, managerId, q, requestType }) => {
+const getManagerRequests = async ({ buildingId, managerId } = {}) => {
     await getManagerContext({ managerId });
-    const building = await getBuilding({ buildingId });
-    const expectedRole = requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE
-        ? ROLES.STAFF
-        : ROLES.USER;
-    const params = [buildingId, expectedRole, USER_STATUSES.ACTIVE];
-    let searchSql = "";
-
-    if (q) {
-        const keyword = `%${String(q).trim()}%`;
-        searchSql = "AND (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)";
-        params.push(keyword, keyword, keyword);
-    }
-
-    const [users] = await db.query(
-        `SELECT
-            u.id,
-            u.name,
-            u.email,
-            u.phone,
-            u.role,
-            u.status,
-            u.building_id AS buildingId,
-            b.name AS buildingName,
-            b.address AS buildingAddress,
-            u.avatar_url AS avatarUrl,
-            u.created_at AS createdAt,
-            sp.id AS staffProfileId,
-            sp.portrait_image_url AS staffPortraitImageUrl,
-            sp.started_at AS staffStartedAt,
-            COUNT(v.id) AS vehicleCount
-         FROM users u
-         INNER JOIN buildings b ON u.building_id = b.id
-         LEFT JOIN vehicles v ON v.user_id = u.id
-         LEFT JOIN staff_profiles sp ON sp.user_id = u.id
-         WHERE u.building_id = ?
-           AND u.role = ?
-           AND u.status = ?
-           ${searchSql}
-           AND NOT EXISTS (
-               SELECT 1
-               FROM staff_role_requests pending
-               WHERE pending.user_id = u.id
-                 AND pending.status = 'PENDING'
-           )
-         GROUP BY
-            u.id, u.name, u.email, u.phone, u.role, u.status,
-            u.building_id, b.name, b.address, u.avatar_url, u.created_at,
-            sp.id, sp.portrait_image_url, sp.started_at
-         ORDER BY u.name ASC, u.id DESC
-         LIMIT 100`,
-        params
-    );
-
-    return {
-        building,
-        requestType,
-        users,
-    };
-};
-
-const getManagerRequests = async ({ buildingId, managerId, requestType } = {}) => {
-    await getManagerContext({ managerId });
-    const conditions = ["r.manager_id = ?"];
-    const params = [managerId];
+    const conditions = ["r.manager_id = ?", "r.request_type = ?"];
+    const params = [managerId, STAFF_ROLE_REQUEST_TYPES.CREATE_STAFF];
 
     if (buildingId) {
         conditions.push("r.building_id = ?");
         params.push(buildingId);
-    }
-
-    if (requestType) {
-        conditions.push("r.request_type = ?");
-        params.push(requestType);
     }
 
     const [rows] = await db.query(
@@ -233,24 +168,18 @@ const getManagerRequests = async ({ buildingId, managerId, requestType } = {}) =
     return rows;
 };
 
-const getAdminRequests = async ({ requestType, status } = {}) => {
-    const conditions = [];
-    const params = [];
+const getAdminRequests = async ({ status } = {}) => {
+    const conditions = ["r.request_type = ?"];
+    const params = [STAFF_ROLE_REQUEST_TYPES.CREATE_STAFF];
 
     if (status) {
         conditions.push("r.status = ?");
         params.push(status);
     }
 
-    if (requestType) {
-        conditions.push("r.request_type = ?");
-        params.push(requestType);
-    }
-
-    const whereSql = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const [rows] = await db.query(
         `${requestSelect}
-         ${whereSql}
+         WHERE ${conditions.join(" AND ")}
          ORDER BY
             CASE WHEN r.status = 'PENDING' THEN 0 ELSE 1 END,
             r.id DESC`,
@@ -264,29 +193,24 @@ const notifySafely = async (payload) => {
     try {
         await notificationService.createNotification(payload);
     } catch (error) {
-        console.error("[staff-role-request:notification]", error.message);
+        console.error("[staff-account-request:notification]", error.message);
     }
 };
 
-const notifyActiveAdmins = async ({ managerName, requestId, requestType, userName }) => {
+const notifyActiveAdmins = async ({ managerName, requestId, staffName }) => {
     const [admins] = await db.query(
         `SELECT id
          FROM users
          WHERE role = ? AND status = ?`,
         [ROLES.ADMIN, USER_STATUSES.ACTIVE]
     );
-    const isDemotion = requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE;
 
     await Promise.all(
         admins.map((admin) =>
             notifySafely({
                 userId: admin.id,
-                title: isDemotion
-                    ? "Có đề nghị hủy quyền nhân viên mới"
-                    : "Có đề nghị cấp quyền nhân viên mới",
-                message: isDemotion
-                    ? `${managerName} đề nghị chuyển ${userName} từ nhân viên về cư dân.`
-                    : `${managerName} đề nghị duyệt ${userName} thành nhân viên bãi xe.`,
+                title: "Có đề nghị tạo tài khoản nhân viên mới",
+                message: `${managerName} đề nghị tạo tài khoản Staff độc lập cho ${staffName}.`,
                 relatedType: "STAFF_ROLE_REQUEST_ADMIN",
                 relatedId: requestId,
             })
@@ -296,15 +220,16 @@ const notifyActiveAdmins = async ({ managerName, requestId, requestType, userNam
 
 const createRequest = async ({
     buildingId,
+    candidateEmail,
+    candidateName,
+    candidatePhone,
     managerId,
     managerNote,
+    passwordHash,
     portraitImageUrl,
-    requestType,
-    userId,
 }) => {
     const connection = await db.getConnection();
     let manager;
-    let user;
     let requestId;
 
     try {
@@ -316,60 +241,62 @@ const createRequest = async ({
         });
         await getBuilding({ buildingId, executor: connection });
 
-        const [userRows] = await connection.query(
-            `SELECT id, name, email, phone, role, status, building_id AS buildingId
+        const accountParams = [candidateEmail];
+        let phoneCondition = "";
+        if (candidatePhone) {
+            phoneCondition = " OR phone = ?";
+            accountParams.push(candidatePhone);
+        }
+
+        const [existingAccounts] = await connection.query(
+            `SELECT id, email, phone
              FROM users
-             WHERE id = ?
+             WHERE email = ?${phoneCondition}
              LIMIT 1
              FOR UPDATE`,
-            [userId]
+            accountParams
         );
-        user = userRows[0];
 
-        if (!user) {
-            throw createHttpError("Không tìm thấy tài khoản được đề nghị", 404);
+        if (existingAccounts.length) {
+            throw createHttpError("Email hoặc số điện thoại đã thuộc một tài khoản khác", 409);
         }
 
-        const expectedRole = requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE
-            ? ROLES.STAFF
-            : ROLES.USER;
-        const roleLabel = requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE
-            ? "nhân viên"
-            : "cư dân";
-
-        if (user.role !== expectedRole || user.status !== USER_STATUSES.ACTIVE) {
-            throw createHttpError(`Tài khoản không còn là ${roleLabel} đang hoạt động`, 409);
+        const pendingParams = [candidateEmail];
+        let pendingPhoneCondition = "";
+        if (candidatePhone) {
+            pendingPhoneCondition = " OR candidate_phone = ?";
+            pendingParams.push(candidatePhone);
         }
 
-        if (Number(user.buildingId) !== Number(buildingId)) {
-            throw createHttpError("Tài khoản không thuộc tòa nhà đã chọn", 409);
-        }
-
-        const [pendingRows] = await connection.query(
+        const [pendingRequests] = await connection.query(
             `SELECT id
              FROM staff_role_requests
-             WHERE user_id = ? AND status = 'PENDING'
+             WHERE request_type = 'CREATE_STAFF'
+               AND status = 'PENDING'
+               AND (candidate_email = ?${pendingPhoneCondition})
              LIMIT 1
              FOR UPDATE`,
-            [userId]
+            pendingParams
         );
 
-        if (pendingRows.length) {
-            throw createHttpError("Tài khoản này đã có hồ sơ đang chờ duyệt", 409);
+        if (pendingRequests.length) {
+            throw createHttpError("Thông tin này đã có hồ sơ tạo Staff đang chờ duyệt", 409);
         }
 
         const [result] = await connection.query(
             `INSERT INTO staff_role_requests
-                (manager_id, user_id, building_id, request_type, portrait_image_url, manager_note)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+                (manager_id, user_id, candidate_name, candidate_email,
+                 candidate_phone, password_hash, building_id, request_type,
+                 portrait_image_url, manager_note)
+             VALUES (?, NULL, ?, ?, ?, ?, ?, 'CREATE_STAFF', ?, ?)`,
             [
                 managerId,
-                userId,
+                candidateName,
+                candidateEmail,
+                candidatePhone || null,
+                passwordHash,
                 buildingId,
-                requestType,
-                requestType === STAFF_ROLE_REQUEST_TYPES.PROMOTE
-                    ? portraitImageUrl
-                    : null,
+                portraitImageUrl,
                 managerNote || null,
             ]
         );
@@ -387,8 +314,7 @@ const createRequest = async ({
     await notifyActiveAdmins({
         managerName: manager.name,
         requestId,
-        requestType,
-        userName: user.name,
+        staffName: candidateName,
     });
 
     return request;
@@ -418,100 +344,81 @@ const approveRequest = async ({ adminId, adminNote, id }) => {
             throw createHttpError("Hồ sơ này đã được xử lý", 409);
         }
 
-        const requestType = request.request_type || STAFF_ROLE_REQUEST_TYPES.PROMOTE;
-        const [userRows] = await connection.query(
-            `SELECT id, role, status, building_id AS buildingId
+        if (request.request_type !== STAFF_ROLE_REQUEST_TYPES.CREATE_STAFF) {
+            throw createHttpError("Hồ sơ chuyển quyền cũ không còn được hỗ trợ", 409);
+        }
+
+        if (
+            !request.candidate_name
+            || !request.candidate_email
+            || !request.password_hash
+            || !request.portrait_image_url
+        ) {
+            throw createHttpError("Hồ sơ chưa đủ thông tin để tạo tài khoản Staff", 409);
+        }
+
+        const duplicateParams = [request.candidate_email];
+        let phoneCondition = "";
+        if (request.candidate_phone) {
+            phoneCondition = " OR phone = ?";
+            duplicateParams.push(request.candidate_phone);
+        }
+        const [duplicateUsers] = await connection.query(
+            `SELECT id
              FROM users
-             WHERE id = ?
+             WHERE email = ?${phoneCondition}
              LIMIT 1
              FOR UPDATE`,
-            [request.user_id]
+            duplicateParams
         );
-        const user = userRows[0];
 
-        if (!user) {
-            throw createHttpError("Tài khoản trong hồ sơ không còn tồn tại", 404);
+        if (duplicateUsers.length) {
+            throw createHttpError("Email hoặc số điện thoại đã được dùng trước khi hồ sơ được duyệt", 409);
         }
 
-        const expectedRole = requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE
-            ? ROLES.STAFF
-            : ROLES.USER;
+        const [userResult] = await connection.query(
+            `INSERT INTO users
+                (name, email, phone, password_hash, role, status, building_id,
+                 email_verified_at, auth_provider, onboarding_completed)
+             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'LOCAL', 1)`,
+            [
+                request.candidate_name,
+                request.candidate_email,
+                request.candidate_phone || null,
+                request.password_hash,
+                ROLES.STAFF,
+                USER_STATUSES.ACTIVE,
+                request.building_id,
+            ]
+        );
+        const staffUserId = userResult.insertId;
 
-        if (user.role !== expectedRole || user.status !== USER_STATUSES.ACTIVE) {
-            throw createHttpError("Quyền hoặc trạng thái tài khoản đã thay đổi", 409);
-        }
-
-        if (Number(user.buildingId) !== Number(request.building_id)) {
-            throw createHttpError("Tài khoản đã chuyển sang tòa nhà khác", 409);
-        }
-
-        if (requestType === STAFF_ROLE_REQUEST_TYPES.PROMOTE) {
-            if (!request.portrait_image_url) {
-                throw createHttpError("Hồ sơ bổ nhiệm không có ảnh chân dung", 409);
-            }
-
-            await connection.query(
-                `UPDATE users
-                 SET role = ?,
-                     status = ?,
-                     building_id = ?,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`,
-                [ROLES.STAFF, USER_STATUSES.ACTIVE, request.building_id, request.user_id]
-            );
-
-            await connection.query(
-                `INSERT INTO staff_profiles
-                    (user_id, building_id, portrait_image_url, status,
-                     approved_request_id, approved_by, started_at, ended_at)
-                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
-                 ON DUPLICATE KEY UPDATE
-                    building_id = VALUES(building_id),
-                    portrait_image_url = VALUES(portrait_image_url),
-                    status = VALUES(status),
-                    approved_request_id = VALUES(approved_request_id),
-                    approved_by = VALUES(approved_by),
-                    started_at = CURRENT_TIMESTAMP,
-                    ended_at = NULL,
-                    updated_at = CURRENT_TIMESTAMP`,
-                [
-                    request.user_id,
-                    request.building_id,
-                    request.portrait_image_url,
-                    STAFF_PROFILE_STATUSES.ACTIVE,
-                    id,
-                    adminId,
-                ]
-            );
-        } else {
-            await connection.query(
-                `UPDATE users
-                 SET role = ?,
-                     status = ?,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`,
-                [ROLES.USER, USER_STATUSES.ACTIVE, request.user_id]
-            );
-
-            await connection.query(
-                `UPDATE staff_profiles
-                 SET status = ?,
-                     ended_at = CURRENT_TIMESTAMP,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE user_id = ?`,
-                [STAFF_PROFILE_STATUSES.INACTIVE, request.user_id]
-            );
-        }
+        await connection.query(
+            `INSERT INTO staff_profiles
+                (user_id, building_id, portrait_image_url, status,
+                 approved_request_id, approved_by, started_at, ended_at)
+             VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)`,
+            [
+                staffUserId,
+                request.building_id,
+                request.portrait_image_url,
+                STAFF_PROFILE_STATUSES.ACTIVE,
+                id,
+                adminId,
+            ]
+        );
 
         await connection.query(
             `UPDATE staff_role_requests
-             SET status = 'APPROVED',
+             SET user_id = ?,
+                 password_hash = NULL,
+                 status = 'APPROVED',
                  admin_id = ?,
                  admin_note = ?,
                  reviewed_at = CURRENT_TIMESTAMP,
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [adminId, adminNote || null, id]
+            [staffUserId, adminId, adminNote || null, id]
         );
 
         await connection.commit();
@@ -523,28 +430,18 @@ const approveRequest = async ({ adminId, adminNote, id }) => {
     }
 
     const request = await getRequestById(id);
-    const isDemotion = request.requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE;
-
     await Promise.all([
         notifySafely({
             userId: request.userId,
-            title: isDemotion
-                ? "Quyền nhân viên của bạn đã kết thúc"
-                : "Bạn đã được duyệt làm nhân viên bãi xe",
-            message: isDemotion
-                ? `Tài khoản của bạn đã được chuyển về quyền cư dân tại ${request.buildingName}.`
-                : `Tài khoản của bạn đã được cấp quyền nhân viên tại ${request.buildingName}. Ảnh chân dung được lưu trong hồ sơ nhân viên và không thay đổi ảnh đại diện cá nhân.`,
-            relatedType: isDemotion ? "ACCOUNT" : "STAFF_ASSIGNMENT",
+            title: "Tài khoản nhân viên của bạn đã được tạo",
+            message: `Bạn đã có tài khoản Staff độc lập tại ${request.buildingName}. Hãy đăng nhập bằng email đã đăng ký để bắt đầu làm việc.`,
+            relatedType: "STAFF_ASSIGNMENT",
             relatedId: request.id,
         }),
         notifySafely({
             userId: request.managerId,
-            title: isDemotion
-                ? "Đề nghị hủy quyền nhân viên đã được duyệt"
-                : "Đề nghị nhân viên đã được duyệt",
-            message: isDemotion
-                ? `${request.userName} đã được chuyển từ nhân viên về cư dân tại ${request.buildingName}.`
-                : `${request.userName} đã được duyệt làm nhân viên tại ${request.buildingName}.`,
+            title: "Đề nghị tạo tài khoản Staff đã được duyệt",
+            message: `Tài khoản Staff độc lập cho ${request.userName} đã được tạo tại ${request.buildingName}.`,
             relatedType: "STAFF_ROLE_REQUEST_MANAGER",
             relatedId: request.id,
         }),
@@ -579,7 +476,8 @@ const rejectRequest = async ({ adminId, adminNote, id }) => {
 
         await connection.query(
             `UPDATE staff_role_requests
-             SET status = 'REJECTED',
+             SET password_hash = NULL,
+                 status = 'REJECTED',
                  admin_id = ?,
                  admin_note = ?,
                  reviewed_at = CURRENT_TIMESTAMP,
@@ -597,12 +495,9 @@ const rejectRequest = async ({ adminId, adminNote, id }) => {
     }
 
     const request = await getRequestById(id);
-    const isDemotion = request.requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE;
     await notifySafely({
         userId: request.managerId,
-        title: isDemotion
-            ? "Đề nghị hủy quyền nhân viên chưa được duyệt"
-            : "Đề nghị nhân viên chưa được duyệt",
+        title: "Đề nghị tạo tài khoản Staff chưa được duyệt",
         message: `Hồ sơ của ${request.userName} chưa được chấp thuận.${adminNote ? ` Lý do: ${adminNote}` : ""}`,
         relatedType: "STAFF_ROLE_REQUEST_MANAGER",
         relatedId: request.id,
@@ -653,7 +548,6 @@ module.exports = {
     approveRequest,
     createRequest,
     getAdminRequests,
-    getManagerCandidates,
     getManagerRequests,
     getRequestById,
     getStaffProfileByUserId,

@@ -102,9 +102,13 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
 CREATE TABLE IF NOT EXISTS staff_role_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     manager_id INT NOT NULL,
-    user_id INT NOT NULL,
+    user_id INT NULL,
+    candidate_name VARCHAR(100) NULL,
+    candidate_email VARCHAR(150) NULL,
+    candidate_phone VARCHAR(20) NULL,
+    password_hash VARCHAR(255) NULL,
     building_id INT NOT NULL,
-    request_type ENUM('PROMOTE', 'DEMOTE') NOT NULL DEFAULT 'PROMOTE',
+    request_type ENUM('CREATE_STAFF', 'PROMOTE', 'DEMOTE') NOT NULL DEFAULT 'CREATE_STAFF',
     portrait_image_url MEDIUMTEXT NULL,
     manager_note TEXT NULL,
     status ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
@@ -115,6 +119,7 @@ CREATE TABLE IF NOT EXISTS staff_role_requests (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_staff_role_requests_manager (manager_id, status),
     INDEX idx_staff_role_requests_user (user_id, status),
+    INDEX idx_staff_role_requests_candidate_email (candidate_email, status),
     INDEX idx_staff_role_requests_building (building_id, status),
     CONSTRAINT fk_staff_role_requests_manager
         FOREIGN KEY (manager_id) REFERENCES users(id)

@@ -1,6 +1,5 @@
 const authController = require("./auth.controller");
 const userService = require("../services/user.service");
-const { canAdminChangeRoleDirectly } = require("../utils/adminRolePolicy");
 const notificationService = require("../services/notification.service");
 const emailService = require("../services/email.service");
 const profileUpdateService = require("../services/profileUpdate.service");
@@ -171,48 +170,6 @@ const getUserById = async (req, res) => {
         return successResponse(res, "Lay chi tiet user thanh cong", user);
     } catch (error) {
         return errorResponse(res, "Loi lay chi tiet user", 500, error.message);
-    }
-};
-
-const updateUserRole = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const role = typeof req.body.role === "string" ? req.body.role.trim().toUpperCase() : "";
-
-        if (!isValidId(id)) {
-            return errorResponse(res, "User id khong hop le", 400);
-        }
-
-        if (!AUTHENTICATED_ROLES.includes(role)) {
-            return errorResponse(
-                res,
-                `Role khong hop le. Chi nhan: ${AUTHENTICATED_ROLES.join(", ")}`,
-                400
-            );
-        }
-
-        const user = await userService.getUserById(id);
-
-        if (!user) {
-            return errorResponse(res, "Khong tim thay user", 404);
-        }
-
-        if (!canAdminChangeRoleDirectly(user.role, role)) {
-            return errorResponse(
-                res,
-                "Moi thay doi quyen lien quan toi nhan vien phai qua de nghi cua quan ly",
-                409
-            );
-        }
-
-        const updatedUser = await userService.updateUserRole(id, role);
-
-        return successResponse(res, "Cap nhat role user thanh cong", {
-            ...updatedUser,
-            note: "User can dang nhap lai de JWT token nhan role moi.",
-        });
-    } catch (error) {
-        return errorResponse(res, "Loi cap nhat role user", 500, error.message);
     }
 };
 
@@ -423,7 +380,6 @@ module.exports = {
     getAvailableRoles,
     getAllUsers,
     getUserById,
-    updateUserRole,
     updateMyProfile,
     updateMyAvatar,
     requestMyProfileUpdate,

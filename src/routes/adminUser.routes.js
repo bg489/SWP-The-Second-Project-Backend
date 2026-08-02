@@ -15,6 +15,47 @@ const { adminMiddleware } = require("../middlewares/role.middleware");
 /**
  * @swagger
  * /api/admin/users:
+ *   post:
+ *     summary: Admin creates and immediately activates an account for any role
+ *     tags: [Admin Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, password, role]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               phone:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               role:
+ *                 type: string
+ *                 enum: [ADMIN, MANAGER, STAFF, USER]
+ *               buildingId:
+ *                 type: integer
+ *                 description: Required for USER and STAFF
+ *               portraitImageUrl:
+ *                 type: string
+ *                 description: Required for STAFF
+ *     responses:
+ *       201:
+ *         description: Account created and activated
+ */
+router.post("/", authMiddleware, adminMiddleware, adminUserController.createUser);
+
+/**
+ * @swagger
+ * /api/admin/users:
  *   get:
  *     summary: Admin lists/searches users
  *     tags: [Admin Users]
@@ -73,37 +114,6 @@ router.get("/", authMiddleware, adminMiddleware, adminUserController.getUsers);
  *         description: Không tìm thấy user
  */
 router.get("/:id", authMiddleware, adminMiddleware, adminUserController.getUserById);
-
-/**
- * @swagger
- * /api/admin/users/{id}/role-status:
- *   patch:
- *     summary: Admin updates user role/status
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UserStatusUpdateRequest'
- *     responses:
- *       200:
- *         description: Cập nhật role/trạng thái user thành công
- */
-router.patch(
-    "/:id/role-status",
-    authMiddleware,
-    adminMiddleware,
-    adminUserController.updateUserRoleStatus
-);
 
 /**
  * @swagger
