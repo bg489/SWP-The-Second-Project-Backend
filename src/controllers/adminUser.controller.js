@@ -1,8 +1,6 @@
 const bcrypt = require("bcryptjs");
 
 const userService = require("../services/user.service");
-const notificationService = require("../services/notification.service");
-const { canAdminChangeRoleDirectly } = require("../utils/adminRolePolicy");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     ROLES,
@@ -155,73 +153,6 @@ const getUserById = async (req, res) => {
     }
 };
 
-const updateUserRoleStatus = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const role = normalizeEnum(req.body.role);
-        const status = normalizeEnum(req.body.status);
-
-        if (!id || isNaN(Number(id))) {
-            return errorResponse(res, "User id không hợp lệ", 400);
-        }
-
-        if (!role || !isValidEnumValue(ROLES, role)) {
-            return errorResponse(res, "Role không hợp lệ", 400, {
-                allowedRoles: Object.values(ROLES),
-            });
-        }
-
-        if (!status || !isValidEnumValue(USER_STATUSES, status)) {
-            return errorResponse(res, "User status không hợp lệ", 400, {
-                allowedStatuses: Object.values(USER_STATUSES),
-            });
-        }
-
-        const user = await userService.getUserById(id);
-
-        if (!user) {
-            return errorResponse(res, "Không tìm thấy user", 404);
-        }
-
-        if (!canAdminChangeRoleDirectly(user.role, role)) {
-            return errorResponse(
-                res,
-                "Tài khoản Staff được quản lý độc lập và không thể chuyển đổi với tài khoản User",
-                409
-            );
-        }
-
-        if (Number(id) === Number(req.user.id) && status !== USER_STATUSES.ACTIVE) {
-            return errorResponse(res, "Admin không thể tự khóa hoặc vô hiệu hóa tài khoản của mình", 400);
-        }
-
-        const updatedUser = await userService.updateUserRoleStatus({
-            id,
-            role,
-            status,
-        });
-
-        await notificationService.createNotification({
-            userId: Number(id),
-            title:
-                status === USER_STATUSES.ACTIVE
-                    ? "Tài khoản đã được duyệt"
-                    : "Tài khoản đã được cập nhật",
-            message: role !== user.role
-                ? `Quyền tài khoản của bạn đã được cập nhật từ ${user.role} sang ${role}. Vui lòng đăng nhập lại để sử dụng quyền mới.`
-                : status === USER_STATUSES.ACTIVE
-                    ? "Tài khoản của bạn đã được duyệt. Bạn có thể đăng nhập và sử dụng hệ thống."
-                    : `Tài khoản của bạn đã được cập nhật sang trạng thái ${status}.`,
-            relatedType: "ACCOUNT",
-            relatedId: Number(id),
-        });
-
-        return successResponse(res, "Cập nhật role/trạng thái user thành công", updatedUser);
-    } catch (error) {
-        return errorResponse(res, "Lỗi cập nhật role/trạng thái user", 500, error.message);
-    }
-};
-
 const lockUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -312,7 +243,6 @@ module.exports = {
     createUser,
     getUsers,
     getUserById,
-    updateUserRoleStatus,
     lockUser,
     unlockUser,
     updateUserBuilding,

@@ -117,37 +117,6 @@ router.get("/:id", authMiddleware, adminMiddleware, adminUserController.getUserB
 
 /**
  * @swagger
- * /api/admin/users/{id}/role-status:
- *   patch:
- *     summary: Admin updates user role/status
- *     tags: [Admin Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UserStatusUpdateRequest'
- *     responses:
- *       200:
- *         description: Cập nhật role/trạng thái user thành công
- */
-router.patch(
-    "/:id/role-status",
-    authMiddleware,
-    adminMiddleware,
-    adminUserController.updateUserRoleStatus
-);
-
-/**
- * @swagger
  * /api/admin/users/{id}/building:
  *   patch:
  *     summary: Admin updates user's building

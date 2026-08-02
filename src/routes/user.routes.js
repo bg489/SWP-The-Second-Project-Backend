@@ -92,43 +92,6 @@ router.get("/", authMiddleware, adminMiddleware, userController.getAllUsers);
 
 /**
  * @swagger
- * /api/users/{id}/role:
- *   patch:
- *     summary: Admin updates a user's account role
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UserRoleUpdateRequest'
- *     responses:
- *       200:
- *         description: User role updated successfully
- *       400:
- *         description: Invalid role
- *       403:
- *         description: Admin permission required
- *       404:
- *         description: User not found
- */
-router.patch(
-    "/:id/role",
-    authMiddleware,
-    adminMiddleware,
-    userController.updateUserRole
-);
-
-/**
- * @swagger
  * /api/users/{id}:
  *   get:
  *     summary: Admin gets user by id

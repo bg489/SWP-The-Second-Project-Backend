@@ -460,28 +460,6 @@ const getStaffCandidatesForBuilding = async ({ buildingId, q }) => {
     }));
 };
 
-const updateUserRole = async (id, role) => {
-    await db.query(
-        `UPDATE users
-         SET role = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [normalizeRole(role), id]
-    );
-
-    return getUserById(id);
-};
-
-const updateUserRoleStatus = async ({ id, role, status }) => {
-    await db.query(
-        `UPDATE users
-         SET role = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [normalizeRole(role), status, id]
-    );
-
-    return getUserById(id);
-};
-
 const updateUserStatus = async ({ id, status }) => {
     await db.query(
         `UPDATE users
@@ -721,8 +699,6 @@ module.exports = {
     getUsers,
     getAllUsers,
     getStaffCandidatesForBuilding,
-    updateUserRole,
-    updateUserRoleStatus,
     updateUserStatus,
     updateUserBuilding,
     linkGoogleIdentity,
