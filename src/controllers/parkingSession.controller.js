@@ -12,7 +12,7 @@ const { successResponse, errorResponse } = require("../utils/response");
 const { ROLES } = require("../utils/constants");
 
 const VALID_VEHICLE_TYPES = ["MOTORBIKE", "CAR"];
-const VALID_MANUAL_PAYMENT_METHODS = ["CASH", "CARD"];
+const VALID_CHECKOUT_PAYMENT_METHODS = ["CASH", "VNPAY"];
 const VALID_DAILY_ACTIVITY_FILTERS = ["ALL", "CURRENTLY_PARKED", "ENTERED", "EXITED"];
 
 const isValidId = (id) => {
@@ -533,18 +533,15 @@ const checkOut = async (req, res) => {
             if (!paymentMethod) {
                 return errorResponse(
                     res,
-                    "Can paymentMethod khi totalAmount > 0",
+                    "Cần chọn phương thức thanh toán khi có phí cần thu",
                     400
                 );
             }
 
-            if (
-                paymentMethod !== "VNPAY" &&
-                !VALID_MANUAL_PAYMENT_METHODS.includes(paymentMethod)
-            ) {
+            if (!VALID_CHECKOUT_PAYMENT_METHODS.includes(paymentMethod)) {
                 return errorResponse(
                     res,
-                    "paymentMethod chi nhan CASH, CARD hoac VNPAY khi co phi",
+                    "Phương thức thanh toán chỉ chấp nhận tiền mặt hoặc VNPay khi có phí",
                     400
                 );
             }
@@ -567,7 +564,7 @@ const checkOut = async (req, res) => {
                 });
             const completedSession = await parkingSessionService.getSessionById(id);
 
-            return successResponse(res, "Check-out thanh cong, khong phat sinh phi", {
+            return successResponse(res, "Xe ra thành công, không phát sinh phí", {
                 session: completedSession,
                 payment: {
                     transactionRef,
