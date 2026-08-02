@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền user.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/user.service.js.
+ */
 const db = require("../config/db");
 const {
     ROLES,
@@ -6,6 +16,13 @@ const {
     normalizeRole,
 } = require("../utils/constants");
 
+/**
+ * Lấy nghiệp vụ `findUserByEmailOrPhone` (find user by email or phone). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findUserByEmailOrPhone
+ * @param {*} emailOrPhone - Giá trị `emailOrPhone` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findUserByEmailOrPhone = async (emailOrPhone) => {
     const [rows] = await db.query(
         `SELECT *
@@ -18,6 +35,13 @@ const findUserByEmailOrPhone = async (emailOrPhone) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findUserByEmail` (find user by email). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findUserByEmail
+ * @param {*} email - Giá trị `email` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findUserByEmail = async (email) => {
     const [rows] = await db.query(
         `SELECT *
@@ -30,6 +54,13 @@ const findUserByEmail = async (email) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findUserByGoogleSubject` (find user by google subject). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findUserByGoogleSubject
+ * @param {*} googleSubject - Giá trị `googleSubject` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findUserByGoogleSubject = async (googleSubject) => {
     const [rows] = await db.query(
         `SELECT *
@@ -42,6 +73,14 @@ const findUserByGoogleSubject = async (googleSubject) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findExistingUserForRegister` (find existing user for register). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findExistingUserForRegister
+ * @param {*} email - Giá trị `email` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} phone - Giá trị `phone` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findExistingUserForRegister = async (email, phone) => {
     if (phone) {
         const [rows] = await db.query(
@@ -66,6 +105,13 @@ const findExistingUserForRegister = async (email, phone) => {
     return rows[0] || null;
 };
 
+/**
+ * Tạo nghiệp vụ `createUser` (create user). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
     const [result] = await db.query(
         `INSERT INTO users
@@ -107,6 +153,13 @@ const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createAdminManagedUser` (create admin managed user). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createAdminManagedUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createAdminManagedUser = async ({
     adminId,
     buildingId,
@@ -205,6 +258,13 @@ const createAdminManagedUser = async ({
     return getUserById(userId);
 };
 
+/**
+ * Tạo nghiệp vụ `createGoogleUser` (create google user). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createGoogleUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createGoogleUser = async ({
     avatarUrl,
     email,
@@ -243,6 +303,13 @@ const createGoogleUser = async ({
     return getUserById(result.insertId);
 };
 
+/**
+ * Lấy nghiệp vụ `getUserById` (get user by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getUserById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getUserById = async (id) => {
     const [rows] = await db.query(
         `SELECT
@@ -290,6 +357,13 @@ const getUserById = async (id) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getVehiclesByUserId` (get vehicles by user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getVehiclesByUserId
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getVehiclesByUserId = async (userId) => {
     const [rows] = await db.query(
         `SELECT
@@ -312,6 +386,13 @@ const getVehiclesByUserId = async (userId) => {
     return rows;
 };
 
+/**
+ * Tạo nghiệp vụ `buildUserFilters` (build user filters). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildUserFilters
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildUserFilters = ({ q, role, status }) => {
     const conditions = [];
     const params = [];
@@ -338,6 +419,13 @@ const buildUserFilters = ({ q, role, status }) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getUsers` (get users). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getUsers
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getUsers = async ({ q, role, status, page = 1, limit = 10 }) => {
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -395,6 +483,7 @@ const getUsers = async ({ q, role, status, page = 1, limit = 10 }) => {
     );
 
     return {
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         users: rows.map((row) => ({
             ...row,
             role: normalizeRole(row.role),
@@ -408,11 +497,24 @@ const getUsers = async ({ q, role, status, page = 1, limit = 10 }) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getAllUsers` (get all users). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getAllUsers
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAllUsers = async () => {
     const result = await getUsers({ page: 1, limit: 100 });
     return result.users;
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffCandidatesForBuilding` (get staff candidates for building). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getStaffCandidatesForBuilding
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffCandidatesForBuilding = async ({ buildingId, q }) => {
     const conditions = [
         `u.role = ?`,
@@ -454,12 +556,20 @@ const getStaffCandidatesForBuilding = async ({ buildingId, q }) => {
         [...params, buildingId]
     );
 
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     return rows.map((row) => ({
         ...row,
         role: normalizeRole(row.role),
     }));
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateUserStatus` (update user status). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateUserStatus
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateUserStatus = async ({ id, status }) => {
     await db.query(
         `UPDATE users
@@ -471,6 +581,13 @@ const updateUserStatus = async ({ id, status }) => {
     return getUserById(id);
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateUserBuilding` (update user building). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function updateUserBuilding
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateUserBuilding = async ({ id, buildingId }) => {
     const connection = await db.getConnection();
 
@@ -526,6 +643,13 @@ const updateUserBuilding = async ({ id, buildingId }) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `linkGoogleIdentity` (link google identity). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function linkGoogleIdentity
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const linkGoogleIdentity = async ({ avatarUrl, googleSubject, id }) => {
     await db.query(
         `UPDATE users
@@ -544,6 +668,13 @@ const linkGoogleIdentity = async ({ avatarUrl, googleSubject, id }) => {
     return getUserById(id);
 };
 
+/**
+ * Thực hiện nghiệp vụ `markEmailVerified` (mark email verified). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function markEmailVerified
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markEmailVerified = async (id) => {
     await db.query(
         `UPDATE users
@@ -557,6 +688,13 @@ const markEmailVerified = async (id) => {
     return getUserById(id);
 };
 
+/**
+ * Xử lý nghiệp vụ `completeGoogleOnboarding` (complete google onboarding). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function completeGoogleOnboarding
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const completeGoogleOnboarding = async ({ buildingId, id }) => {
     const connection = await db.getConnection();
 
@@ -617,6 +755,13 @@ const completeGoogleOnboarding = async ({ buildingId, id }) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateUserAvatar` (update user avatar). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateUserAvatar
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateUserAvatar = async ({ id, avatarUrl }) => {
     await db.query(
         `UPDATE users
@@ -629,6 +774,13 @@ const updateUserAvatar = async ({ id, avatarUrl }) => {
     return getUserById(id);
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateUserPassword` (update user password). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateUserPassword
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateUserPassword = async ({ id, passwordHash }) => {
     await db.query(
         `UPDATE users
@@ -641,6 +793,13 @@ const updateUserPassword = async ({ id, passwordHash }) => {
     return getUserById(id);
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateUserProfile` (update user profile). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateUserProfile
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateUserProfile = async ({
     avatarCropX,
     avatarCropY,
@@ -674,6 +833,13 @@ const updateUserProfile = async ({
     return getUserById(id);
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateEmailNotifications` (update email notifications). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateEmailNotifications
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateEmailNotifications = async ({ enabled, id }) => {
     await db.query(
         `UPDATE users

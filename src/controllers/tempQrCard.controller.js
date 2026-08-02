@@ -1,4 +1,18 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của tempQrCard.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `tempQrCardService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/tempQrCard.controller.js.
+ */
 const tempQrCardService = require("../services/tempQrCard.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/tempQrCard.controller.js.
+ */
 const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -9,11 +23,26 @@ const {
     normalizeRole,
 } = require("../utils/constants");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Tạo nghiệp vụ `createTempQrCard` (create temp qr card). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createTempQrCard
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createTempQrCard = async (req, res) => {
     try {
         const hasQuantity =
@@ -66,6 +95,14 @@ const createTempQrCard = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getTempQrCards` (get temp qr cards). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getTempQrCards
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTempQrCards = async (req, res) => {
     try {
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
@@ -98,6 +135,14 @@ const getTempQrCards = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getTempQrCardById` (get temp qr card by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getTempQrCardById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTempQrCardById = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -116,6 +161,14 @@ const getTempQrCardById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateTempQrCardStatus` (update temp qr card status). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateTempQrCardStatus
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateTempQrCardStatus = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

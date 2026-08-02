@@ -1,13 +1,49 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của vehicle.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `vehicleService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/vehicle.controller.js.
+ */
 const vehicleService = require("../services/vehicle.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/vehicle.controller.js.
+ */
 const userService = require("../services/user.service");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/vehicle.controller.js.
+ */
 const notificationService = require("../services/notification.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Khai báo `MAX_VEHICLE_IMAGE_LENGTH` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/controllers/vehicle.controller.js.
+ */
 const MAX_VEHICLE_IMAGE_LENGTH = 1_200_000;
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeVehicleImageUrl` (normalize vehicle image url). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeVehicleImageUrl
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeVehicleImageUrl = (value) =>
     typeof value === "string" ? value.trim() : "";
 
+/**
+ * Kiểm tra nghiệp vụ `isValidVehicleImageUrl` (is valid vehicle image url). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidVehicleImageUrl
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidVehicleImageUrl = (value) => {
     if (!value || value.length > MAX_VEHICLE_IMAGE_LENGTH) return false;
 
@@ -17,6 +53,14 @@ const isValidVehicleImageUrl = (value) => {
     );
 };
 
+/**
+ * Tạo nghiệp vụ `createVehicle` (create vehicle). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createVehicle
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createVehicle = async (req, res) => {
     try {
         const {
@@ -103,6 +147,14 @@ const createVehicle = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyVehicles` (get my vehicles). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyVehicles
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyVehicles = async (req, res) => {
     try {
         const vehicles = await vehicleService.getVehiclesByUserId(req.user.id);
@@ -113,6 +165,14 @@ const getMyVehicles = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getAllVehicles` (get all vehicles). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getAllVehicles
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAllVehicles = async (req, res) => {
     try {
         const vehicles = await vehicleService.getAllVehicles();
@@ -123,6 +183,14 @@ const getAllVehicles = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `approveVehicle` (approve vehicle). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function approveVehicle
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const approveVehicle = async (req, res) => {
     try {
         const { id } = req.params;
@@ -149,6 +217,14 @@ const approveVehicle = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `rejectVehicle` (reject vehicle). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function rejectVehicle
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const rejectVehicle = async (req, res) => {
     try {
         const { id } = req.params;
@@ -175,6 +251,14 @@ const rejectVehicle = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyVehicleById` (get my vehicle by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyVehicleById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyVehicleById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -202,6 +286,14 @@ const getMyVehicleById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateMyVehicle` (update my vehicle). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateMyVehicle
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateMyVehicle = async (req, res) => {
     try {
         const { id } = req.params;
@@ -312,6 +404,14 @@ const updateMyVehicle = async (req, res) => {
     }
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `deleteMyVehicle` (delete my vehicle). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deleteMyVehicle
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deleteMyVehicle = async (req, res) => {
     try {
         const { id } = req.params;

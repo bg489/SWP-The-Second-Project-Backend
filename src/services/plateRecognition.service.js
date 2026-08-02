@@ -1,14 +1,56 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền plateRecognition.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `path` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const path = require("path");
+/**
+ * Khai báo `readline` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const readline = require("readline");
 const { spawn } = require("child_process");
 
+/**
+ * Khai báo `BACKEND_ROOT` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const BACKEND_ROOT = path.resolve(__dirname, "../..");
+/**
+ * Khai báo `WORKER_SCRIPT` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const WORKER_SCRIPT = path.join(BACKEND_ROOT, "src", "ai", "fast_alpr_worker.py");
+/**
+ * Khai báo `PYTHON_PACKAGES` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const PYTHON_PACKAGES = path.join(BACKEND_ROOT, ".python-packages");
+/**
+ * Khai báo `DEFAULT_MODEL_CACHE` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const DEFAULT_MODEL_CACHE = path.join(BACKEND_ROOT, ".fast-alpr-models");
+/**
+ * Khai báo `DEFAULT_TIMEOUT_MS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const DEFAULT_TIMEOUT_MS = 60000;
+/**
+ * Khai báo `DEFAULT_MIN_CONFIDENCE` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const DEFAULT_MIN_CONFIDENCE = 72;
 
+/**
+ * Khai báo `DIGIT_REPLACEMENTS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const DIGIT_REPLACEMENTS = {
     B: "8",
     D: "0",
@@ -21,6 +63,10 @@ const DIGIT_REPLACEMENTS = {
     Z: "2",
 };
 
+/**
+ * Khai báo `LETTER_REPLACEMENTS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const LETTER_REPLACEMENTS = {
     0: "O",
     1: "I",
@@ -30,25 +76,73 @@ const LETTER_REPLACEMENTS = {
     8: "B",
 };
 
+/**
+ * Khai báo `workerProcess` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 let workerProcess = null;
+/**
+ * Khai báo `workerReadyPromise` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 let workerReadyPromise = null;
+/**
+ * Khai báo `workerReadyResolve` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 let workerReadyResolve = null;
+/**
+ * Khai báo `workerReadyReject` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 let workerReadyReject = null;
+/**
+ * Khai báo `workerReadyTimer` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 let workerReadyTimer = null;
+/**
+ * Khai báo `requestSequence` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 let requestSequence = 0;
+/**
+ * Khai báo `pendingRequests` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/plateRecognition.service.js.
+ */
 const pendingRequests = new Map();
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseNumber` (parse number). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function parseNumber
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @param {*} fallback - Giá trị `fallback` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseNumber = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+/**
+ * Lấy nghiệp vụ `getTimeoutMs` (get timeout ms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getTimeoutMs
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getTimeoutMs = () =>
     Math.max(
         5000,
         parseNumber(process.env.FAST_ALPR_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
     );
 
+/**
+ * Lấy nghiệp vụ `getMinimumConfidence` (get minimum confidence). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getMinimumConfidence
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getMinimumConfidence = () =>
     Math.min(
         100,
@@ -61,12 +155,34 @@ const getMinimumConfidence = () =>
         )
     );
 
+/**
+ * Thực hiện nghiệp vụ `toDigit` (to digit). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function toDigit
+ * @param {*} character - Giá trị `character` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const toDigit = (character) =>
     /\d/.test(character) ? character : DIGIT_REPLACEMENTS[character] || "";
 
+/**
+ * Thực hiện nghiệp vụ `toLetter` (to letter). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function toLetter
+ * @param {*} character - Giá trị `character` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const toLetter = (character) =>
     /[A-Z]/.test(character) ? character : LETTER_REPLACEMENTS[character] || "";
 
+/**
+ * Tạo nghiệp vụ `buildCandidate` (build candidate). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildCandidate
+ * @param {*} source - Giá trị `source` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} layout - Giá trị `layout` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildCandidate = (source, layout) => {
     if (source.length !== layout.length) {
         return null;
@@ -94,6 +210,13 @@ const buildCandidate = (source, layout) => {
     return { replacements, value };
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatPlateNumber` (format plate number). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function formatPlateNumber
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatPlateNumber = (value) => {
     const normalized = String(value || "")
         .trim()
@@ -120,14 +243,23 @@ const formatPlateNumber = (value) => {
     return normalized;
 };
 
+/**
+ * Thực hiện nghiệp vụ `extractPlateNumber` (extract plate number). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function extractPlateNumber
+ * @param {*} recognizedText - Giá trị `recognizedText` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const extractPlateNumber = (recognizedText) => {
     const source = String(recognizedText || "")
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "");
     const layouts = ["DDLDDDDDD", "DDLLDDDDD", "DDLDDDDD"];
     const candidates = layouts
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .map((layout) => buildCandidate(source, layout))
         .filter(Boolean)
+        /* Callback nội bộ của lời gọi `sort`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .sort((left, right) => left.replacements - right.replacements);
 
     if (candidates[0]) {
@@ -146,7 +278,15 @@ const extractPlateNumber = (recognizedText) => {
     return "";
 };
 
+/**
+ * Thực hiện nghiệp vụ `rejectPendingRequests` (reject pending requests). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function rejectPendingRequests
+ * @param {*} error - Giá trị `error` được hàm sử dụng trong quá trình xử lý.
+ * @returns {void} Hàm hoàn tất bằng tác động lên state, response hoặc luồng xử lý hiện tại.
+ */
 const rejectPendingRequests = (error) => {
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     pendingRequests.forEach(({ reject, timer }) => {
         clearTimeout(timer);
         reject(error);
@@ -154,6 +294,12 @@ const rejectPendingRequests = (error) => {
     pendingRequests.clear();
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `resetWorkerState` (reset worker state). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function resetWorkerState
+ * @returns {void} Hàm hoàn tất bằng tác động lên state, response hoặc luồng xử lý hiện tại.
+ */
 const resetWorkerState = () => {
     if (workerReadyTimer) {
         clearTimeout(workerReadyTimer);
@@ -165,6 +311,13 @@ const resetWorkerState = () => {
     workerReadyReject = null;
 };
 
+/**
+ * Thực hiện nghiệp vụ `failWorker` (fail worker). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function failWorker
+ * @param {*} error - Giá trị `error` được hàm sử dụng trong quá trình xử lý.
+ * @returns {void} Hàm hoàn tất bằng tác động lên state, response hoặc luồng xử lý hiện tại.
+ */
 const failWorker = (error) => {
     const workerError = error instanceof Error
         ? error
@@ -178,6 +331,13 @@ const failWorker = (error) => {
     resetWorkerState();
 };
 
+/**
+ * Xử lý nghiệp vụ `handleWorkerMessage` (handle worker message). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function handleWorkerMessage
+ * @param {*} message - Giá trị `message` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const handleWorkerMessage = (message) => {
     if (message.type === "ready") {
         if (workerReadyTimer) {
@@ -213,6 +373,12 @@ const handleWorkerMessage = (message) => {
     pending.reject(error);
 };
 
+/**
+ * Thực hiện nghiệp vụ `startWorker` (start worker). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function startWorker
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const startWorker = () => {
     if (workerProcess && workerReadyPromise) {
         return workerReadyPromise;
@@ -228,6 +394,7 @@ const startWorker = () => {
         ? path.resolve(process.env.FAST_ALPR_MODEL_CACHE)
         : DEFAULT_MODEL_CACHE;
 
+    /* Callback nội bộ của biểu thức hiện tại; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     workerReadyPromise = new Promise((resolve, reject) => {
         workerReadyResolve = resolve;
         workerReadyReject = reject;
@@ -252,6 +419,7 @@ const startWorker = () => {
     const activeWorker = workerProcess;
     const output = readline.createInterface({ input: activeWorker.stdout });
 
+    /* Callback nội bộ của lời gọi `on`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     output.on("line", (line) => {
         const trimmed = line.trim();
         if (!trimmed) {
@@ -265,6 +433,7 @@ const startWorker = () => {
         }
     });
 
+    /* Callback nội bộ của lời gọi `on`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     activeWorker.stderr.on("data", (chunk) => {
         const message = String(chunk || "").trim();
         if (message) {
@@ -272,6 +441,7 @@ const startWorker = () => {
         }
     });
 
+    /* Callback nội bộ của lời gọi `once`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     activeWorker.once("error", (error) => {
         if (activeWorker === workerProcess) {
             error.message = `Không khởi động được FastALPR bằng "${pythonBinary}": ${error.message}`;
@@ -279,6 +449,7 @@ const startWorker = () => {
         }
     });
 
+    /* Callback nội bộ của lời gọi `once`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     activeWorker.once("close", (code) => {
         output.close();
         if (activeWorker === workerProcess) {
@@ -290,6 +461,7 @@ const startWorker = () => {
         }
     });
 
+    /* Callback nội bộ của lời gọi `setTimeout`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     workerReadyTimer = setTimeout(() => {
         if (activeWorker === workerProcess) {
             activeWorker.kill();
@@ -304,6 +476,13 @@ const startWorker = () => {
     return workerReadyPromise;
 };
 
+/**
+ * Gửi nghiệp vụ `sendRecognitionRequest` (send recognition request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function sendRecognitionRequest
+ * @param {*} imageBuffer - Giá trị `imageBuffer` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const sendRecognitionRequest = async (imageBuffer) => {
     await startWorker();
 
@@ -316,7 +495,9 @@ const sendRecognitionRequest = async (imageBuffer) => {
     requestSequence += 1;
     const requestId = `plate-${Date.now()}-${requestSequence}`;
 
+    /* Callback nội bộ của biểu thức hiện tại; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     return new Promise((resolve, reject) => {
+        /* Callback nội bộ của lời gọi `setTimeout`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         const timer = setTimeout(() => {
             pendingRequests.delete(requestId);
             const error = new Error(
@@ -332,6 +513,7 @@ const sendRecognitionRequest = async (imageBuffer) => {
                 id: requestId,
                 image: imageBuffer.toString("base64"),
             })}\n`,
+            /* Callback nội bộ của lời gọi `write`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             (error) => {
                 if (!error) {
                     return;
@@ -348,16 +530,26 @@ const sendRecognitionRequest = async (imageBuffer) => {
     });
 };
 
+/**
+ * Thực hiện nghiệp vụ `recognizePlate` (recognize plate). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function recognizePlate
+ * @param {*} imageBuffer - Giá trị `imageBuffer` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const recognizePlate = async (imageBuffer) => {
     const result = await sendRecognitionRequest(imageBuffer);
     const minimumConfidence = getMinimumConfidence();
     const candidates = (Array.isArray(result.candidates) ? result.candidates : [])
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .map((candidate) => ({
             ...candidate,
             plateNumber: extractPlateNumber(candidate.rawText),
         }))
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .filter((candidate) => candidate.plateNumber);
     const selected = candidates.find(
+        /* Callback nội bộ của lời gọi `find`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (candidate) => Number(candidate.confidence || 0) >= minimumConfidence
     );
 
@@ -379,6 +571,12 @@ const recognizePlate = async (imageBuffer) => {
     };
 };
 
+/**
+ * Thực hiện nghiệp vụ `terminateRecognitionWorker` (terminate recognition worker). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function terminateRecognitionWorker
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const terminateRecognitionWorker = async () => {
     const activeWorker = workerProcess;
     if (!activeWorker) {
@@ -393,6 +591,7 @@ const terminateRecognitionWorker = async () => {
         activeWorker.stdin.end();
     }
 
+    /* Callback nội bộ của lời gọi `setTimeout`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     setTimeout(() => {
         if (!activeWorker.killed) {
             activeWorker.kill();

@@ -1,12 +1,41 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của floorMismatchCase.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `floorMismatchCaseService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/floorMismatchCase.controller.js.
+ */
 const floorMismatchCaseService = require("../services/floorMismatchCase.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/floorMismatchCase.controller.js.
+ */
 const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Lấy nghiệp vụ `getFloorMismatchCases` (get floor mismatch cases). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getFloorMismatchCases
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloorMismatchCases = async (req, res) => {
     try {
         const staffUser = await userService.getUserById(req.user.id);
@@ -26,6 +55,14 @@ const getFloorMismatchCases = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `reportFloorMismatch` (report floor mismatch). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function reportFloorMismatch
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const reportFloorMismatch = async (req, res) => {
     try {
         const { observedFloorId, parkingSessionId, targetSlotId } = req.body;
@@ -68,6 +105,14 @@ const reportFloorMismatch = async (req, res) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `confirmFloorMismatch` (confirm floor mismatch). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function confirmFloorMismatch
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const confirmFloorMismatch = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -93,6 +138,14 @@ const confirmFloorMismatch = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyFloorMismatchCases` (get my floor mismatch cases). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyFloorMismatchCases
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyFloorMismatchCases = async (req, res) => {
     try {
         const cases = await floorMismatchCaseService.getCases({
@@ -115,6 +168,14 @@ const getMyFloorMismatchCases = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `markMyFloorMismatchMoved` (mark my floor mismatch moved). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function markMyFloorMismatchMoved
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markMyFloorMismatchMoved = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -140,6 +201,14 @@ const markMyFloorMismatchMoved = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `markFloorMismatchMovedByStaff` (mark floor mismatch moved by staff). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function markFloorMismatchMovedByStaff
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markFloorMismatchMovedByStaff = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

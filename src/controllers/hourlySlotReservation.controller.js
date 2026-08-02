@@ -1,4 +1,18 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của hourlySlotReservation.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `hourlySlotReservationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/hourlySlotReservation.controller.js.
+ */
 const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
+/**
+ * Khai báo `smsService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/hourlySlotReservation.controller.js.
+ */
 const smsService = require("../services/sms.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const {
@@ -7,19 +21,52 @@ const {
 } = require("../utils/phone");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Khai báo `VALID_STAFF_PAYMENT_METHODS` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/hourlySlotReservation.controller.js.
+ */
 const VALID_STAFF_PAYMENT_METHODS = ["CASH", "VNPAY"];
+/**
+ * Khai báo `VIETNAM_TIME_ZONE` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/controllers/hourlySlotReservation.controller.js.
+ */
 const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
+/**
+ * Khai báo `MAX_RESERVATION_MONTHS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/controllers/hourlySlotReservation.controller.js.
+ */
 const MAX_RESERVATION_MONTHS = 2;
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (value) => {
     const parsed = Number(value);
 
     return Number.isInteger(parsed) && parsed > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeEnum` (normalize enum). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeEnum
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeEnum = (value) =>
     typeof value === "string" ? value.trim().toUpperCase() : "";
 
+/**
+ * Lấy nghiệp vụ `getVietnamDateKey` (get vietnam date key). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function getVietnamDateKey
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getVietnamDateKey = (date) => {
     const parts = new Intl.DateTimeFormat("en-CA", {
         day: "2-digit",
@@ -29,13 +76,22 @@ const getVietnamDateKey = (date) => {
     }).formatToParts(date);
     const values = Object.fromEntries(
         parts
+            /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             .filter((part) => part.type !== "literal")
+            /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             .map((part) => [part.type, part.value])
     );
 
     return `${values.year}-${values.month}-${values.day}`;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseReservationPeriod` (parse reservation period). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parseReservationPeriod
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseReservationPeriod = ({ endAt, startAt }) => {
     const parsedStartAt = new Date(startAt);
     const parsedEndAt = new Date(endAt);
@@ -90,6 +146,14 @@ const parseReservationPeriod = ({ endAt, startAt }) => {
     };
 };
 
+/**
+ * Xử lý nghiệp vụ `resolveBuildingId` (resolve building id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung.
+ *
+ * @function resolveBuildingId
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} requestedBuildingId - Giá trị `requestedBuildingId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const resolveBuildingId = (req, requestedBuildingId) => {
     const role = req.user.role;
     const accountBuildingId = req.user.buildingId;
@@ -129,6 +193,13 @@ const resolveBuildingId = (req, requestedBuildingId) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `buildAvailabilityPayload` (build availability payload). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung.
+ *
+ * @function buildAvailabilityPayload
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const buildAvailabilityPayload = async (req) => {
     const buildingResult = resolveBuildingId(req, req.query.buildingId);
 
@@ -163,6 +234,14 @@ const buildAvailabilityPayload = async (req) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getAvailability` (get availability). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getAvailability
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAvailability = async (req, res) => {
     try {
         const data = await buildAvailabilityPayload(req);
@@ -190,6 +269,14 @@ const getAvailability = async (req, res) => {
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createUserReservation` (create user reservation). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createUserReservation
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createUserReservation = async (req, res) => {
     try {
         const { bankCode, endAt, locale, note, slotId, startAt, vehicleId } =
@@ -280,6 +367,14 @@ const createUserReservation = async (req, res) => {
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createGuestReservation` (create guest reservation). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createGuestReservation
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createGuestReservation = async (req, res) => {
     try {
         const {
@@ -438,6 +533,14 @@ const createGuestReservation = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyReservations` (get my reservations). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyReservations
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyReservations = async (req, res) => {
     try {
         const reservations =
@@ -460,6 +563,14 @@ const getMyReservations = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffReservations` (get staff reservations). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getStaffReservations
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffReservations = async (req, res) => {
     try {
         const buildingResult = resolveBuildingId(req, req.query.buildingId);
@@ -493,6 +604,14 @@ const getStaffReservations = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getCheckInMatch` (get check in match). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getCheckInMatch
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCheckInMatch = async (req, res) => {
     try {
         const buildingResult = resolveBuildingId(req, req.query.buildingId);

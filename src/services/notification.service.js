@@ -1,8 +1,26 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền notification.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/notification.service.js.
+ */
 const db = require("../config/db");
 const { randomUUID } = require("crypto");
+/**
+ * Khai báo `emailService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/notification.service.js.
+ */
 const emailService = require("./email.service");
 const { localizeUserMessage } = require("../utils/userMessage");
 
+/**
+ * Khai báo `notificationSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/notification.service.js.
+ */
 const notificationSelect = `
     SELECT
         id,
@@ -18,6 +36,13 @@ const notificationSelect = `
     FROM user_notifications
 `;
 
+/**
+ * Lấy nghiệp vụ `getNotificationUser` (get notification user). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getNotificationUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getNotificationUser = async ({ executor = db, userId }) => {
     let rows;
 
@@ -54,6 +79,14 @@ const getNotificationUser = async ({ executor = db, userId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Tạo nghiệp vụ `buildNotificationLink` (build notification link). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildNotificationLink
+ * @param {*} relatedType - Giá trị `relatedType` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} relatedId - Giá trị `relatedId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildNotificationLink = (relatedType, relatedId) => {
     const frontendUrl = emailService.getFrontendUrl();
 
@@ -72,6 +105,13 @@ const buildNotificationLink = (relatedType, relatedId) => {
     return `${frontendUrl}${paths[relatedType] || "/user/notifications"}`;
 };
 
+/**
+ * Thực hiện nghiệp vụ `escapeHtml` (escape html). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function escapeHtml
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const escapeHtml = (value) =>
     String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -80,6 +120,13 @@ const escapeHtml = (value) =>
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 
+/**
+ * Tạo nghiệp vụ `buildEvidenceEmail` (build evidence email). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildEvidenceEmail
+ * @param {*} evidenceUrl - Giá trị `evidenceUrl` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildEvidenceEmail = (evidenceUrl) => {
     const normalizedUrl = String(evidenceUrl || "").trim();
 
@@ -152,6 +199,13 @@ const buildEvidenceEmail = (evidenceUrl) => {
     };
 };
 
+/**
+ * Gửi nghiệp vụ `sendNotificationEmail` (send notification email). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function sendNotificationEmail
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const sendNotificationEmail = async ({
     evidenceUrl,
     message,
@@ -186,6 +240,13 @@ const sendNotificationEmail = async ({
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createNotification` (create notification). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createNotification
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createNotification = async ({
     connection,
     evidenceUrl,
@@ -227,6 +288,13 @@ const createNotification = async ({
     return result.insertId;
 };
 
+/**
+ * Lấy nghiệp vụ `getMyNotifications` (get my notifications). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMyNotifications
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyNotifications = async (userId) => {
     const [rows] = await db.query(
         `${notificationSelect}
@@ -238,6 +306,13 @@ const getMyNotifications = async (userId) => {
     return rows;
 };
 
+/**
+ * Thực hiện nghiệp vụ `markNotificationRead` (mark notification read). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function markNotificationRead
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markNotificationRead = async ({ id, userId }) => {
     const [result] = await db.query(
         `UPDATE user_notifications
@@ -269,6 +344,13 @@ const markNotificationRead = async ({ id, userId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Thực hiện nghiệp vụ `markAllNotificationsRead` (mark all notifications read). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function markAllNotificationsRead
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markAllNotificationsRead = async (userId) => {
     const [result] = await db.query(
         `UPDATE user_notifications
@@ -284,6 +366,13 @@ const markAllNotificationsRead = async (userId) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getNotificationPreferences` (get notification preferences). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getNotificationPreferences
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getNotificationPreferences = async (userId) => {
     const user = await getNotificationUser({ userId });
 
@@ -292,6 +381,13 @@ const getNotificationPreferences = async (userId) => {
     };
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateNotificationPreferences` (update notification preferences). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateNotificationPreferences
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateNotificationPreferences = async ({ emailNotificationsEnabled, userId }) => {
     await db.query(
         `UPDATE users

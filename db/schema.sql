@@ -1,9 +1,15 @@
+-- Tổng quan tệp: Khởi tạo đầy đủ cơ sở dữ liệu, bảng, chỉ mục và quan hệ của Sunrise Parking.
+-- Luồng thực thi: chọn cơ sở dữ liệu -> kiểm tra trạng thái hiện tại -> áp dụng từng thay đổi theo thứ tự.
+
+-- Giải thích: Tạo cơ sở dữ liệu ứng dụng cùng bộ ký tự hỗ trợ tiếng Việt.
 CREATE DATABASE IF NOT EXISTS apartment_parking_db
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
+-- Giải thích: Chọn cơ sở dữ liệu đích trước khi tạo hoặc nâng cấp cấu trúc.
 USE apartment_parking_db;
 
+-- Giải thích: Tạo bảng buildings cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS buildings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -12,6 +18,7 @@ CREATE TABLE IF NOT EXISTS buildings (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Giải thích: Tạo bảng parking_floors cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS parking_floors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     building_id INT NOT NULL,
@@ -31,6 +38,7 @@ CREATE TABLE IF NOT EXISTS parking_floors (
         ON DELETE CASCADE
 );
 
+-- Giải thích: Tạo bảng parking_slots cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS parking_slots (
     id INT AUTO_INCREMENT PRIMARY KEY,
     building_id INT NOT NULL,
@@ -60,6 +68,7 @@ CREATE TABLE IF NOT EXISTS parking_slots (
         ON DELETE CASCADE
 );
 
+-- Giải thích: Tạo bảng users cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -85,6 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng email_verification_tokens cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS email_verification_tokens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -99,6 +109,7 @@ CREATE TABLE IF NOT EXISTS email_verification_tokens (
         ON DELETE CASCADE
 );
 
+-- Giải thích: Tạo bảng staff_role_requests cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS staff_role_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     manager_id INT NOT NULL,
@@ -135,6 +146,7 @@ CREATE TABLE IF NOT EXISTS staff_role_requests (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng staff_profiles cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS staff_profiles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -165,6 +177,7 @@ CREATE TABLE IF NOT EXISTS staff_profiles (
 
 
 
+-- Giải thích: Tạo bảng vehicles cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS vehicles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -187,6 +200,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng slot_registrations cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS slot_registrations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -222,6 +236,7 @@ CREATE TABLE IF NOT EXISTS slot_registrations (
         ON DELETE CASCADE
 );
 
+-- Giải thích: Tạo bảng package_plans cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS package_plans (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -235,6 +250,7 @@ CREATE TABLE IF NOT EXISTS package_plans (
     INDEX idx_package_plans_vehicle_status (vehicle_type, status)
 );
 
+-- Giải thích: Tạo bảng pricing_policies cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS pricing_policies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     vehicle_type ENUM('MOTORBIKE', 'CAR') NOT NULL,
@@ -247,6 +263,7 @@ CREATE TABLE IF NOT EXISTS pricing_policies (
     INDEX idx_pricing_policies_lookup (vehicle_type, pricing_type, status)
 );
 
+-- Giải thích: Tạo bảng monthly_passes cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS monthly_passes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
@@ -280,6 +297,7 @@ CREATE TABLE IF NOT EXISTS monthly_passes (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng qr_passes cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS qr_passes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
@@ -316,6 +334,7 @@ CREATE TABLE IF NOT EXISTS qr_passes (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng temporary_qr_cards cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS temporary_qr_cards (
     id INT AUTO_INCREMENT PRIMARY KEY,
     card_code VARCHAR(100) NOT NULL UNIQUE,
@@ -330,6 +349,7 @@ CREATE TABLE IF NOT EXISTS temporary_qr_cards (
     INDEX idx_temporary_qr_cards_session (current_session_id)
 );
 
+-- Giải thích: Tạo bảng parking_sessions cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS parking_sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
@@ -393,6 +413,7 @@ CREATE TABLE IF NOT EXISTS parking_sessions (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng payments cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     slot_registration_id INT NULL,
@@ -426,6 +447,7 @@ CREATE TABLE IF NOT EXISTS payments (
         ON DELETE CASCADE
 );
 
+-- Giải thích: Tạo bảng hourly_slot_reservations cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS hourly_slot_reservations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     reservation_code VARCHAR(100) NOT NULL UNIQUE,
@@ -496,6 +518,7 @@ CREATE TABLE IF NOT EXISTS hourly_slot_reservations (
         ON DELETE RESTRICT
 );
 
+-- Giải thích: Tạo bảng violation_types cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS violation_types (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(60) NULL,
@@ -514,6 +537,7 @@ CREATE TABLE IF NOT EXISTS violation_types (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Bổ sung dữ liệu khởi tạo hoặc dữ liệu bù vào bảng violation_types.
 INSERT IGNORE INTO violation_types
     (code, name, default_penalty_fee, status, description)
 VALUES
@@ -539,6 +563,7 @@ VALUES
         'Ô tô đi vào khu xe máy và phát sinh chi phí đưa xe về ô chỉ định'
     );
 
+-- Giải thích: Tạo bảng violations cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS violations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NULL,
@@ -576,6 +601,7 @@ CREATE TABLE IF NOT EXISTS violations (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng user_notifications cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS user_notifications (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -593,6 +619,7 @@ CREATE TABLE IF NOT EXISTS user_notifications (
         ON DELETE CASCADE
 );
 
+-- Giải thích: Tạo bảng sms_outbox cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS sms_outbox (
     id INT AUTO_INCREMENT PRIMARY KEY,
     phone VARCHAR(20) NOT NULL,
@@ -612,6 +639,7 @@ CREATE TABLE IF NOT EXISTS sms_outbox (
     INDEX idx_sms_outbox_related (related_type, related_id)
 );
 
+-- Giải thích: Tạo bảng wrong_slot_cases cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS wrong_slot_cases (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NOT NULL,
@@ -671,6 +699,7 @@ CREATE TABLE IF NOT EXISTS wrong_slot_cases (
         ON DELETE RESTRICT
 );
 
+-- Giải thích: Tạo bảng floor_mismatch_cases cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS floor_mismatch_cases (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NOT NULL,

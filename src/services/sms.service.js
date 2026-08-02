@@ -1,18 +1,48 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền sms.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/sms.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `DEFAULT_ESMS_URL` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/sms.service.js.
+ */
 const DEFAULT_ESMS_URL =
     "https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/";
 const DEFAULT_ESMS_STATUS_URL =
     "https://rest.esms.vn/MainService.svc/json/GetSmsReceiverStatus_get";
 const MAX_ATTEMPTS = 3;
+/**
+ * Khai báo `VIETNAM_TIME_ZONE` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/sms.service.js.
+ */
 const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
+/**
+ * Khai báo `APPROVED_GENERIC_CUSTOMER_CARE_SMS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/sms.service.js.
+ */
 const APPROVED_GENERIC_CUSTOMER_CARE_SMS =
     "Cam on quy khach da su dung dich vu cua chung toi. Chuc quy khach mot ngay tot lanh!";
+/**
+ * Khai báo `SMS_TEMPLATE_KEYS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/sms.service.js.
+ */
 const SMS_TEMPLATE_KEYS = Object.freeze({
     WRONG_SLOT_OCCUPIER: "WRONG_SLOT_OCCUPIER",
     WRONG_SLOT_VICTIM: "WRONG_SLOT_VICTIM",
     WRONG_SLOT_VICTIM_UPDATE: "WRONG_SLOT_VICTIM_UPDATE",
 });
+/**
+ * Khai báo `WRONG_SLOT_VICTIM_UPDATE_TYPES` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/services/sms.service.js.
+ */
 const WRONG_SLOT_VICTIM_UPDATE_TYPES = Object.freeze({
     ORIGINAL_RESTORED: "ORIGINAL_RESTORED",
     ORIGINAL_RESTORED_AFTER_TEMP: "ORIGINAL_RESTORED_AFTER_TEMP",
@@ -20,22 +50,46 @@ const WRONG_SLOT_VICTIM_UPDATE_TYPES = Object.freeze({
     TEMP_RETAINED: "TEMP_RETAINED",
 });
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeTemplateText` (normalize template text). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizeTemplateText
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @param {*} maxLength - Giá trị `maxLength` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeTemplateText = (value, maxLength) =>
     String(value || "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
+        /* Callback nội bộ của lời gọi `replace`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .replace(/[đĐ]/g, (character) => (character === "Đ" ? "D" : "d"))
         .replace(/[^A-Za-z0-9 ]/g, "")
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, maxLength);
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeTemplateToken` (normalize template token). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizeTemplateToken
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @param {*} maxLength - Giá trị `maxLength` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeTemplateToken = (value, maxLength) =>
     normalizeTemplateText(value, maxLength)
         .replace(/\s/g, "")
         .toUpperCase()
         .slice(0, maxLength);
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatTemplateDateTime` (format template date time). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function formatTemplateDateTime
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatTemplateDateTime = (value = new Date()) => {
     const date = new Date(value);
     const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
@@ -48,7 +102,15 @@ const formatTemplateDateTime = (value = new Date()) => {
         timeZone: VIETNAM_TIME_ZONE,
         year: "numeric",
     }).formatToParts(safeDate);
+    /**
+     * Lấy nghiệp vụ `getPart` (get part). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function getPart
+     * @param {*} type - Giá trị `type` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const getPart = (type) =>
+        /* Callback nội bộ của lời gọi `find`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         parts.find((part) => part.type === type)?.value || "";
 
     return `${getPart("day")}/${getPart("month")}/${getPart(
@@ -56,6 +118,13 @@ const formatTemplateDateTime = (value = new Date()) => {
     )} ${getPart("hour")}:${getPart("minute")}`;
 };
 
+/**
+ * Tạo nghiệp vụ `buildWrongSlotVictimSms` (build wrong slot victim sms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildWrongSlotVictimSms
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildWrongSlotVictimSms = ({
     eventAt,
     occupyingPlate,
@@ -73,6 +142,13 @@ const buildWrongSlotVictimSms = ({
     );
 };
 
+/**
+ * Tạo nghiệp vụ `buildWrongSlotOccupierSms` (build wrong slot occupier sms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildWrongSlotOccupierSms
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildWrongSlotOccupierSms = ({
     occupyingPlate,
     reservedPlate,
@@ -98,6 +174,13 @@ const buildWrongSlotOccupierSms = ({
     );
 };
 
+/**
+ * Tạo nghiệp vụ `buildWrongSlotVictimUpdateSms` (build wrong slot victim update sms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildWrongSlotVictimUpdateSms
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildWrongSlotVictimUpdateSms = ({
     originalSlotCode,
     reservedPlate,
@@ -130,6 +213,13 @@ const buildWrongSlotVictimUpdateSms = ({
     );
 };
 
+/**
+ * Xử lý nghiệp vụ `resolveApprovedSmsContent` (resolve approved sms content). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function resolveApprovedSmsContent
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const resolveApprovedSmsContent = ({
     content,
     relatedType,
@@ -155,6 +245,13 @@ const resolveApprovedSmsContent = ({
     return String(content || "").trim();
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeVietnamPhone` (normalize vietnam phone). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizeVietnamPhone
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeVietnamPhone = (value) => {
     const compact = String(value || "").replace(/[^\d+]/g, "");
 
@@ -169,6 +266,13 @@ const normalizeVietnamPhone = (value) => {
     return compact;
 };
 
+/**
+ * Xử lý nghiệp vụ `resolveEsmsSmsType` (resolve esms sms type). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function resolveEsmsSmsType
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const resolveEsmsSmsType = ({ brandname, configuredType }) => {
     if (String(brandname || "").trim()) {
         return "2";
@@ -177,6 +281,12 @@ const resolveEsmsSmsType = ({ brandname, configuredType }) => {
     return String(configuredType || "8").trim();
 };
 
+/**
+ * Lấy nghiệp vụ `getEsmsConfig` (get esms config). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getEsmsConfig
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getEsmsConfig = () => {
     const apiKey = process.env.ESMS_API_KEY;
     const secretKey = process.env.ESMS_SECRET_KEY;
@@ -202,6 +312,13 @@ const getEsmsConfig = () => {
     };
 };
 
+/**
+ * Gửi nghiệp vụ `sendWithEsms` (send with esms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function sendWithEsms
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const sendWithEsms = async ({ content, id, phone }) => {
     const config = getEsmsConfig();
 
@@ -248,6 +365,7 @@ const sendWithEsms = async ({ content, id, phone }) => {
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(timeoutMs),
     });
+    /* Callback nội bộ của lời gọi `catch`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok || String(data.CodeResult) !== "100") {
@@ -265,11 +383,25 @@ const sendWithEsms = async ({ content, id, phone }) => {
     };
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isEsmsTrue` (is esms true). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function isEsmsTrue
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isEsmsTrue = (value) =>
     value === true ||
     value === 1 ||
     ["1", "true"].includes(String(value || "").trim().toLowerCase());
 
+/**
+ * Xử lý nghiệp vụ `resolveEsmsDeliveryResult` (resolve esms delivery result). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function resolveEsmsDeliveryResult
+ * @param {*} data - Giá trị `data` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const resolveEsmsDeliveryResult = (data) => {
     if (String(data?.CodeResult) !== "100") {
         throw new Error(
@@ -284,6 +416,7 @@ const resolveEsmsDeliveryResult = (data) => {
 
     if (
         receivers.length === 0 ||
+        /* Callback nội bộ của lời gọi `some`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         receivers.some((receiver) => !isEsmsTrue(receiver.IsSent))
     ) {
         return {
@@ -293,6 +426,7 @@ const resolveEsmsDeliveryResult = (data) => {
     }
 
     return {
+        /* Callback nội bộ của lời gọi `every`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         delivered: receivers.every((receiver) =>
             isEsmsTrue(receiver.SentResult)
         ),
@@ -300,6 +434,13 @@ const resolveEsmsDeliveryResult = (data) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getEsmsDeliveryResult` (get esms delivery result). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getEsmsDeliveryResult
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getEsmsDeliveryResult = async ({ config, providerMessageId }) => {
     const url = new URL(config.statusEndpoint);
     url.searchParams.set("ApiKey", config.apiKey);
@@ -314,6 +455,7 @@ const getEsmsDeliveryResult = async ({ config, providerMessageId }) => {
     const response = await fetch(url, {
         signal: AbortSignal.timeout(timeoutMs),
     });
+    /* Callback nội bộ của lời gọi `catch`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
@@ -326,6 +468,13 @@ const getEsmsDeliveryResult = async ({ config, providerMessageId }) => {
     return resolveEsmsDeliveryResult(data);
 };
 
+/**
+ * Thực hiện nghiệp vụ `queueSms` (queue sms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function queueSms
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const queueSms = async ({
     connection,
     content,
@@ -368,6 +517,13 @@ const queueSms = async ({
     return result.insertId;
 };
 
+/**
+ * Xử lý nghiệp vụ `processPendingSms` (process pending sms). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function processPendingSms
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
     await db.query(
         `UPDATE sms_outbox
@@ -385,6 +541,7 @@ const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
               ...new Set(
                   ids
                       .map(Number)
+                      /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
                       .filter((id) => Number.isInteger(id) && id > 0)
               ),
           ]
@@ -492,6 +649,13 @@ const processPendingSms = async ({ ids = [], limit = 20 } = {}) => {
     return results;
 };
 
+/**
+ * Thực hiện nghiệp vụ `reconcileEsmsDeliveries` (reconcile esms deliveries). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function reconcileEsmsDeliveries
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const reconcileEsmsDeliveries = async ({ limit = 20 } = {}) => {
     const config = getEsmsConfig();
 

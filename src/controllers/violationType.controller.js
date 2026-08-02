@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của violationType.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `violationTypeService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/violationType.controller.js.
+ */
 const violationTypeService = require("../services/violationType.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -6,16 +16,38 @@ const {
     normalizeEnum,
 } = require("../utils/constants");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseNonNegativeAmount` (parse non negative amount). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parseNonNegativeAmount
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseNonNegativeAmount = (value) => {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validatePayload` (validate payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function validatePayload
+ * @param {*} body - Giá trị `body` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} existing - Giá trị `existing` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const validatePayload = (body, existing = {}) => {
     const name =
         body.name === undefined ? existing.name : String(body.name || "").trim();
@@ -53,6 +85,14 @@ const validatePayload = (body, existing = {}) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createViolationType` (create violation type). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createViolationType
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createViolationType = async (req, res) => {
     try {
         const validation = validatePayload(req.body);
@@ -81,6 +121,14 @@ const createViolationType = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getViolationTypes` (get violation types). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getViolationTypes
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getViolationTypes = async (req, res) => {
     try {
         const status = req.query.status ? normalizeEnum(req.query.status) : undefined;
@@ -113,6 +161,14 @@ const getViolationTypes = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getViolationTypeById` (get violation type by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getViolationTypeById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getViolationTypeById = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -142,6 +198,14 @@ const getViolationTypeById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateViolationType` (update violation type). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateViolationType
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateViolationType = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -186,6 +250,14 @@ const updateViolationType = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `deactivateViolationType` (deactivate violation type). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deactivateViolationType
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deactivateViolationType = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

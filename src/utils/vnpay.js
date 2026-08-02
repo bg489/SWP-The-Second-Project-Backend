@@ -1,17 +1,52 @@
+/**
+ * @fileoverview Cung cấp hằng số và hàm hỗ trợ dùng chung của backend trong vnpay.
+ *
+ * Luồng chính: Dữ liệu đầu vào -> xử lý theo trách nhiệm của module -> xuất kết quả cho lớp gọi.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `crypto` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/utils/vnpay.js.
+ */
 const crypto = require("crypto");
 
+/**
+ * Khai báo `DEFAULT_VNPAY_PAYMENT_URL` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/utils/vnpay.js.
+ */
 const DEFAULT_VNPAY_PAYMENT_URL =
     "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 const VNPAY_RETURN_PATH = "/api/payments/vnpay-return";
 
+/**
+ * Thực hiện nghiệp vụ `pad` (pad). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function pad
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const pad = (value) => String(value).padStart(2, "0");
 
+/**
+ * Lấy nghiệp vụ `getVietnamDate` (get vietnam date). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function getVietnamDate
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getVietnamDate = (date = new Date()) => {
     const utcTime = date.getTime() + date.getTimezoneOffset() * 60000;
 
     return new Date(utcTime + 7 * 60 * 60 * 1000);
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatVnpayDate` (format vnpay date). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function formatVnpayDate
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatVnpayDate = (date = new Date()) => {
     const vietnamDate = getVietnamDate(date);
 
@@ -25,13 +60,28 @@ const formatVnpayDate = (date = new Date()) => {
     ].join("");
 };
 
+/**
+ * Thực hiện nghiệp vụ `encode` (encode). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function encode
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const encode = (value) => {
     return encodeURIComponent(String(value)).replace(/%20/g, "+");
 };
 
+/**
+ * Thực hiện nghiệp vụ `sortObject` (sort object). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function sortObject
+ * @param {*} object - Giá trị `object` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const sortObject = (object) => {
     return Object.keys(object)
         .sort()
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sortedObject, key) => {
             if (
                 object[key] !== undefined &&
@@ -45,12 +95,27 @@ const sortObject = (object) => {
         }, {});
 };
 
+/**
+ * Thực hiện nghiệp vụ `stringifyParams` (stringify params). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function stringifyParams
+ * @param {*} params - Giá trị `params` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const stringifyParams = (params) => {
     return Object.keys(params)
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .map((key) => `${encode(key)}=${encode(params[key])}`)
         .join("&");
 };
 
+/**
+ * Lấy nghiệp vụ `getClientIp` (get client ip). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function getClientIp
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getClientIp = (req) => {
     const forwardedFor = req.headers["x-forwarded-for"];
 
@@ -66,20 +131,54 @@ const getClientIp = (req) => {
     );
 };
 
+/**
+ * Thực hiện nghiệp vụ `trimTrailingSlash` (trim trailing slash). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function trimTrailingSlash
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const trimTrailingSlash = (value) => String(value || "").replace(/\/+$/, "");
 
+/**
+ * Kiểm tra nghiệp vụ `isLocalUrl` (is local url). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function isLocalUrl
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isLocalUrl = (value) => {
     return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(
         String(value || "")
     );
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isVnpayBackendReturnUrl` (is vnpay backend return url). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function isVnpayBackendReturnUrl
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isVnpayBackendReturnUrl = (value) =>
     String(value || "").includes(VNPAY_RETURN_PATH);
 
+/**
+ * Tạo nghiệp vụ `buildReturnUrlFromBase` (build return url from base). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function buildReturnUrlFromBase
+ * @param {*} baseUrl - Giá trị `baseUrl` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildReturnUrlFromBase = (baseUrl) =>
     `${trimTrailingSlash(baseUrl)}${VNPAY_RETURN_PATH}`;
 
+/**
+ * Lấy nghiệp vụ `getVnpayReturnUrl` (get vnpay return url). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function getVnpayReturnUrl
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getVnpayReturnUrl = () => {
     const configuredReturnUrl = process.env.VNPAY_RETURN_URL;
     const serverUrl = process.env.SERVER_URL;
@@ -99,6 +198,12 @@ const getVnpayReturnUrl = () => {
     return `http://localhost:${process.env.PORT || 5000}${VNPAY_RETURN_PATH}`;
 };
 
+/**
+ * Lấy nghiệp vụ `getVnpayConfig` (get vnpay config). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function getVnpayConfig
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getVnpayConfig = () => {
     return {
         tmnCode: process.env.VNPAY_TMN_CODE,
@@ -108,6 +213,12 @@ const getVnpayConfig = () => {
     };
 };
 
+/**
+ * Thực hiện nghiệp vụ `assertVnpayConfig` (assert vnpay config). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function assertVnpayConfig
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const assertVnpayConfig = () => {
     const config = getVnpayConfig();
 
@@ -122,6 +233,14 @@ const assertVnpayConfig = () => {
     return config;
 };
 
+/**
+ * Tạo nghiệp vụ `createSecureHash` (create secure hash). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function createSecureHash
+ * @param {*} params - Giá trị `params` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} hashSecret - Giá trị `hashSecret` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createSecureHash = (params, hashSecret) => {
     const sortedParams = sortObject(params);
     const signData = stringifyParams(sortedParams);
@@ -132,6 +251,13 @@ const createSecureHash = (params, hashSecret) => {
         .digest("hex");
 };
 
+/**
+ * Tạo nghiệp vụ `createPaymentUrl` (create payment url). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function createPaymentUrl
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createPaymentUrl = ({
     amount,
     bankCode,
@@ -171,6 +297,13 @@ const createPaymentUrl = ({
     return `${config.paymentUrl}?${stringifyParams(sortedParams)}&vnp_SecureHash=${secureHash}`;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `verifyReturnParams` (verify return params). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function verifyReturnParams
+ * @param {*} query - Giá trị `query` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const verifyReturnParams = (query) => {
     const config = assertVnpayConfig();
     const receivedHash = query.vnp_SecureHash;

@@ -1,14 +1,42 @@
+/**
+ * @fileoverview Tạo dữ liệu khởi đầu phục vụ chạy thử hệ thống cho nhóm seedVehicles.
+ *
+ * Luồng chính: Dữ liệu đầu vào -> xử lý theo trách nhiệm của module -> xuất kết quả cho lớp gọi.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `path` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/seed/seedVehicles.js.
+ */
 const path = require("path");
 require("dotenv").config({
     path: path.resolve(__dirname, "../../.env"),
     override: true,
 });
 
+/**
+ * Khai báo `bcrypt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/seed/seedVehicles.js.
+ */
 const bcrypt = require("bcryptjs");
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/seed/seedVehicles.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `DEFAULT_PASSWORD` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/seed/seedVehicles.js.
+ */
 const DEFAULT_PASSWORD = "123456";
 
+/**
+ * Thực hiện nghiệp vụ `ensureDefaultBuilding` (ensure default building). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function ensureDefaultBuilding
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const ensureDefaultBuilding = async () => {
     const [rows] = await db.query(
         `SELECT id
@@ -31,6 +59,13 @@ const ensureDefaultBuilding = async () => {
     return result.insertId;
 };
 
+/**
+ * Thực hiện nghiệp vụ `ensureUser` (ensure user). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function ensureUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const ensureUser = async ({ name, email, phone, role, buildingId }) => {
     const [rows] = await db.query(
         `SELECT id
@@ -56,6 +91,13 @@ const ensureUser = async ({ name, email, phone, role, buildingId }) => {
     return result.insertId;
 };
 
+/**
+ * Tạo nghiệp vụ `insertVehicle` (insert vehicle). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function insertVehicle
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const insertVehicle = async ({
     userId,
     buildingId,
@@ -83,6 +125,12 @@ const insertVehicle = async ({
     return result.insertId;
 };
 
+/**
+ * Thực hiện nghiệp vụ `seedVehicles` (seed vehicles). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function seedVehicles
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const seedVehicles = async () => {
     try {
         console.log("Seeding test vehicles...");

@@ -1,7 +1,29 @@
+/**
+ * @fileoverview Khai báo endpoint, middleware bảo vệ và tài liệu Swagger cho nhóm API vehicle.routes.
+ *
+ * Luồng chính: HTTP request -> middleware xác thực/phân quyền -> controller phù hợp.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `express` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/vehicle.routes.js.
+ */
 const express = require("express");
+/**
+ * Khai báo `router` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/routes/vehicle.routes.js.
+ */
 const router = express.Router();
 
+/**
+ * Khai báo `vehicleController` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/vehicle.routes.js.
+ */
 const vehicleController = require("../controllers/vehicle.controller");
+/**
+ * Khai báo `authMiddleware` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/vehicle.routes.js.
+ */
 const authMiddleware = require("../middlewares/auth.middleware");
 const { adminMiddleware } = require("../middlewares/role.middleware");
 

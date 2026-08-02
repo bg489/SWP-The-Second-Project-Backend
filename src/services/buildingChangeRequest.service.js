@@ -1,6 +1,24 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền buildingChangeRequest.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/buildingChangeRequest.service.js.
+ */
 const db = require("../config/db");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/buildingChangeRequest.service.js.
+ */
 const notificationService = require("./notification.service");
 
+/**
+ * Khai báo `requestSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/buildingChangeRequest.service.js.
+ */
 const requestSelect = `
     SELECT
         r.id,
@@ -41,6 +59,13 @@ const requestSelect = `
     LEFT JOIN users au ON r.admin_id = au.id
 `;
 
+/**
+ * Lấy nghiệp vụ `getBuildingById` (get building by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getBuildingById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBuildingById = async (id) => {
     const [rows] = await db.query(
         `SELECT id, name, address FROM buildings WHERE id = ? LIMIT 1`,
@@ -50,6 +75,13 @@ const getBuildingById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getUserById` (get user by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getUserById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getUserById = async (id) => {
     const [rows] = await db.query(
         `SELECT id, building_id AS buildingId FROM users WHERE id = ? LIMIT 1`,
@@ -59,6 +91,13 @@ const getUserById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findPendingRequestByUserId` (find pending request by user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findPendingRequestByUserId
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findPendingRequestByUserId = async (userId) => {
     const [rows] = await db.query(
         `SELECT id
@@ -71,6 +110,13 @@ const findPendingRequestByUserId = async (userId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getRequestById` (get request by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRequestById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRequestById = async (id) => {
     const [rows] = await db.query(
         `${requestSelect}
@@ -82,6 +128,13 @@ const getRequestById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getMyRequests` (get my requests). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMyRequests
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyRequests = async (userId) => {
     const [rows] = await db.query(
         `${requestSelect}
@@ -93,6 +146,13 @@ const getMyRequests = async (userId) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getRequests` (get requests). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRequests
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRequests = async ({ status, userId } = {}) => {
     const conditions = [];
     const params = [];
@@ -120,6 +180,13 @@ const getRequests = async ({ status, userId } = {}) => {
     return rows;
 };
 
+/**
+ * Tạo nghiệp vụ `createRequest` (create request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createRequest
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createRequest = async ({ userId, requestedBuildingId, reason }) => {
     const user = await getUserById(userId);
 
@@ -166,6 +233,13 @@ const createRequest = async ({ userId, requestedBuildingId, reason }) => {
     return getRequestById(result.insertId);
 };
 
+/**
+ * Thực hiện nghiệp vụ `approveRequest` (approve request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function approveRequest
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const approveRequest = async ({ id, adminId, adminNote }) => {
     const connection = await db.getConnection();
 
@@ -243,6 +317,13 @@ const approveRequest = async ({ id, adminId, adminNote }) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `rejectRequest` (reject request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function rejectRequest
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const rejectRequest = async ({ id, adminId, adminNote }) => {
     const connection = await db.getConnection();
 

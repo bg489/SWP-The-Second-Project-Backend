@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền tempQrCard.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/tempQrCard.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `tempQrCardSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/tempQrCard.service.js.
+ */
 const tempQrCardSelect = `
     SELECT
         id,
@@ -21,8 +35,22 @@ const tempQrCardSelect = `
     FROM temporary_qr_cards
 `;
 
+/**
+ * Thực hiện nghiệp vụ `escapeRegExp` (escape reg exp). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function escapeRegExp
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/**
+ * Tạo nghiệp vụ `buildBuildingPrefix` (build building prefix). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildBuildingPrefix
+ * @param {*} buildingName - Giá trị `buildingName` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildBuildingPrefix = (buildingName = "") => {
     const normalized = buildingName
         .normalize("NFD")
@@ -32,6 +60,7 @@ const buildBuildingPrefix = (buildingName = "") => {
     const prefix = normalized
         .split(/\s+/)
         .filter(Boolean)
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .map((word) => word[0])
         .join("")
         .toUpperCase();
@@ -39,6 +68,13 @@ const buildBuildingPrefix = (buildingName = "") => {
     return prefix || "QR";
 };
 
+/**
+ * Lấy nghiệp vụ `getBuildingById` (get building by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getBuildingById
+ * @param {*} buildingId - Giá trị `buildingId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBuildingById = async (buildingId) => {
     const [rows] = await db.query(
         `SELECT id, name
@@ -51,6 +87,13 @@ const getBuildingById = async (buildingId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getBuildingPrefix` (get building prefix). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getBuildingPrefix
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBuildingPrefix = async ({ buildingId, buildingName }) => {
     const [buildingCardRows] = await db.query(
         `SELECT card_code AS cardCode
@@ -60,6 +103,7 @@ const getBuildingPrefix = async ({ buildingId, buildingName }) => {
         [buildingId]
     );
     const existingPrefix = buildingCardRows
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .map((row) => String(row.cardCode || "").match(/^([A-Z0-9]+)-\d+$/)?.[1])
         .find(Boolean);
 
@@ -80,6 +124,13 @@ const getBuildingPrefix = async ({ buildingId, buildingName }) => {
     return collisionRows.length > 0 ? `${basePrefix}${buildingId}` : basePrefix;
 };
 
+/**
+ * Lấy nghiệp vụ `getNextCardStart` (get next card start). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getNextCardStart
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getNextCardStart = async ({ buildingId, prefix }) => {
     const [rows] = await db.query(
         `SELECT card_code AS cardCode
@@ -91,6 +142,7 @@ const getNextCardStart = async ({ buildingId, prefix }) => {
     );
 
     const matcher = new RegExp(`^${escapeRegExp(prefix)}-(\\d+)$`);
+    /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const maxNumber = rows.reduce((max, row) => {
         const match = String(row.cardCode || "").match(matcher);
         if (!match) return max;
@@ -101,6 +153,13 @@ const getNextCardStart = async ({ buildingId, prefix }) => {
     return maxNumber + 1;
 };
 
+/**
+ * Tạo nghiệp vụ `createTempQrCard` (create temp qr card). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createTempQrCard
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createTempQrCard = async ({ buildingId, cardCode, note, status }) => {
     const [result] = await db.query(
         `INSERT INTO temporary_qr_cards
@@ -112,6 +171,13 @@ const createTempQrCard = async ({ buildingId, cardCode, note, status }) => {
     return getTempQrCardById(result.insertId);
 };
 
+/**
+ * Tạo nghiệp vụ `createTempQrCardsBulk` (create temp qr cards bulk). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createTempQrCardsBulk
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createTempQrCardsBulk = async ({ buildingId, note, quantity, status }) => {
     const safeQuantity = Number(quantity);
 
@@ -140,12 +206,14 @@ const createTempQrCardsBulk = async ({ buildingId, note, quantity, status }) => 
         buildingName: building.name,
     });
     const startNumber = await getNextCardStart({ buildingId, prefix });
+    /* Callback nội bộ của lời gọi `from`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const values = Array.from({ length: safeQuantity }, (_, index) => [
         buildingId,
         `${prefix}-${String(startNumber + index).padStart(4, "0")}`,
         status || "READY",
         note || null,
     ]);
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const placeholders = values.map(() => "(?, ?, ?, ?)").join(", ");
 
     const [result] = await db.query(
@@ -165,6 +233,13 @@ const createTempQrCardsBulk = async ({ buildingId, note, quantity, status }) => 
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getTempQrCards` (get temp qr cards). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getTempQrCards
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTempQrCards = async ({ buildingId, status } = {}) => {
     const params = [];
     const conditions = [];
@@ -192,6 +267,13 @@ const getTempQrCards = async ({ buildingId, status } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getTempQrCardById` (get temp qr card by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getTempQrCardById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTempQrCardById = async (id) => {
     const [rows] = await db.query(
         `${tempQrCardSelect}
@@ -203,6 +285,13 @@ const getTempQrCardById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getTempQrCardByCode` (get temp qr card by code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getTempQrCardByCode
+ * @param {*} cardCode - Giá trị `cardCode` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTempQrCardByCode = async (cardCode) => {
     const [rows] = await db.query(
         `${tempQrCardSelect}
@@ -214,6 +303,13 @@ const getTempQrCardByCode = async (cardCode) => {
     return rows[0] || null;
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateTempQrCardStatus` (update temp qr card status). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateTempQrCardStatus
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateTempQrCardStatus = async ({ id, note, status }) => {
     const returnedAtSql = status === "READY" || status === "COMPLETED"
         ? "returned_at = CURRENT_TIMESTAMP,"
@@ -236,6 +332,13 @@ const updateTempQrCardStatus = async ({ id, note, status }) => {
     return getTempQrCardById(id);
 };
 
+/**
+ * Thực hiện nghiệp vụ `markCardInUse` (mark card in use). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function markCardInUse
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markCardInUse = async ({ cardId, connection, sessionId }) => {
     const executor = connection || db;
     const [result] = await executor.query(
@@ -257,6 +360,13 @@ const markCardInUse = async ({ cardId, connection, sessionId }) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `completeCardSession` (complete card session). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function completeCardSession
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const completeCardSession = async ({ cardId, connection }) => {
     if (!cardId) {
         return;

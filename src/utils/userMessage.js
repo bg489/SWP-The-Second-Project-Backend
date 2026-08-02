@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Cung cấp hằng số và hàm hỗ trợ dùng chung của backend trong userMessage.
+ *
+ * Luồng chính: Dữ liệu đầu vào -> xử lý theo trách nhiệm của module -> xuất kết quả cho lớp gọi.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `LEGACY_MESSAGE_REPLACEMENTS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/utils/userMessage.js.
+ */
 const LEGACY_MESSAGE_REPLACEMENTS = [
     ["Chi xe oto moi dang ky vao slot cu the", "Chỉ ô tô mới được đăng ký vào ô đỗ cụ thể"],
     ["Chi slot cua tang CAR moi dang ky oto", "Chỉ ô đỗ thuộc tầng ô tô mới dùng để đăng ký ô tô"],
@@ -251,29 +261,61 @@ const LEGACY_MESSAGE_REPLACEMENTS = [
     ["quyen", "quyền"],
 ];
 
+/**
+ * Thực hiện nghiệp vụ `escapeRegExp` (escape reg exp). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function escapeRegExp
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const escapeRegExp = (value) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/**
+ * Thực hiện nghiệp vụ `replaceWholePhrase` (replace whole phrase). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function replaceWholePhrase
+ * @param {*} message - Giá trị `message` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} from - Giá trị `from` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} to - Giá trị `to` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const replaceWholePhrase = (message, from, to) => {
     const pattern = new RegExp(
         `(^|[^A-Za-z0-9_])${escapeRegExp(from)}(?=$|[^A-Za-z0-9_])`,
         "g"
     );
 
+    /* Callback nội bộ của lời gọi `replace`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     return message.replace(pattern, (_, prefix) => `${prefix}${to}`);
 };
 
+/**
+ * Thực hiện nghiệp vụ `localizeUserMessage` (localize user message). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function localizeUserMessage
+ * @param {*} message - Giá trị `message` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const localizeUserMessage = (message) => {
     if (typeof message !== "string" || !message) {
         return message;
     }
 
     return LEGACY_MESSAGE_REPLACEMENTS.reduce(
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (result, [from, to]) => replaceWholePhrase(result, from, to),
         message
     );
 };
 
+/**
+ * Thực hiện nghiệp vụ `localizeUserPayload` (localize user payload). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+ *
+ * @function localizeUserPayload
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const localizeUserPayload = (value) => {
     if (Array.isArray(value)) {
         return value.map(localizeUserPayload);
@@ -284,6 +326,7 @@ const localizeUserPayload = (value) => {
     }
 
     return Object.fromEntries(
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         Object.entries(value).map(([key, item]) => {
             if ((key === "message" || key === "title") && typeof item === "string") {
                 return [key, localizeUserMessage(item)];

@@ -1,4 +1,18 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền staffRoleRequest.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/staffRoleRequest.service.js.
+ */
 const db = require("../config/db");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/staffRoleRequest.service.js.
+ */
 const notificationService = require("./notification.service");
 const {
     ROLES,
@@ -8,6 +22,10 @@ const {
     USER_STATUSES,
 } = require("../utils/constants");
 
+/**
+ * Khai báo `requestSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/staffRoleRequest.service.js.
+ */
 const requestSelect = `
     SELECT
         r.id,
@@ -57,6 +75,10 @@ const requestSelect = `
     LEFT JOIN staff_profiles sp ON sp.user_id = r.user_id
 `;
 
+/**
+ * Khai báo `staffProfileSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/staffRoleRequest.service.js.
+ */
 const staffProfileSelect = `
     SELECT
         sp.id AS profileId,
@@ -94,12 +116,27 @@ const staffProfileSelect = `
     LEFT JOIN users approver ON approver.id = approval.admin_id
 `;
 
+/**
+ * Tạo nghiệp vụ `createHttpError` (create http error). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function createHttpError
+ * @param {*} message - Giá trị `message` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} statusCode - Giá trị `statusCode` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createHttpError = (message, statusCode) => {
     const error = new Error(message);
     error.statusCode = statusCode;
     return error;
 };
 
+/**
+ * Lấy nghiệp vụ `getManagerContext` (get manager context). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getManagerContext
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getManagerContext = async ({ executor = db, managerId, lock = false }) => {
     const [rows] = await executor.query(
         `SELECT id, name, email, phone, role, status
@@ -121,6 +158,13 @@ const getManagerContext = async ({ executor = db, managerId, lock = false }) => 
     return manager;
 };
 
+/**
+ * Lấy nghiệp vụ `getBuilding` (get building). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getBuilding
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBuilding = async ({ buildingId, executor = db }) => {
     const [rows] = await executor.query(
         `SELECT id, name, address
@@ -137,6 +181,14 @@ const getBuilding = async ({ buildingId, executor = db }) => {
     return rows[0];
 };
 
+/**
+ * Lấy nghiệp vụ `getRequestById` (get request by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRequestById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRequestById = async (id, executor = db) => {
     const [rows] = await executor.query(
         `${requestSelect}
@@ -148,6 +200,13 @@ const getRequestById = async (id, executor = db) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getManagerRequests` (get manager requests). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getManagerRequests
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getManagerRequests = async ({ buildingId, managerId } = {}) => {
     await getManagerContext({ managerId });
     const conditions = ["r.manager_id = ?", "r.request_type = ?"];
@@ -168,6 +227,13 @@ const getManagerRequests = async ({ buildingId, managerId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getAdminRequests` (get admin requests). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getAdminRequests
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAdminRequests = async ({ status } = {}) => {
     const conditions = ["r.request_type = ?"];
     const params = [STAFF_ROLE_REQUEST_TYPES.CREATE_STAFF];
@@ -189,6 +255,13 @@ const getAdminRequests = async ({ status } = {}) => {
     return rows;
 };
 
+/**
+ * Gửi nghiệp vụ `notifySafely` (notify safely). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function notifySafely
+ * @param {*} payload - Dữ liệu nghiệp vụ được truyền vào hàm.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const notifySafely = async (payload) => {
     try {
         await notificationService.createNotification(payload);
@@ -197,6 +270,13 @@ const notifySafely = async (payload) => {
     }
 };
 
+/**
+ * Gửi nghiệp vụ `notifyActiveAdmins` (notify active admins). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function notifyActiveAdmins
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const notifyActiveAdmins = async ({ managerName, requestId, staffName }) => {
     const [admins] = await db.query(
         `SELECT id
@@ -206,6 +286,7 @@ const notifyActiveAdmins = async ({ managerName, requestId, staffName }) => {
     );
 
     await Promise.all(
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         admins.map((admin) =>
             notifySafely({
                 userId: admin.id,
@@ -218,6 +299,13 @@ const notifyActiveAdmins = async ({ managerName, requestId, staffName }) => {
     );
 };
 
+/**
+ * Tạo nghiệp vụ `createRequest` (create request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createRequest
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createRequest = async ({
     buildingId,
     candidateEmail,
@@ -320,6 +408,13 @@ const createRequest = async ({
     return request;
 };
 
+/**
+ * Thực hiện nghiệp vụ `approveRequest` (approve request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function approveRequest
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const approveRequest = async ({ adminId, adminNote, id }) => {
     const connection = await db.getConnection();
 
@@ -450,6 +545,13 @@ const approveRequest = async ({ adminId, adminNote, id }) => {
     return request;
 };
 
+/**
+ * Thực hiện nghiệp vụ `rejectRequest` (reject request). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function rejectRequest
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const rejectRequest = async ({ adminId, adminNote, id }) => {
     const connection = await db.getConnection();
 
@@ -506,6 +608,13 @@ const rejectRequest = async ({ adminId, adminNote, id }) => {
     return request;
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffProfiles` (get staff profiles). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getStaffProfiles
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffProfiles = async ({ buildingId, managerId, q }) => {
     await getManagerContext({ managerId });
     const building = await getBuilding({ buildingId });
@@ -531,6 +640,13 @@ const getStaffProfiles = async ({ buildingId, managerId, q }) => {
     return { building, profiles };
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffProfileByUserId` (get staff profile by user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getStaffProfileByUserId
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffProfileByUserId = async ({ userId }) => {
     const [rows] = await db.query(
         `${staffProfileSelect}

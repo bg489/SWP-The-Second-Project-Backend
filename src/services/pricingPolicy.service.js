@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền pricingPolicy.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/pricingPolicy.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `pricingPolicySelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/pricingPolicy.service.js.
+ */
 const pricingPolicySelect = `
     SELECT
         id,
@@ -20,6 +34,13 @@ const pricingPolicySelect = `
     FROM pricing_policies
 `;
 
+/**
+ * Tạo nghiệp vụ `createPricingPolicy` (create pricing policy). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createPricingPolicy
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createPricingPolicy = async ({
     amount,
     buildingId,
@@ -71,6 +92,13 @@ const createPricingPolicy = async ({
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getPricingPolicies` (get pricing policies). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getPricingPolicies
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPricingPolicies = async ({ buildingId, pricingType, status, vehicleType } = {}) => {
     const conditions = [];
     const params = [];
@@ -108,6 +136,13 @@ const getPricingPolicies = async ({ buildingId, pricingType, status, vehicleType
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getPricingPolicyById` (get pricing policy by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getPricingPolicyById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPricingPolicyById = async (id) => {
     const [rows] = await db.query(
         `${pricingPolicySelect}
@@ -119,6 +154,13 @@ const getPricingPolicyById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getActivePricingPolicy` (get active pricing policy). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActivePricingPolicy
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActivePricingPolicy = async ({ buildingId, pricingType, vehicleType }) => {
     const conditions = [
         "vehicle_type = ?",
@@ -158,6 +200,13 @@ const getActivePricingPolicy = async ({ buildingId, pricingType, vehicleType }) 
     return fallbackRows[0] || null;
 };
 
+/**
+ * Cập nhật nghiệp vụ `updatePricingPolicy` (update pricing policy). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function updatePricingPolicy
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updatePricingPolicy = async ({
     amount,
     buildingId,
@@ -219,6 +268,13 @@ const updatePricingPolicy = async ({
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `deactivatePricingPolicy` (deactivate pricing policy). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function deactivatePricingPolicy
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deactivatePricingPolicy = async (id) => {
     const [result] = await db.query(
         `UPDATE pricing_policies

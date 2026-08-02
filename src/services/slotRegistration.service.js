@@ -1,9 +1,35 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền slotRegistration.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/slotRegistration.service.js.
+ */
 const db = require("../config/db");
 const { generateQrCode } = require("./qrPass.service");
+/**
+ * Khai báo `wrongSlotCaseService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/slotRegistration.service.js.
+ */
 const wrongSlotCaseService = require("./wrongSlotCase.service");
+/**
+ * Khai báo `floorMismatchCaseService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/slotRegistration.service.js.
+ */
 const floorMismatchCaseService = require("./floorMismatchCase.service");
+/**
+ * Khai báo `hourlySlotReservationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/slotRegistration.service.js.
+ */
 const hourlySlotReservationService = require("./hourlySlotReservation.service");
 
+/**
+ * Khai báo `registrationSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/slotRegistration.service.js.
+ */
 const registrationSelect = `
     SELECT
         r.id,
@@ -40,6 +66,13 @@ const registrationSelect = `
     LEFT JOIN payments p ON p.slot_registration_id = r.id
 `;
 
+/**
+ * Lấy nghiệp vụ `getVehicleForRegistration` (get vehicle for registration). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getVehicleForRegistration
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getVehicleForRegistration = async ({ userId, vehicleId }) => {
     const [rows] = await db.query(
         `SELECT
@@ -58,6 +91,13 @@ const getVehicleForRegistration = async ({ userId, vehicleId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotForRegistration` (get slot for registration). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getSlotForRegistration
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotForRegistration = async (slotId) => {
     const [rows] = await db.query(
         `SELECT
@@ -78,6 +118,13 @@ const getSlotForRegistration = async (slotId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findActiveRegistrationByVehicleId` (find active registration by vehicle id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findActiveRegistrationByVehicleId
+ * @param {*} vehicleId - Giá trị `vehicleId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findActiveRegistrationByVehicleId = async (vehicleId) => {
     const [rows] = await db.query(
         `SELECT id
@@ -91,6 +138,13 @@ const findActiveRegistrationByVehicleId = async (vehicleId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findActiveRegistrationBySlotId` (find active registration by slot id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findActiveRegistrationBySlotId
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findActiveRegistrationBySlotId = async (slotId) => {
     const [rows] = await db.query(
         `SELECT id
@@ -104,6 +158,13 @@ const findActiveRegistrationBySlotId = async (slotId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getRegistrationById` (get registration by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRegistrationById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRegistrationById = async (id) => {
     const [rows] = await db.query(
         `${registrationSelect}
@@ -116,6 +177,13 @@ const getRegistrationById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getRegistrationByIdAndUserId` (get registration by id and user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRegistrationByIdAndUserId
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRegistrationByIdAndUserId = async ({ id, userId }) => {
     const [rows] = await db.query(
         `${registrationSelect}
@@ -128,6 +196,13 @@ const getRegistrationByIdAndUserId = async ({ id, userId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getRegistrationsByUserId` (get registrations by user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRegistrationsByUserId
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRegistrationsByUserId = async (userId) => {
     const [rows] = await db.query(
         `${registrationSelect}
@@ -139,6 +214,13 @@ const getRegistrationsByUserId = async (userId) => {
     return rows;
 };
 
+/**
+ * Tạo nghiệp vụ `createSlotRegistrationWithPayment` (create slot registration with payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createSlotRegistrationWithPayment
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createSlotRegistrationWithPayment = async ({
     amount,
     buildingId,
@@ -210,6 +292,13 @@ const createSlotRegistrationWithPayment = async ({
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updatePaymentUrl` (update payment url). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updatePaymentUrl
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updatePaymentUrl = async ({ paymentId, paymentUrl }) => {
     await db.query(
         `UPDATE payments
@@ -219,6 +308,13 @@ const updatePaymentUrl = async ({ paymentId, paymentUrl }) => {
     );
 };
 
+/**
+ * Lấy nghiệp vụ `getPaymentByTransactionRef` (get payment by transaction ref). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getPaymentByTransactionRef
+ * @param {*} transactionRef - Giá trị `transactionRef` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPaymentByTransactionRef = async (transactionRef) => {
     const [rows] = await db.query(
         `SELECT
@@ -265,6 +361,13 @@ const getPaymentByTransactionRef = async (transactionRef) => {
     return rows[0] || null;
 };
 
+/**
+ * Thực hiện nghiệp vụ `markPaymentResult` (mark payment result). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function markPaymentResult
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markPaymentResult = async ({
     bankCode,
     payDate,

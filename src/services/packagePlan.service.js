@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền packagePlan.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/packagePlan.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `packagePlanSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/packagePlan.service.js.
+ */
 const packagePlanSelect = `
     SELECT
         id,
@@ -21,6 +35,13 @@ const packagePlanSelect = `
     FROM package_plans
 `;
 
+/**
+ * Tạo nghiệp vụ `createPackagePlan` (create package plan). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createPackagePlan
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createPackagePlan = async ({
     buildingId,
     description,
@@ -48,6 +69,13 @@ const createPackagePlan = async ({
     return getPackagePlanById(result.insertId);
 };
 
+/**
+ * Lấy nghiệp vụ `getPackagePlans` (get package plans). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getPackagePlans
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPackagePlans = async ({ buildingId, status, vehicleType } = {}) => {
     const conditions = [];
     const params = [];
@@ -80,6 +108,13 @@ const getPackagePlans = async ({ buildingId, status, vehicleType } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getPackagePlanById` (get package plan by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getPackagePlanById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPackagePlanById = async (id) => {
     const [rows] = await db.query(
         `${packagePlanSelect}
@@ -91,6 +126,13 @@ const getPackagePlanById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Cập nhật nghiệp vụ `updatePackagePlan` (update package plan). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updatePackagePlan
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updatePackagePlan = async ({
     buildingId,
     description,
@@ -128,6 +170,13 @@ const updatePackagePlan = async ({
     return getPackagePlanById(id);
 };
 
+/**
+ * Thực hiện nghiệp vụ `deactivatePackagePlan` (deactivate package plan). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function deactivatePackagePlan
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deactivatePackagePlan = async (id) => {
     const [result] = await db.query(
         `UPDATE package_plans
@@ -140,6 +189,13 @@ const deactivatePackagePlan = async (id) => {
     return result.affectedRows > 0;
 };
 
+/**
+ * Lấy nghiệp vụ `getVehicleForPackagePurchase` (get vehicle for package purchase). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getVehicleForPackagePurchase
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getVehicleForPackagePurchase = async ({ userId, vehicleId }) => {
     const [rows] = await db.query(
         `SELECT
@@ -158,6 +214,13 @@ const getVehicleForPackagePurchase = async ({ userId, vehicleId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Tạo nghiệp vụ `createMotorbikePackagePurchase` (create motorbike package purchase). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createMotorbikePackagePurchase
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createMotorbikePackagePurchase = async ({
     buildingId,
     endDate,

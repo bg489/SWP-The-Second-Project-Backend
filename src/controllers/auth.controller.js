@@ -1,15 +1,60 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của auth.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `bcrypt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const bcrypt = require("bcryptjs");
+/**
+ * Khai báo `crypto` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const crypto = require("crypto");
+/**
+ * Khai báo `jwt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const jwt = require("jsonwebtoken");
 const { successResponse, errorResponse } = require("../utils/response");
+/**
+ * Khai báo `emailService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const emailService = require("../services/email.service");
+/**
+ * Khai báo `googleIdentityService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const googleIdentityService = require("../services/googleIdentity.service");
+/**
+ * Khai báo `passwordResetService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const passwordResetService = require("../services/passwordReset.service");
+/**
+ * Khai báo `registrationVerificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const registrationVerificationService = require("../services/registrationVerification.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/auth.controller.js.
+ */
 const userService = require("../services/user.service");
 const { isValidVietnamPhone, normalizeOptionalPhone } = require("../utils/phone");
 const { USER_STATUSES, normalizeRole } = require("../utils/constants");
 
+/**
+ * Thực hiện nghiệp vụ `generateToken` (generate token). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function generateToken
+ * @param {*} user - Giá trị `user` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const generateToken = (user) =>
     jwt.sign(
         {
@@ -23,13 +68,34 @@ const generateToken = (user) =>
         }
     );
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeEmail` (normalize email). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeEmail
+ * @param {*} email - Giá trị `email` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (value) => {
     const id = Number(value);
     return Number.isInteger(id) && id > 0;
 };
 
+/**
+ * Gửi nghiệp vụ `sendRegistrationVerificationEmail` (send registration verification email). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function sendRegistrationVerificationEmail
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const sendRegistrationVerificationEmail = async ({ user, verification }) => {
     const html = emailService.buildParkingMail({
         actionLabel: "Xác minh tài khoản",
@@ -46,6 +112,13 @@ const sendRegistrationVerificationEmail = async ({ user, verification }) => {
     });
 };
 
+/**
+ * Tạo nghiệp vụ `buildAuthPayload` (build auth payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function buildAuthPayload
+ * @param {*} user - Giá trị `user` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const buildAuthPayload = async (user) => {
     const currentUser = user.buildingId !== undefined
         ? user
@@ -60,6 +133,14 @@ const buildAuthPayload = async (user) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `register` (register). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function register
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const register = async (req, res) => {
     try {
         const { name, email, phone, password, buildingId } = req.body;
@@ -164,6 +245,14 @@ const register = async (req, res) => {
     }
 };
 
+/**
+ * Kiểm tra nghiệp vụ `verifyRegistration` (verify registration). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function verifyRegistration
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const verifyRegistration = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
@@ -214,6 +303,14 @@ const verifyRegistration = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `resendRegistrationOtp` (resend registration otp). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function resendRegistrationOtp
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const resendRegistrationOtp = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
@@ -266,6 +363,14 @@ const resendRegistrationOtp = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `login` (login). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function login
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const login = async (req, res) => {
     try {
         const emailOrPhone = String(req.body.emailOrPhone || "").trim();
@@ -332,6 +437,14 @@ const login = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `googleLogin` (google login). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function googleLogin
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const googleLogin = async (req, res) => {
     try {
         const googleProfile = await googleIdentityService.verifyCredential(
@@ -409,6 +522,14 @@ const googleLogin = async (req, res) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `completeGoogleOnboarding` (complete google onboarding). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function completeGoogleOnboarding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const completeGoogleOnboarding = async (req, res) => {
     try {
         if (!isValidId(req.body.buildingId)) {
@@ -449,6 +570,14 @@ const completeGoogleOnboarding = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `requestPasswordReset` (request password reset). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function requestPasswordReset
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const requestPasswordReset = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
@@ -500,6 +629,14 @@ const requestPasswordReset = async (req, res) => {
     }
 };
 
+/**
+ * Kiểm tra nghiệp vụ `verifyPasswordReset` (verify password reset). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function verifyPasswordReset
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const verifyPasswordReset = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
@@ -542,6 +679,14 @@ const verifyPasswordReset = async (req, res) => {
     }
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `resetPassword` (reset password). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function resetPassword
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const resetPassword = async (req, res) => {
     try {
         const email = normalizeEmail(req.body.email);
@@ -604,6 +749,14 @@ const resetPassword = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `refresh` (refresh). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function refresh
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const refresh = async (req, res) => {
     try {
         const user = await userService.getUserById(req.user.id);
@@ -629,6 +782,14 @@ const refresh = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getCurrentUser` (get current user). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getCurrentUser
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCurrentUser = async (req, res) => {
     try {
         const user = await userService.getUserById(req.user.id);

@@ -1,6 +1,24 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền qrPass.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `crypto` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/qrPass.service.js.
+ */
 const crypto = require("crypto");
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/qrPass.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `qrPassSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/qrPass.service.js.
+ */
 const qrPassSelect = `
     SELECT
         qp.id,
@@ -61,16 +79,37 @@ const qrPassSelect = `
     LEFT JOIN buildings b ON COALESCE(mp.building_id, sr.building_id) = b.id
 `;
 
+/**
+ * Thực hiện nghiệp vụ `generateQrCode` (generate qr code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function generateQrCode
+ * @param {*} prefix - Giá trị `prefix` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const generateQrCode = (prefix = "QR") => {
     return `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizePlateCode` (normalize plate code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizePlateCode
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizePlateCode = (value) =>
     String(value || "")
         .trim()
         .toUpperCase()
         .replace(/[\s.-]/g, "");
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPassForQr` (get monthly pass for qr). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMonthlyPassForQr
+ * @param {*} monthlyPassId - Giá trị `monthlyPassId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPassForQr = async (monthlyPassId) => {
     const [rows] = await db.query(
         `SELECT
@@ -93,6 +132,13 @@ const getMonthlyPassForQr = async (monthlyPassId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotRegistrationForQr` (get slot registration for qr). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getSlotRegistrationForQr
+ * @param {*} slotRegistrationId - Giá trị `slotRegistrationId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotRegistrationForQr = async (slotRegistrationId) => {
     const [rows] = await db.query(
         `SELECT
@@ -115,6 +161,13 @@ const getSlotRegistrationForQr = async (slotRegistrationId) => {
     return rows[0] || null;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatDateOnly` (format date only). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function formatDateOnly
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatDateOnly = (date) => {
     if (date instanceof Date) {
         return date.toISOString().slice(0, 10);
@@ -123,11 +176,26 @@ const formatDateOnly = (date) => {
     return String(date).slice(0, 10);
 };
 
+/**
+ * Tạo nghiệp vụ `buildValidDateTime` (build valid date time). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildValidDateTime
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} endOfDay - Giá trị `endOfDay` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildValidDateTime = (date, endOfDay = false) => {
     const suffix = endOfDay ? " 23:59:59" : " 00:00:00";
     return `${formatDateOnly(date)}${suffix}`;
 };
 
+/**
+ * Tạo nghiệp vụ `createQrPassForMonthlyPass` (create qr pass for monthly pass). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createQrPassForMonthlyPass
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createQrPassForMonthlyPass = async ({ createdBy, monthlyPassId, note }) => {
     const monthlyPass = await getMonthlyPassForQr(monthlyPassId);
 
@@ -188,6 +256,13 @@ const createQrPassForMonthlyPass = async ({ createdBy, monthlyPassId, note }) =>
     return getQrPassByMonthlyPassId(monthlyPassId);
 };
 
+/**
+ * Tạo nghiệp vụ `createQrPassForSlotRegistration` (create qr pass for slot registration). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createQrPassForSlotRegistration
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createQrPassForSlotRegistration = async ({
     createdBy,
     note,
@@ -252,6 +327,13 @@ const createQrPassForSlotRegistration = async ({
     return getQrPassBySlotRegistrationId(slotRegistrationId);
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassByMonthlyPassId` (get qr pass by monthly pass id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getQrPassByMonthlyPassId
+ * @param {*} monthlyPassId - Giá trị `monthlyPassId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassByMonthlyPassId = async (monthlyPassId) => {
     const [rows] = await db.query(
         `${qrPassSelect}
@@ -263,6 +345,13 @@ const getQrPassByMonthlyPassId = async (monthlyPassId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassBySlotRegistrationId` (get qr pass by slot registration id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getQrPassBySlotRegistrationId
+ * @param {*} slotRegistrationId - Giá trị `slotRegistrationId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassBySlotRegistrationId = async (slotRegistrationId) => {
     const [rows] = await db.query(
         `${qrPassSelect}
@@ -274,6 +363,13 @@ const getQrPassBySlotRegistrationId = async (slotRegistrationId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassById` (get qr pass by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getQrPassById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassById = async (id) => {
     const [rows] = await db.query(
         `${qrPassSelect}
@@ -285,6 +381,13 @@ const getQrPassById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPasses` (get qr passes). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getQrPasses
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPasses = async ({
     buildingId,
     passType,
@@ -333,6 +436,13 @@ const getQrPasses = async ({
     return rows;
 };
 
+/**
+ * Thực hiện nghiệp vụ `ensureQrPassesForUser` (ensure qr passes for user). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function ensureQrPassesForUser
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const ensureQrPassesForUser = async (userId) => {
     const [monthlyRows] = await db.query(
         `SELECT mp.id
@@ -375,6 +485,13 @@ const ensureQrPassesForUser = async (userId) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `ensureQrPassesForManagement` (ensure qr passes for management). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function ensureQrPassesForManagement
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const ensureQrPassesForManagement = async ({ buildingId, createdBy } = {}) => {
     const monthlyParams = [];
     const monthlyBuildingFilter = buildingId ? "AND mp.building_id = ?" : "";
@@ -431,6 +548,13 @@ const ensureQrPassesForManagement = async ({ buildingId, createdBy } = {}) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassByCode` (get qr pass by code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getQrPassByCode
+ * @param {*} qrCode - Giá trị `qrCode` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassByCode = async (qrCode) => {
     const rawCode = String(qrCode || "").trim();
 
@@ -465,6 +589,14 @@ const getQrPassByCode = async (qrCode) => {
     return plateRows[0] || null;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validateQrPass` (validate qr pass). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function validateQrPass
+ * @param {*} qrCode - Giá trị `qrCode` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} options2 - Giá trị `options2` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const validateQrPass = async (qrCode, { buildingId } = {}) => {
     const qrPass = await getQrPassByCode(qrCode);
 
@@ -554,6 +686,13 @@ const validateQrPass = async (qrCode, { buildingId } = {}) => {
     };
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateQrPassStatus` (update qr pass status). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateQrPassStatus
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateQrPassStatus = async ({ id, note, status }) => {
     await db.query(
         `UPDATE qr_passes

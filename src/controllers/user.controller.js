@@ -1,7 +1,33 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của user.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `authController` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/user.controller.js.
+ */
 const authController = require("./auth.controller");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/user.controller.js.
+ */
 const userService = require("../services/user.service");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/user.controller.js.
+ */
 const notificationService = require("../services/notification.service");
+/**
+ * Khai báo `emailService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/user.controller.js.
+ */
 const emailService = require("../services/email.service");
+/**
+ * Khai báo `profileUpdateService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/user.controller.js.
+ */
 const profileUpdateService = require("../services/profileUpdate.service");
 const { ROLES, AUTHENTICATED_ROLES } = require("../constants/roles");
 const { USER_STATUSES } = require("../utils/constants");
@@ -11,6 +37,10 @@ const {
 } = require("../utils/phone");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Khai báo `BUSINESS_ROLES` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/user.controller.js.
+ */
 const BUSINESS_ROLES = [
     {
         role: ROLES.ADMIN,
@@ -39,12 +69,26 @@ const BUSINESS_ROLES = [
     },
 ];
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
 
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isValidAvatarUrl` (is valid avatar url). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidAvatarUrl
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidAvatarUrl = (value) => {
     if (!value) return true;
     if (value.length > 1024) return false;
@@ -57,6 +101,13 @@ const isValidAvatarUrl = (value) => {
     }
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseCropNumber` (parse crop number). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parseCropNumber
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseCropNumber = ({ fallback, max, min, value }) => {
     if (value === undefined || value === null || value === "") {
         return fallback;
@@ -71,6 +122,14 @@ const parseCropNumber = ({ fallback, max, min, value }) => {
     return Math.min(max, Math.max(min, parsed));
 };
 
+/**
+ * Tạo nghiệp vụ `buildProfilePayload` (build profile payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function buildProfilePayload
+ * @param {*} body - Giá trị `body` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} currentUser - Giá trị `currentUser` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildProfilePayload = (body, currentUser) => {
     const name =
         typeof body.name === "string"
@@ -120,6 +179,7 @@ const buildProfilePayload = (body, currentUser) => {
         throw error;
     }
 
+    /* Callback nội bộ của lời gọi `some`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     if ([avatarCropX, avatarCropY, avatarCropZoom].some((value) => value === null)) {
         const error = new Error("Thông số cắt ảnh đại diện không hợp lệ");
         error.statusCode = 400;
@@ -136,6 +196,14 @@ const buildProfilePayload = (body, currentUser) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getAvailableRoles` (get available roles). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getAvailableRoles
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAvailableRoles = async (req, res) => {
     return successResponse(res, "Lay danh sach vai tro thanh cong", {
         accountRoles: AUTHENTICATED_ROLES,
@@ -143,6 +211,14 @@ const getAvailableRoles = async (req, res) => {
     });
 };
 
+/**
+ * Lấy nghiệp vụ `getAllUsers` (get all users). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getAllUsers
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAllUsers = async (req, res) => {
     try {
         const users = await userService.getAllUsers();
@@ -153,6 +229,14 @@ const getAllUsers = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getUserById` (get user by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getUserById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -173,6 +257,14 @@ const getUserById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateMyAvatar` (update my avatar). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateMyAvatar
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateMyAvatar = async (req, res) => {
     try {
         const avatarUrl =
@@ -197,6 +289,14 @@ const updateMyAvatar = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateMyProfile` (update my profile). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateMyProfile
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateMyProfile = async (req, res) => {
     try {
         const currentUser = await userService.getUserById(req.user.id);
@@ -223,6 +323,14 @@ const updateMyProfile = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `requestMyProfileUpdate` (request my profile update). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function requestMyProfileUpdate
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const requestMyProfileUpdate = async (req, res) => {
     try {
         const currentUser = await userService.getUserById(req.user.id);
@@ -262,6 +370,14 @@ const requestMyProfileUpdate = async (req, res) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `confirmMyProfileUpdate` (confirm my profile update). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function confirmMyProfileUpdate
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const confirmMyProfileUpdate = async (req, res) => {
     try {
         const requestId = Number(req.body.requestId);
@@ -298,6 +414,14 @@ const confirmMyProfileUpdate = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffCandidatesForMyBuilding` (get staff candidates for my building). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getStaffCandidatesForMyBuilding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffCandidatesForMyBuilding = async (req, res) => {
     try {
         const manager = await userService.getUserById(req.user.id);
@@ -324,6 +448,14 @@ const getStaffCandidatesForMyBuilding = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `assignStaffToMyBuilding` (assign staff to my building). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function assignStaffToMyBuilding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const assignStaffToMyBuilding = async (req, res) => {
     try {
         const { id } = req.params;

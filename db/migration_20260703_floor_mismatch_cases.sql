@@ -1,5 +1,10 @@
+-- Tổng quan tệp: Nâng cấp có kiểm soát dữ liệu hoặc cấu trúc đã tồn tại cho phiên bản ghi trong tên tệp.
+-- Luồng thực thi: chọn cơ sở dữ liệu -> kiểm tra trạng thái hiện tại -> áp dụng từng thay đổi theo thứ tự.
+
+-- Giải thích: Chọn cơ sở dữ liệu đích trước khi tạo hoặc nâng cấp cấu trúc.
 USE apartment_parking_db;
 
+-- Giải thích: Tạo bảng floor_mismatch_cases cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS floor_mismatch_cases (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NOT NULL,
@@ -54,4 +59,5 @@ CREATE TABLE IF NOT EXISTS floor_mismatch_cases (
         ON DELETE RESTRICT
 );
 
+-- Giải thích: Nâng cấp cấu trúc hoặc ràng buộc của bảng floor_mismatch_cases.
 ALTER TABLE floor_mismatch_cases MODIFY evidence_url MEDIUMTEXT NULL;

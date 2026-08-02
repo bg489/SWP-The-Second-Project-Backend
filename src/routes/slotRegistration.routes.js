@@ -1,7 +1,29 @@
+/**
+ * @fileoverview Khai báo endpoint, middleware bảo vệ và tài liệu Swagger cho nhóm API slotRegistration.routes.
+ *
+ * Luồng chính: HTTP request -> middleware xác thực/phân quyền -> controller phù hợp.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `express` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/slotRegistration.routes.js.
+ */
 const express = require("express");
+/**
+ * Khai báo `router` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/routes/slotRegistration.routes.js.
+ */
 const router = express.Router();
 
+/**
+ * Khai báo `slotRegistrationController` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/slotRegistration.routes.js.
+ */
 const slotRegistrationController = require("../controllers/slotRegistration.controller");
+/**
+ * Khai báo `authMiddleware` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/slotRegistration.routes.js.
+ */
 const authMiddleware = require("../middlewares/auth.middleware");
 const { requireRoles } = require("../middlewares/role.middleware");
 const { ROLES } = require("../constants/roles");

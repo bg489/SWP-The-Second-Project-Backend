@@ -1,11 +1,45 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của payment.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `slotRegistrationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/payment.controller.js.
+ */
 const slotRegistrationService = require("../services/slotRegistration.service");
+/**
+ * Khai báo `parkingSessionService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/payment.controller.js.
+ */
 const parkingSessionService = require("../services/parkingSession.service");
+/**
+ * Khai báo `monthlyPassService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/payment.controller.js.
+ */
 const monthlyPassService = require("../services/monthlyPass.service");
+/**
+ * Khai báo `hourlySlotReservationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/payment.controller.js.
+ */
 const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
+/**
+ * Khai báo `smsService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/payment.controller.js.
+ */
 const smsService = require("../services/sms.service");
 const { verifyReturnParams } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Tạo nghiệp vụ `buildPaymentResult` (build payment result). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function buildPaymentResult
+ * @param {*} query - Giá trị `query` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} secureHash - Giá trị `secureHash` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildPaymentResult = (query, secureHash) => {
     const responseCode = query.vnp_ResponseCode;
     const transactionStatus = query.vnp_TransactionStatus;
@@ -25,15 +59,39 @@ const buildPaymentResult = (query, secureHash) => {
     };
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isAmountMatched` (is amount matched). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isAmountMatched
+ * @param {*} payment - Giá trị `payment` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} queryAmount - Giá trị `queryAmount` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isAmountMatched = (payment, queryAmount) => {
     return Number(queryAmount) === Math.round(Number(payment.amount) * 100);
 };
 
+/**
+ * Thực hiện nghiệp vụ `appendQuery` (append query). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function appendQuery
+ * @param {*} url - Giá trị `url` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} params - Giá trị `params` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const appendQuery = (url, params) => {
     const separator = url.includes("?") ? "&" : "?";
     return `${url}${separator}${new URLSearchParams(params).toString()}`;
 };
 
+/**
+ * Tạo nghiệp vụ `buildFrontendRouteUrl` (build frontend route url). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function buildFrontendRouteUrl
+ * @param {*} targetPath - Giá trị `targetPath` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} exactUrl - Giá trị `exactUrl` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildFrontendRouteUrl = (targetPath, exactUrl) => {
     const configuredUrl =
         exactUrl ||
@@ -57,6 +115,13 @@ const buildFrontendRouteUrl = (targetPath, exactUrl) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getFrontendPaymentReturnUrl` (get frontend payment return url). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function getFrontendPaymentReturnUrl
+ * @param {*} result - Giá trị `result` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getFrontendPaymentReturnUrl = (result) => {
     const payment = result.data?.payment || {};
     const hourlyReservation = result.data?.hourlyReservation;
@@ -92,6 +157,14 @@ const getFrontendPaymentReturnUrl = (result) => {
     });
 };
 
+/**
+ * Xử lý nghiệp vụ `handleVerifiedVnpayResult` (handle verified vnpay result). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function handleVerifiedVnpayResult
+ * @param {*} query - Giá trị `query` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} secureHash - Giá trị `secureHash` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const handleVerifiedVnpayResult = async (query, secureHash) => {
     const paymentResult = buildPaymentResult(query, secureHash);
     const payment = await slotRegistrationService.getPaymentByTransactionRef(
@@ -230,6 +303,14 @@ const handleVerifiedVnpayResult = async (query, secureHash) => {
     };
 };
 
+/**
+ * Xử lý nghiệp vụ `handleVnpayReturn` (handle vnpay return). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function handleVnpayReturn
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const handleVnpayReturn = async (req, res) => {
     try {
         const { isValid, secureHash } = verifyReturnParams(req.query);
@@ -264,6 +345,14 @@ const handleVnpayReturn = async (req, res) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `handleVnpayIpn` (handle vnpay ipn). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function handleVnpayIpn
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const handleVnpayIpn = async (req, res) => {
     try {
         const { isValid, secureHash } = verifyReturnParams(req.query);
