@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của adminUser.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `bcrypt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/adminUser.controller.js.
+ */
 const bcrypt = require("bcryptjs");
 
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/adminUser.controller.js.
+ */
 const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -10,8 +24,19 @@ const {
 } = require("../utils/constants");
 const { isValidVietnamPhone, normalizeOptionalPhone } = require("../utils/phone");
 
+/**
+ * Khai báo `EMAIL_REGEX` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/adminUser.controller.js.
+ */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Kiểm tra nghiệp vụ `isValidPortrait` (is valid portrait). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidPortrait
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidPortrait = (value) => {
     if (typeof value !== "string" || value.length < 50 || value.length > 1_200_000) {
         return false;
@@ -21,6 +46,14 @@ const isValidPortrait = (value) => {
         || /^https:\/\//i.test(value);
 };
 
+/**
+ * Tạo nghiệp vụ `createUser` (create user). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createUser
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createUser = async (req, res) => {
     try {
         const {
@@ -96,6 +129,14 @@ const createUser = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getUsers` (get users). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getUsers
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getUsers = async (req, res) => {
     try {
         const role = req.query.role ? normalizeEnum(req.query.role) : undefined;
@@ -127,6 +168,14 @@ const getUsers = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getUserById` (get user by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getUserById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getUserById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -153,6 +202,14 @@ const getUserById = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `lockUser` (lock user). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function lockUser
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const lockUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -182,6 +239,14 @@ const lockUser = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `unlockUser` (unlock user). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function unlockUser
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const unlockUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -207,6 +272,14 @@ const unlockUser = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateUserBuilding` (update user building). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateUserBuilding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateUserBuilding = async (req, res) => {
     try {
         const { id } = req.params;

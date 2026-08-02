@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của staffRoleRequest.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `bcrypt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/staffRoleRequest.controller.js.
+ */
 const bcrypt = require("bcryptjs");
 
+/**
+ * Khai báo `staffRoleRequestService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/staffRoleRequest.controller.js.
+ */
 const staffRoleRequestService = require("../services/staffRoleRequest.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -9,13 +23,31 @@ const {
 } = require("../utils/constants");
 const { isValidVietnamPhone, normalizeOptionalPhone } = require("../utils/phone");
 
+/**
+ * Khai báo `EMAIL_REGEX` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/staffRoleRequest.controller.js.
+ */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (value) => {
     const id = Number(value);
     return Number.isInteger(id) && id > 0;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isValidPortrait` (is valid portrait). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidPortrait
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidPortrait = (value) => {
     if (typeof value !== "string" || value.length < 50 || value.length > 1_200_000) {
         return false;
@@ -25,6 +57,14 @@ const isValidPortrait = (value) => {
         || /^https:\/\//i.test(value);
 };
 
+/**
+ * Lấy nghiệp vụ `getMyRequests` (get my requests). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyRequests
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyRequests = async (req, res) => {
     try {
         const buildingId = req.query.buildingId
@@ -49,6 +89,14 @@ const getMyRequests = async (req, res) => {
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createRequest` (create request). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createRequest
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createRequest = async (req, res) => {
     try {
         const {
@@ -120,6 +168,14 @@ const createRequest = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getRequests` (get requests). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getRequests
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRequests = async (req, res) => {
     try {
         const status = req.query.status
@@ -141,6 +197,14 @@ const getRequests = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `approveRequest` (approve request). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function approveRequest
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const approveRequest = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -163,6 +227,14 @@ const approveRequest = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffProfiles` (get staff profiles). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getStaffProfiles
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffProfiles = async (req, res) => {
     try {
         const buildingId = Number(req.query.buildingId);
@@ -187,6 +259,14 @@ const getStaffProfiles = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getStaffProfile` (get staff profile). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getStaffProfile
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getStaffProfile = async (req, res) => {
     try {
         if (!isValidId(req.params.userId)) {
@@ -211,6 +291,14 @@ const getStaffProfile = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyStaffProfile` (get my staff profile). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyStaffProfile
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyStaffProfile = async (req, res) => {
     try {
         const profile = await staffRoleRequestService.getStaffProfileByUserId({
@@ -231,6 +319,14 @@ const getMyStaffProfile = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `rejectRequest` (reject request). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function rejectRequest
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const rejectRequest = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

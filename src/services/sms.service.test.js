@@ -1,4 +1,18 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền sms.service.test.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `assert` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/sms.service.test.js.
+ */
 const assert = require("node:assert/strict");
+/**
+ * Khai báo `test` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/sms.service.test.js.
+ */
 const test = require("node:test");
 
 const {
@@ -9,6 +23,7 @@ const {
     WRONG_SLOT_VICTIM_UPDATE_TYPES,
 } = require("./sms.service");
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("uses customer-care type for an approved Brandname", () => {
     assert.equal(
         resolveEsmsSmsType({
@@ -26,6 +41,7 @@ test("uses customer-care type for an approved Brandname", () => {
     );
 });
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("distinguishes pending, delivered, and rejected carrier results", () => {
     assert.deepEqual(
         resolveEsmsDeliveryResult({
@@ -59,6 +75,7 @@ test("distinguishes pending, delivered, and rejected carrier results", () => {
     );
 });
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("identifies the victim with the occupied slot and occupying vehicle", () => {
     const content = resolveApprovedSmsContent({
         relatedType: "WRONG_SLOT_CASE",
@@ -76,6 +93,7 @@ test("identifies the victim with the occupied slot and occupying vehicle", () =>
     );
 });
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("identifies the occupier with both vehicles and the occupied slot", () => {
     const content = resolveApprovedSmsContent({
         relatedType: "WRONG_SLOT_CASE",
@@ -93,6 +111,7 @@ test("identifies the occupier with both vehicles and the occupied slot", () => {
     );
 });
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("uses the approved generic template for other wrong-slot updates", () => {
     assert.equal(
         resolveApprovedSmsContent({
@@ -103,6 +122,7 @@ test("uses the approved generic template for other wrong-slot updates", () => {
     );
 });
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("uses approved templates for every victim slot transition", () => {
     const cases = [
         {
@@ -144,6 +164,7 @@ test("uses approved templates for every victim slot transition", () => {
     }
 });
 
+/* Callback nội bộ của lời gọi `test`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
 test("keeps approved reservation payment content unchanged", () => {
     const content =
         "Baotrixemay da nhan duoc so tien thanh toan 120000 VND luc 30/07/2026 20:30 cho don hang SPB3302R42. Cam on quy khach!";

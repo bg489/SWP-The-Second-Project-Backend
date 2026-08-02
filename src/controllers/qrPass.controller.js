@@ -1,4 +1,18 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của qrPass.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `qrPassService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/qrPass.controller.js.
+ */
 const qrPassService = require("../services/qrPass.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/qrPass.controller.js.
+ */
 const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -10,16 +24,38 @@ const {
     normalizeRole,
 } = require("../utils/constants");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `hasElevatedRole` (has elevated role). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function hasElevatedRole
+ * @param {*} role - Giá trị `role` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const hasElevatedRole = (role) => {
     const normalizedRole = normalizeRole(role);
     return [ROLES.ADMIN, ROLES.MANAGER, ROLES.STAFF].includes(normalizedRole);
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPasses` (get qr passes). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getQrPasses
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPasses = async (req, res) => {
     try {
         const passType = req.query.passType ? normalizeEnum(req.query.passType) : undefined;
@@ -46,6 +82,14 @@ const getQrPasses = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyQrPasses` (get my qr passes). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyQrPasses
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyQrPasses = async (req, res) => {
     try {
         await qrPassService.ensureQrPassesForUser(req.user.id);
@@ -57,6 +101,7 @@ const getMyQrPasses = async (req, res) => {
         const currentBuildingId = currentUser?.buildingId;
         const visibleQrPasses = currentBuildingId
             ? qrPasses.filter(
+                  /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
                   (qrPass) =>
                       !qrPass.buildingId ||
                       Number(qrPass.buildingId) === Number(currentBuildingId)
@@ -69,6 +114,14 @@ const getMyQrPasses = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassById` (get qr pass by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getQrPassById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassById = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -91,6 +144,14 @@ const getQrPassById = async (req, res) => {
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createQrPassForMonthlyPass` (create qr pass for monthly pass). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createQrPassForMonthlyPass
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createQrPassForMonthlyPass = async (req, res) => {
     try {
         if (!isValidId(req.params.monthlyPassId)) {
@@ -126,6 +187,14 @@ const createQrPassForMonthlyPass = async (req, res) => {
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createQrPassForSlotRegistration` (create qr pass for slot registration). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createQrPassForSlotRegistration
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createQrPassForSlotRegistration = async (req, res) => {
     try {
         if (!isValidId(req.params.slotRegistrationId)) {
@@ -161,6 +230,14 @@ const createQrPassForSlotRegistration = async (req, res) => {
     }
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validateQrPass` (validate qr pass). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function validateQrPass
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const validateQrPass = async (req, res) => {
     try {
         const qrCode =
@@ -184,6 +261,14 @@ const validateQrPass = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateQrPassStatus` (update qr pass status). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateQrPassStatus
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateQrPassStatus = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -221,6 +306,15 @@ const updateQrPassStatus = async (req, res) => {
     }
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validateFilters` (validate filters). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function validateFilters
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @param {*} next - Hàm chuyển quyền xử lý sang middleware kế tiếp.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const validateFilters = (req, res, next) => {
     const passType = req.query.passType ? normalizeEnum(req.query.passType) : undefined;
     const status = req.query.status ? normalizeEnum(req.query.status) : undefined;

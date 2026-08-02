@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của floor.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `floorService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/floor.controller.js.
+ */
 const floorService = require("../services/floor.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -9,6 +19,13 @@ const {
     isValidEnumValue,
 } = require("../utils/constants");
 
+/**
+ * Thực hiện nghiệp vụ `toPositiveInteger` (to positive integer). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function toPositiveInteger
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const toPositiveInteger = (value) => {
     if (value === null || value === undefined || value === "") {
         return null;
@@ -23,14 +40,23 @@ const toPositiveInteger = (value) => {
     return number;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeSlots` (normalize slots). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeSlots
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeSlots = ({ slots, slotList }) => {
     if (Array.isArray(slots)) {
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         return slots.map((slot) => String(slot).trim().toUpperCase()).filter(Boolean);
     }
 
     if (typeof slotList === "string") {
         return slotList
             .split(",")
+            /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             .map((slot) => slot.trim().toUpperCase())
             .filter(Boolean);
     }
@@ -38,6 +64,13 @@ const normalizeSlots = ({ slots, slotList }) => {
     return [];
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeSlotPrefix` (normalize slot prefix). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeSlotPrefix
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeSlotPrefix = (value) => {
     const normalized = String(value || "")
         .trim()
@@ -50,13 +83,30 @@ const normalizeSlotPrefix = (value) => {
     return normalized || "CAR";
 };
 
+/**
+ * Thực hiện nghiệp vụ `generateCarSlots` (generate car slots). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function generateCarSlots
+ * @param {*} prefix - Giá trị `prefix` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} slotCount - Giá trị `slotCount` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const generateCarSlots = (prefix, slotCount) => {
+    /* Callback nội bộ của lời gọi `from`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     return Array.from({ length: slotCount }, (_, index) => {
         const slotNumber = String(index + 1).padStart(2, "0");
         return `${prefix}-${slotNumber}`;
     });
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validateFloorPayload` (validate floor payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function validateFloorPayload
+ * @param {*} body - Giá trị `body` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const validateFloorPayload = (body, options = {}) => {
     const buildingId = toPositiveInteger(options.buildingId || body.buildingId || body.building_id);
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -151,6 +201,14 @@ const validateFloorPayload = (body, options = {}) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createFloor` (create floor). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createFloor
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createFloor = async (req, res) => {
     try {
         const validation = validateFloorPayload(req.body, {
@@ -188,6 +246,14 @@ const createFloor = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getFloors` (get floors). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getFloors
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloors = async (req, res) => {
     try {
         const currentRole = normalizeRole(req.user?.role);
@@ -243,6 +309,14 @@ const getFloors = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getFloorsByBuildingId` (get floors by building id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getFloorsByBuildingId
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloorsByBuildingId = async (req, res) => {
     try {
         const buildingId = toPositiveInteger(req.params.buildingId);
@@ -265,6 +339,14 @@ const getFloorsByBuildingId = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getFloorById` (get floor by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getFloorById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloorById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -293,6 +375,14 @@ const getFloorById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateFloor` (update floor). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateFloor
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateFloor = async (req, res) => {
     try {
         const { id } = req.params;
@@ -416,6 +506,14 @@ const updateFloor = async (req, res) => {
     }
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `deleteFloor` (delete floor). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deleteFloor
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deleteFloor = async (req, res) => {
     try {
         const { id } = req.params;

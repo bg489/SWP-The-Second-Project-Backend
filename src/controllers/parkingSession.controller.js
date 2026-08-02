@@ -1,26 +1,90 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của parkingSession.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
 const { PARKING_FEES } = require("../constants/pricing");
+/**
+ * Khai báo `parkingSessionService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const parkingSessionService = require("../services/parkingSession.service");
+/**
+ * Khai báo `plateRecognitionService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const plateRecognitionService = require("../services/plateRecognition.service");
+/**
+ * Khai báo `pricingPolicyService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const pricingPolicyService = require("../services/pricingPolicy.service");
+/**
+ * Khai báo `qrPassService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const qrPassService = require("../services/qrPass.service");
+/**
+ * Khai báo `tempQrCardService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const tempQrCardService = require("../services/tempQrCard.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const userService = require("../services/user.service");
+/**
+ * Khai báo `violationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const violationService = require("../services/violation.service");
+/**
+ * Khai báo `hourlySlotReservationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const hourlySlotReservationService = require("../services/hourlySlotReservation.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 const { ROLES } = require("../utils/constants");
 
+/**
+ * Khai báo `VALID_VEHICLE_TYPES` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const VALID_VEHICLE_TYPES = ["MOTORBIKE", "CAR"];
+/**
+ * Khai báo `VALID_CHECKOUT_PAYMENT_METHODS` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const VALID_CHECKOUT_PAYMENT_METHODS = ["CASH", "VNPAY"];
+/**
+ * Khai báo `VALID_DAILY_ACTIVITY_FILTERS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
+ */
 const VALID_DAILY_ACTIVITY_FILTERS = ["ALL", "CURRENTLY_PARKED", "ENTERED", "EXITED"];
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
 
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeEnum` (normalize enum). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeEnum
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeEnum = (value) => {
     if (!value || typeof value !== "string") {
         return null;
@@ -29,12 +93,25 @@ const normalizeEnum = (value) => {
     return value.trim().toUpperCase();
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizePlateCode` (normalize plate code). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizePlateCode
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizePlateCode = (value) =>
     String(value || "")
         .trim()
         .toUpperCase()
         .replace(/[\s.-]/g, "");
 
+/**
+ * Lấy nghiệp vụ `getVietnamDate` (get vietnam date). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function getVietnamDate
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getVietnamDate = () =>
     new Intl.DateTimeFormat("en-CA", {
         day: "2-digit",
@@ -43,6 +120,13 @@ const getVietnamDate = () =>
         year: "numeric",
     }).format(new Date());
 
+/**
+ * Kiểm tra nghiệp vụ `isValidDateOnly` (is valid date only). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidDateOnly
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidDateOnly = (value) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) {
         return false;
@@ -56,6 +140,13 @@ const isValidDateOnly = (value) => {
         && date.getUTCDate() === day;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseNonNegativeAmount` (parse non negative amount). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parseNonNegativeAmount
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseNonNegativeAmount = (value) => {
     if (value === undefined || value === null || value === "") {
         return 0;
@@ -70,6 +161,13 @@ const parseNonNegativeAmount = (value) => {
     return parsed;
 };
 
+/**
+ * Lấy nghiệp vụ `getPolicyAmount` (get policy amount). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function getPolicyAmount
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPolicyAmount = async ({ buildingId, fallbackAmount, pricingType, vehicleType }) => {
     const policy = await pricingPolicyService.getActivePricingPolicy({
         buildingId,
@@ -80,6 +178,13 @@ const getPolicyAmount = async ({ buildingId, fallbackAmount, pricingType, vehicl
     return policy ? Number(policy.amount) : fallbackAmount;
 };
 
+/**
+ * Tính toán nghiệp vụ `calculateBaseFee` (calculate base fee). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function calculateBaseFee
+ * @param {*} session - Giá trị `session` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const calculateBaseFee = async (session) => {
     if (session.pricingType === "MONTHLY_PASS") {
         return {
@@ -155,6 +260,14 @@ const calculateBaseFee = async (session) => {
     };
 };
 
+/**
+ * Kiểm tra nghiệp vụ `checkIn` (check in). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function checkIn
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const checkIn = async (req, res) => {
     try {
         let vehicleType = normalizeEnum(req.body.vehicleType);
@@ -489,6 +602,14 @@ const checkIn = async (req, res) => {
     }
 };
 
+/**
+ * Kiểm tra nghiệp vụ `checkOut` (check out). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function checkOut
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const checkOut = async (req, res) => {
     try {
         const { id } = req.params;
@@ -672,6 +793,14 @@ const checkOut = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getActiveSessions` (get active sessions). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getActiveSessions
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveSessions = async (req, res) => {
     try {
         const staffUser = await userService.getUserById(req.user.id);
@@ -691,6 +820,14 @@ const getActiveSessions = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getDailyActivity` (get daily activity). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getDailyActivity
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getDailyActivity = async (req, res) => {
     try {
         const date = String(req.query.date || getVietnamDate()).trim();
@@ -742,6 +879,14 @@ const getDailyActivity = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `recognizePlate` (recognize plate). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function recognizePlate
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const recognizePlate = async (req, res) => {
     try {
         if (!req.file?.buffer) {
@@ -779,6 +924,14 @@ const recognizePlate = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyActiveSessions` (get my active sessions). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyActiveSessions
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyActiveSessions = async (req, res) => {
     try {
         const sessions = await parkingSessionService.getActiveSessionsByUserId(
@@ -800,6 +953,14 @@ const getMyActiveSessions = async (req, res) => {
     }
 };
 
+/**
+ * Kiểm tra nghiệp vụ `checkOutByQr` (check out by qr). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function checkOutByQr
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const checkOutByQr = async (req, res) => {
     try {
         const qrCode =
@@ -822,6 +983,14 @@ const checkOutByQr = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getSessionById` (get session by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getSessionById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSessionById = async (req, res) => {
     try {
         const { id } = req.params;

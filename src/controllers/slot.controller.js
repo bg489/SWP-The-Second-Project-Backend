@@ -1,8 +1,26 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của slot.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `floorService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/slot.controller.js.
+ */
 const floorService = require("../services/floor.service");
+/**
+ * Khai báo `slotService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/slot.controller.js.
+ */
 const slotService = require("../services/slot.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const { ROLES, normalizeRole } = require("../utils/constants");
 
+/**
+ * Khai báo `VALID_SLOT_STATUSES` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/controllers/slot.controller.js.
+ */
 const VALID_SLOT_STATUSES = [
     "AVAILABLE",
     "RESERVED",
@@ -12,12 +30,26 @@ const VALID_SLOT_STATUSES = [
     "CONFLICT",
 ];
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
 
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeEnum` (normalize enum). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function normalizeEnum
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeEnum = (value) => {
     if (!value || typeof value !== "string") {
         return null;
@@ -26,6 +58,14 @@ const normalizeEnum = (value) => {
     return value.trim().toUpperCase();
 };
 
+/**
+ * Tạo nghiệp vụ `buildSlotPayload` (build slot payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function buildSlotPayload
+ * @param {*} body - Giá trị `body` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} existingSlot - Giá trị `existingSlot` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildSlotPayload = (body, existingSlot = null) => {
     const slotCode =
         body.slotCode !== undefined
@@ -68,6 +108,13 @@ const buildSlotPayload = (body, existingSlot = null) => {
     };
 };
 
+/**
+ * Thực hiện nghiệp vụ `assertCarFloor` (assert car floor). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function assertCarFloor
+ * @param {*} floorId - Giá trị `floorId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const assertCarFloor = async (floorId) => {
     const floor = await floorService.getFloorById(floorId);
 
@@ -90,6 +137,14 @@ const assertCarFloor = async (floorId) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createSlot` (create slot). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createSlot
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createSlot = async (req, res) => {
     try {
         const { floorId } = req.params;
@@ -132,6 +187,14 @@ const createSlot = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotsByFloorId` (get slots by floor id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getSlotsByFloorId
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotsByFloorId = async (req, res) => {
     try {
         const { floorId } = req.params;
@@ -162,6 +225,14 @@ const getSlotsByFloorId = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotById` (get slot by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getSlotById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -182,6 +253,14 @@ const getSlotById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateSlot` (update slot). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateSlot
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateSlot = async (req, res) => {
     try {
         const { id } = req.params;
@@ -217,6 +296,14 @@ const updateSlot = async (req, res) => {
     }
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `deleteSlot` (delete slot). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deleteSlot
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deleteSlot = async (req, res) => {
     try {
         const { id } = req.params;

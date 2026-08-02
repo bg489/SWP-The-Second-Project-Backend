@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của pricingPolicy.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `pricingPolicyService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/pricingPolicy.controller.js.
+ */
 const pricingPolicyService = require("../services/pricingPolicy.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -8,16 +18,38 @@ const {
     normalizeEnum,
 } = require("../utils/constants");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parsePositiveAmount` (parse positive amount). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parsePositiveAmount
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parsePositiveAmount = (value) => {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validatePayload` (validate payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function validatePayload
+ * @param {*} body - Giá trị `body` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} existing - Giá trị `existing` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const validatePayload = (body, existing = {}) => {
     const buildingId =
         body.buildingId === undefined
@@ -69,6 +101,14 @@ const validatePayload = (body, existing = {}) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createPricingPolicy` (create pricing policy). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createPricingPolicy
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createPricingPolicy = async (req, res) => {
     try {
         const validation = validatePayload(req.body);
@@ -95,6 +135,14 @@ const createPricingPolicy = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getPricingPolicies` (get pricing policies). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getPricingPolicies
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPricingPolicies = async (req, res) => {
     try {
         const vehicleType = req.query.vehicleType
@@ -123,6 +171,14 @@ const getPricingPolicies = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getPricingPolicyById` (get pricing policy by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getPricingPolicyById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPricingPolicyById = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -143,6 +199,14 @@ const getPricingPolicyById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updatePricingPolicy` (update pricing policy). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updatePricingPolicy
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updatePricingPolicy = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -180,6 +244,14 @@ const updatePricingPolicy = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `deactivatePricingPolicy` (deactivate pricing policy). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deactivatePricingPolicy
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deactivatePricingPolicy = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

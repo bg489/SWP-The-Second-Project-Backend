@@ -1,17 +1,49 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của building.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `buildingService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/building.controller.js.
+ */
 const buildingService = require("../services/building.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
 
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseRequiredMoney` (parse required money). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parseRequiredMoney
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseRequiredMoney = (value) => {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+/**
+ * Tạo nghiệp vụ `createBuilding` (create building). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createBuilding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createBuilding = async (req, res) => {
     try {
         const {
@@ -60,6 +92,14 @@ const createBuilding = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getAllBuildings` (get all buildings). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getAllBuildings
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAllBuildings = async (req, res) => {
     try {
         const buildings = await buildingService.getAllBuildings();
@@ -70,6 +110,14 @@ const getAllBuildings = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getBuildingById` (get building by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getBuildingById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBuildingById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -90,6 +138,14 @@ const getBuildingById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateBuilding` (update building). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updateBuilding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateBuilding = async (req, res) => {
     try {
         const { id } = req.params;
@@ -121,6 +177,14 @@ const updateBuilding = async (req, res) => {
     }
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `deleteBuilding` (delete building). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deleteBuilding
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deleteBuilding = async (req, res) => {
     try {
         const { id } = req.params;

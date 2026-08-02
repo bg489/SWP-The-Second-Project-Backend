@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền monthlyPass.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/monthlyPass.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `monthlyPassSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/monthlyPass.service.js.
+ */
 const monthlyPassSelect = `
     SELECT
         mp.id,
@@ -61,6 +75,13 @@ const monthlyPassSelect = `
     LEFT JOIN qr_passes qp ON qp.monthly_pass_id = mp.id
 `;
 
+/**
+ * Lấy nghiệp vụ `getVehicleForMonthlyPass` (get vehicle for monthly pass). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getVehicleForMonthlyPass
+ * @param {*} vehicleId - Giá trị `vehicleId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getVehicleForMonthlyPass = async (vehicleId) => {
     const [rows] = await db.query(
         `SELECT
@@ -78,6 +99,13 @@ const getVehicleForMonthlyPass = async (vehicleId) => {
     return rows[0] || null;
 };
 
+/**
+ * Tạo nghiệp vụ `createMonthlyPass` (create monthly pass). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createMonthlyPass
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createMonthlyPass = async ({
     amount,
     buildingId,
@@ -122,6 +150,13 @@ const createMonthlyPass = async ({
     return getMonthlyPassById(result.insertId);
 };
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPasses` (get monthly passes). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMonthlyPasses
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPasses = async ({ buildingId, status } = {}) => {
     const conditions = [];
     const params = [];
@@ -149,6 +184,13 @@ const getMonthlyPasses = async ({ buildingId, status } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getMyMonthlyPasses` (get my monthly passes). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMyMonthlyPasses
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyMonthlyPasses = async (userId) => {
     const [rows] = await db.query(
         `${monthlyPassSelect}
@@ -160,6 +202,13 @@ const getMyMonthlyPasses = async (userId) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPassById` (get monthly pass by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMonthlyPassById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPassById = async (id) => {
     const [rows] = await db.query(
         `${monthlyPassSelect}
@@ -171,6 +220,13 @@ const getMonthlyPassById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPassByIdAndUserId` (get monthly pass by id and user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMonthlyPassByIdAndUserId
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPassByIdAndUserId = async ({ id, userId }) => {
     const [rows] = await db.query(
         `${monthlyPassSelect}
@@ -182,6 +238,13 @@ const getMonthlyPassByIdAndUserId = async ({ id, userId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateMonthlyPassPaymentUrl` (update monthly pass payment url). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateMonthlyPassPaymentUrl
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateMonthlyPassPaymentUrl = async ({
     paymentId,
     paymentUrl,

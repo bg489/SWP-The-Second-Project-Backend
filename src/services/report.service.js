@@ -1,11 +1,33 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền report.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/report.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `SPECIAL_PARKING_VIOLATION_CODES` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/report.service.js.
+ */
 const SPECIAL_PARKING_VIOLATION_CODES = new Set([
     "WRONG_SLOT",
     "MOTORBIKE_WRONG_FLOOR",
     "CAR_WRONG_FLOOR_TOW",
 ]);
 
+/**
+ * Tạo nghiệp vụ `buildDateRange` (build date range). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildDateRange
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} column - Giá trị `column` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildDateRange = ({ from, to }, column) => {
     const conditions = [];
     const params = [];
@@ -26,6 +48,15 @@ const buildDateRange = ({ from, to }, column) => {
     };
 };
 
+/**
+ * Thực hiện nghiệp vụ `appendCondition` (append condition). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function appendCondition
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} condition - Giá trị `condition` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const appendCondition = ({ whereSql, params }, condition, value) => {
     if (!value) {
         return { whereSql, params };
@@ -39,6 +70,13 @@ const appendCondition = ({ whereSql, params }, condition, value) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getTrafficReport` (get traffic report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getTrafficReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTrafficReport = async ({ from, to, buildingId } = {}) => {
     const { params, whereSql } = buildDateRange({ from, to }, "check_in_at");
     const filters = appendCondition(
@@ -65,6 +103,13 @@ const getTrafficReport = async ({ from, to, buildingId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getMotorbikeCapacityReport` (get motorbike capacity report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMotorbikeCapacityReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMotorbikeCapacityReport = async ({ buildingId } = {}) => {
     const buildingFilter = buildingId ? "AND pf.building_id = ?" : "";
     const params = buildingId ? [buildingId] : [];
@@ -91,6 +136,13 @@ const getMotorbikeCapacityReport = async ({ buildingId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getCarSlotStatusReport` (get car slot status report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCarSlotStatusReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCarSlotStatusReport = async ({ buildingId } = {}) => {
     const buildingFilter = buildingId ? "AND pf.building_id = ?" : "";
     const params = buildingId ? [buildingId] : [];
@@ -117,6 +169,13 @@ const getCarSlotStatusReport = async ({ buildingId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getRevenueReport` (get revenue report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRevenueReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRevenueReport = async ({ from, to, buildingId } = {}) => {
     const { params, whereSql } = buildDateRange({ from, to }, "p.created_at");
     const sessionRange = buildDateRange({ from, to }, "ps.check_out_at");
@@ -258,51 +317,134 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
     );
 
     const successfulPaymentTotal = sourceRows
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .filter((row) => row.status === "SUCCESS")
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
     const pendingPaymentTotal = sourceRows
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .filter((row) => row.status !== "SUCCESS")
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
     const monthlyPassRevenue = sourceRows
         .filter(
+            /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             (row) =>
                 row.status === "SUCCESS" &&
                 ["MONTHLY_PASS", "SLOT_REGISTRATION"].includes(row.sourceType)
         )
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
     const walkInRevenue = sourceRows
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .filter((row) => row.status === "SUCCESS"
             && ["PARKING_SESSION", "HOURLY_RESERVATION"].includes(row.sourceType)
             && row.customerType === "WALK_IN_GUEST")
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row.totalAmount || 0), 0);
     const ticketRevenue = sourceRows.reduce(
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (sum, row) => sum + Number(row.ticketAmount || 0),
         0
     );
     const violationRevenue = sourceRows.reduce(
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (sum, row) => sum + Number(row.violationAmount || 0),
         0
     );
+    /**
+     * Tính toán nghiệp vụ `sumSource` (sum source). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function sumSource
+     * @param {*} predicate - Giá trị `predicate` được hàm sử dụng trong quá trình xử lý.
+     * @param {*} field - Giá trị `field` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const sumSource = (predicate, field = "totalAmount") => sourceRows
         .filter(predicate)
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row[field] || 0), 0);
+    /**
+     * Tính toán nghiệp vụ `countSource` (count source). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function countSource
+     * @param {*} predicate - Giá trị `predicate` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const countSource = (predicate) => sourceRows
         .filter(predicate)
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row.paymentCount || 0), 0);
+    /**
+     * Thực hiện nghiệp vụ `successfulMonthly` (successful monthly). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function successfulMonthly
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const successfulMonthly = (row) => row.status === "SUCCESS"
         && ["MONTHLY_PASS", "SLOT_REGISTRATION"].includes(row.sourceType);
+    /**
+     * Thực hiện nghiệp vụ `motorbikeMonthly` (motorbike monthly). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function motorbikeMonthly
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const motorbikeMonthly = (row) => successfulMonthly(row)
         && row.vehicleType === "MOTORBIKE";
+    /**
+     * Thực hiện nghiệp vụ `carMonthly` (car monthly). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function carMonthly
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const carMonthly = (row) => successfulMonthly(row)
         && row.vehicleType === "CAR";
+    /**
+     * Thực hiện nghiệp vụ `successfulSessionPayment` (successful session payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function successfulSessionPayment
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const successfulSessionPayment = (row) => row.status === "SUCCESS"
         && row.sourceType === "PARKING_SESSION";
+    /**
+     * Thực hiện nghiệp vụ `successfulTicketPayment` (successful ticket payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function successfulTicketPayment
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const successfulTicketPayment = (row) => row.status === "SUCCESS"
         && ["PARKING_SESSION", "HOURLY_RESERVATION"].includes(row.sourceType);
+    /**
+     * Thực hiện nghiệp vụ `motorbikeTickets` (motorbike tickets). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function motorbikeTickets
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const motorbikeTickets = (row) => successfulSessionPayment(row)
         && row.vehicleType === "MOTORBIKE";
+    /**
+     * Thực hiện nghiệp vụ `carTickets` (car tickets). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function carTickets
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const carTickets = (row) => successfulTicketPayment(row)
         && row.vehicleType === "CAR";
+    /**
+     * Thực hiện nghiệp vụ `otherPayments` (other payments). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function otherPayments
+     * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const otherPayments = (row) => row.status === "SUCCESS" && row.sourceType === "OTHER";
     const revenueBreakdown = [
         {
@@ -343,6 +485,7 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
         },
     ];
     const categorizedRevenue = revenueBreakdown.reduce(
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (sum, row) => sum + Number(row.amount || 0),
         0
     );
@@ -364,6 +507,13 @@ const getRevenueReport = async ({ from, to, buildingId } = {}) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassReport` (get qr pass report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getQrPassReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassReport = async ({ buildingId } = {}) => {
     const buildingFilter = buildingId ? "WHERE v.building_id = ?" : "";
     const params = buildingId ? [buildingId] : [];
@@ -400,6 +550,13 @@ const getQrPassReport = async ({ buildingId } = {}) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getViolationReport` (get violation report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getViolationReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getViolationReport = async ({ from, to, buildingId } = {}) => {
     const { params, whereSql } = buildDateRange({ from, to }, "detected_at");
     const filters = appendCondition(
@@ -426,6 +583,13 @@ const getViolationReport = async ({ from, to, buildingId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPassRevenueDetails` (get monthly pass revenue details). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMonthlyPassRevenueDetails
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPassRevenueDetails = async ({ from, to, buildingId } = {}) => {
     const passRange = buildDateRange({ from, to }, "COALESCE(p.created_at, mp.created_at)");
     const slotRange = buildDateRange({ from, to }, "COALESCE(p.created_at, sr.created_at)");
@@ -508,22 +672,35 @@ const getMonthlyPassRevenueDetails = async ({ from, to, buildingId } = {}) => {
 
     const rows = [...motorbikeRows, ...carRows];
     const totalPaid = rows
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .filter((row) => row.paymentStatus === "SUCCESS" || row.status === "PAID")
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         .reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const paidCount = rows.filter(
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (row) => row.paymentStatus === "SUCCESS" || row.status === "PAID"
     ).length;
 
     return {
         rows,
         paidCount,
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         activeCount: rows.filter((row) => row.status === "ACTIVE" || row.status === "PAID").length,
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         expiredCount: rows.filter((row) => row.status === "EXPIRED").length,
+        /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         pendingCount: rows.filter((row) => row.status === "PENDING_PAYMENT").length,
         totalPaid,
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getTicketRevenueSummary` (get ticket revenue summary). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getTicketRevenueSummary
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTicketRevenueSummary = async ({ from, to, buildingId } = {}) => {
     const range = buildDateRange({ from, to }, "ps.check_out_at");
     const filters = appendCondition(range, "ps.building_id = ?", buildingId);
@@ -551,14 +728,26 @@ const getTicketRevenueSummary = async ({ from, to, buildingId } = {}) => {
 
     return {
         rows,
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         completedCount: rows.reduce((sum, row) => sum + Number(row.completedCount || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         paidCount: rows.reduce((sum, row) => sum + Number(row.paidCount || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         parkingFeeTotal: rows.reduce((sum, row) => sum + Number(row.parkingFeeTotal || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         violationFeeTotal: rows.reduce((sum, row) => sum + Number(row.violationFeeTotal || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         totalAmount: rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0),
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getWalkInRevenueSummary` (get walk in revenue summary). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getWalkInRevenueSummary
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getWalkInRevenueSummary = async ({ from, to, buildingId } = {}) => {
     const range = buildDateRange({ from, to }, "ps.check_out_at");
     const filters = appendCondition(range, "ps.building_id = ?", buildingId);
@@ -583,13 +772,24 @@ const getWalkInRevenueSummary = async ({ from, to, buildingId } = {}) => {
 
     return {
         rows,
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         completedCount: rows.reduce((sum, row) => sum + Number(row.completedCount || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         parkingFeeTotal: rows.reduce((sum, row) => sum + Number(row.parkingFeeTotal || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         totalAmount: rows.reduce((sum, row) => sum + Number(row.totalAmount || 0), 0),
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         violationFeeTotal: rows.reduce((sum, row) => sum + Number(row.violationFeeTotal || 0), 0),
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getViolationRevenueDetails` (get violation revenue details). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getViolationRevenueDetails
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
     const range = buildDateRange({ from, to }, "p.created_at");
     const filters = appendCondition(range, "ps.building_id = ?", buildingId);
@@ -644,6 +844,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
 
     const groupedViolations = new Map();
 
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     violationRows.forEach((row) => {
         const key = row.violationName || "Vi phạm chưa đặt tên";
         const group = groupedViolations.get(key) || {
@@ -709,10 +910,12 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
         groupedViolations.set(key, group);
     });
 
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const rows = [...groupedViolations.values()].map((group) => ({
         buildingNames: [...group.buildingNames].sort().join(", "),
         paidPenalty: group.paidPenalty,
         plateNumbers: [...group.plateNumbers].sort().join(", "),
+        /* Callback nội bộ của lời gọi `sort`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         relatedVehicles: [...group.relatedVehicles.values()].sort((left, right) =>
             String(left.plateNumber || "").localeCompare(String(right.plateNumber || ""), "vi")
         ),
@@ -722,6 +925,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
         violationCount: group.violationCount,
         violationCodes: [...group.violationCodes].sort(),
         violationName: group.violationName,
+    /* Callback nội bộ của lời gọi `sort`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     })).sort((left, right) =>
         Number(right.paidPenalty || 0) - Number(left.paidPenalty || 0)
         || String(left.violationName).localeCompare(String(right.violationName), "vi")
@@ -763,10 +967,19 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
     );
 
     if (unclassifiedRows.length > 0) {
+        /**
+         * Thực hiện nghiệp vụ `uniqueValues` (unique values). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+         *
+         * @function uniqueValues
+         * @param {*} key - Giá trị `key` được hàm sử dụng trong quá trình xử lý.
+         * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+         */
         const uniqueValues = (key) => [...new Set(
+            /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             unclassifiedRows.map((row) => row[key]).filter(Boolean)
         )].join(", ");
         const unclassifiedPenalty = unclassifiedRows.reduce(
+            /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             (sum, row) => sum + Number(row.unclassifiedPenalty || 0),
             0
         );
@@ -775,6 +988,7 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
             buildingNames: uniqueValues("buildingName"),
             paidPenalty: unclassifiedPenalty,
             plateNumbers: uniqueValues("plateNumber"),
+            /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             relatedVehicles: unclassifiedRows.map((row) => ({
                 buildingName: row.buildingName || null,
                 ownerName: row.ownerName || "Khách vãng lai",
@@ -793,30 +1007,45 @@ const getViolationRevenueDetails = async ({ from, to, buildingId } = {}) => {
         });
     }
 
+    /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const specialRows = rows.filter((row) =>
+        /* Callback nội bộ của lời gọi `some`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         row.violationCodes.some((code) => SPECIAL_PARKING_VIOLATION_CODES.has(code))
     );
+    /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const regularRows = rows.filter((row) =>
+        /* Callback nội bộ của lời gọi `some`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         !row.violationCodes.some((code) => SPECIAL_PARKING_VIOLATION_CODES.has(code))
     );
 
     return {
         rows,
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         paidPenalty: rows.reduce((sum, row) => sum + Number(row.paidPenalty || 0), 0),
         regularPaidPenalty: regularRows.reduce(
+            /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             (sum, row) => sum + Number(row.paidPenalty || 0),
             0
         ),
         regularRows,
         specialPaidPenalty: specialRows.reduce(
+            /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             (sum, row) => sum + Number(row.paidPenalty || 0),
             0
         ),
         specialRows,
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         totalPenalty: rows.reduce((sum, row) => sum + Number(row.totalPenalty || 0), 0),
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getOperationsOverview` (get operations overview). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getOperationsOverview
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getOperationsOverview = async ({ from, to, buildingId } = {}) => {
     const entryFilters = appendCondition(
         buildDateRange({ from, to }, "ps.check_in_at"),
@@ -884,6 +1113,7 @@ const getOperationsOverview = async ({ from, to, buildingId } = {}) => {
     const exits = exitRows[0];
     const active = activeRows[0];
     const byBuildingMap = new Map(
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         buildings.map((building) => [Number(building.buildingId), {
             ...building,
             activeSessions: 0,
@@ -901,6 +1131,7 @@ const getOperationsOverview = async ({ from, to, buildingId } = {}) => {
         }])
     );
 
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     entries.forEach((row) => {
         const summary = byBuildingMap.get(Number(row.buildingId));
         if (!summary) return;
@@ -912,6 +1143,7 @@ const getOperationsOverview = async ({ from, to, buildingId } = {}) => {
         if (row.vehicleType === "CAR") summary.carEntries += total;
     });
 
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     exits.forEach((row) => {
         const summary = byBuildingMap.get(Number(row.buildingId));
         if (!summary) return;
@@ -924,21 +1156,33 @@ const getOperationsOverview = async ({ from, to, buildingId } = {}) => {
         if (row.pricingType === "HOURLY") summary.hourlyTicketsCompleted += total;
     });
 
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     active.forEach((row) => {
         const summary = byBuildingMap.get(Number(row.buildingId));
         if (summary) summary.activeSessions = Number(row.total || 0);
     });
 
+    /**
+     * Thực hiện nghiệp vụ `percentage` (percentage). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function percentage
+     * @param {*} value - Giá trị đầu vào cần xử lý.
+     * @param {*} total - Giá trị `total` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const percentage = (value, total) => total > 0
         ? Number(((Number(value || 0) / total) * 100).toFixed(2))
         : 0;
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const byBuilding = [...byBuildingMap.values()].map((summary) => ({
         ...summary,
         registeredUserPercentage: percentage(summary.registeredUserEntries, summary.entryCount),
         walkInGuestPercentage: percentage(summary.walkInGuestEntries, summary.entryCount),
     }));
     const totals = byBuilding.reduce(
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         (result, row) => {
+            /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             Object.keys(result).forEach((key) => {
                 result[key] += Number(row[key] || 0);
             });
@@ -982,6 +1226,13 @@ const getOperationsOverview = async ({ from, to, buildingId } = {}) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getCapacityOverview` (get capacity overview). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCapacityOverview
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCapacityOverview = async ({ buildingId } = {}) => {
     const buildingWhere = buildingId ? "WHERE b.id = ?" : "";
     const params = buildingId ? [buildingId] : [];
@@ -1050,6 +1301,13 @@ const getCapacityOverview = async ({ buildingId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getFullReport` (get full report). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getFullReport
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFullReport = async ({ from, to, buildingId } = {}) => {
     const [
         revenue,

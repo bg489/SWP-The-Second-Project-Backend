@@ -1,8 +1,34 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền wrongSlotCase.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/wrongSlotCase.service.js.
+ */
 const db = require("../config/db");
+/**
+ * Khai báo `hourlySlotReservationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/wrongSlotCase.service.js.
+ */
 const hourlySlotReservationService = require("./hourlySlotReservation.service");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/wrongSlotCase.service.js.
+ */
 const notificationService = require("./notification.service");
+/**
+ * Khai báo `smsService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/wrongSlotCase.service.js.
+ */
 const smsService = require("./sms.service");
 
+/**
+ * Khai báo `caseSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/wrongSlotCase.service.js.
+ */
 const caseSelect = `
     SELECT
         c.id,
@@ -68,12 +94,26 @@ const caseSelect = `
     LEFT JOIN parking_slots rs ON c.reassigned_slot_id = rs.id
 `;
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizePlateLookup` (normalize plate lookup). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizePlateLookup
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizePlateLookup = (value) =>
     String(value || "")
         .trim()
         .toUpperCase()
         .replace(/[\s.-]/g, "");
 
+/**
+ * Lấy nghiệp vụ `getCaseById` (get case by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCaseById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCaseById = async (id) => {
     const [rows] = await db.query(
         `${caseSelect}
@@ -85,6 +125,13 @@ const getCaseById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getCases` (get cases). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCases
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCases = async ({ buildingId, status, userId } = {}) => {
     await processExpiredWrongSlotCases({ buildingId });
 
@@ -121,6 +168,14 @@ const getCases = async ({ buildingId, status, userId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getReservedRegistrationBySlot` (get reserved registration by slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getReservedRegistrationBySlot
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservedRegistrationBySlot = async (executor, slotId) => {
     const [rows] = await executor.query(
         `SELECT
@@ -146,6 +201,14 @@ const getReservedRegistrationBySlot = async (executor, slotId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getReservedHourlyReservationBySlot` (get reserved hourly reservation by slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getReservedHourlyReservationBySlot
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservedHourlyReservationBySlot = async (executor, slotId) => {
     const [rows] = await executor.query(
         `SELECT
@@ -185,6 +248,14 @@ const getReservedHourlyReservationBySlot = async (executor, slotId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getReservedHourlyReservationById` (get reserved hourly reservation by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getReservedHourlyReservationById
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservedHourlyReservationById = async (executor, id) => {
     const [rows] = await executor.query(
         `SELECT
@@ -217,6 +288,14 @@ const getReservedHourlyReservationById = async (executor, id) => {
     return rows[0] || null;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isHourlyReservationForSession` (is hourly reservation for session). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function isHourlyReservationForSession
+ * @param {*} reservation - Giá trị `reservation` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} session - Giá trị `session` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isHourlyReservationForSession = (reservation, session) => {
     if (!reservation || !session) {
         return false;
@@ -230,6 +309,13 @@ const isHourlyReservationForSession = (reservation, session) => {
         normalizePlateLookup(session.plate_number);
 };
 
+/**
+ * Thực hiện nghiệp vụ `queueReservedContactAlert` (queue reserved contact alert). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function queueReservedContactAlert
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const queueReservedContactAlert = async ({
     connection,
     content,
@@ -258,6 +344,13 @@ const queueReservedContactAlert = async ({
     });
 };
 
+/**
+ * Thực hiện nghiệp vụ `queueVictimSlotUpdateAlert` (queue victim slot update alert). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function queueVictimSlotUpdateAlert
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const queueVictimSlotUpdateAlert = async ({
     connection,
     originalSlotCode,
@@ -281,6 +374,14 @@ const queueVictimSlotUpdateAlert = async ({
         templateKey: smsService.SMS_TEMPLATE_KEYS.WRONG_SLOT_VICTIM_UPDATE,
     });
 
+/**
+ * Thực hiện nghiệp vụ `unlockSlotForReservationRefresh` (unlock slot for reservation refresh). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function unlockSlotForReservationRefresh
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const unlockSlotForReservationRefresh = async (executor, slotId) => {
     if (!slotId) {
         return;
@@ -296,6 +397,14 @@ const unlockSlotForReservationRefresh = async (executor, slotId) => {
     );
 };
 
+/**
+ * Lấy nghiệp vụ `findReplacementSlot` (find replacement slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findReplacementSlot
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} options2 - Giá trị `options2` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findReplacementSlot = async (executor, { buildingId, excludeSlotId }) => {
     const [rows] = await executor.query(
         `SELECT s.id, s.floor_id AS floorId, s.slot_code AS slotCode
@@ -315,6 +424,14 @@ const findReplacementSlot = async (executor, { buildingId, excludeSlotId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getWrongSlotPenalty` (get wrong slot penalty). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getWrongSlotPenalty
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} staffId - Giá trị `staffId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getWrongSlotPenalty = async (executor, staffId) => {
     await executor.query(
         `INSERT INTO violation_types
@@ -341,6 +458,13 @@ const getWrongSlotPenalty = async (executor, staffId) => {
     };
 };
 
+/**
+ * Thực hiện nghiệp vụ `moveSessionToObservedSlot` (move session to observed slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function moveSessionToObservedSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const moveSessionToObservedSlot = async ({
     connection,
     observedSlotId,
@@ -371,6 +495,13 @@ const moveSessionToObservedSlot = async ({
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `reportWrongSlot` (report wrong slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function reportWrongSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const reportWrongSlot = async ({
     evidenceUrl,
     note,
@@ -623,6 +754,13 @@ const reportWrongSlot = async ({
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `confirmWrongSlot` (confirm wrong slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function confirmWrongSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const confirmWrongSlot = async ({ id, staffId }) => {
     const connection = await db.getConnection();
 
@@ -872,6 +1010,13 @@ const confirmWrongSlot = async ({ id, staffId }) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `processExpiredWrongSlotCases` (process expired wrong slot cases). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function processExpiredWrongSlotCases
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const processExpiredWrongSlotCases = async ({ buildingId } = {}) => {
     const conditions = [
         "status = 'WAITING_USER'",
@@ -916,6 +1061,13 @@ const processExpiredWrongSlotCases = async ({ buildingId } = {}) => {
     return processed;
 };
 
+/**
+ * Thực hiện nghiệp vụ `markWrongSlotMoved` (mark wrong slot moved). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function markWrongSlotMoved
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markWrongSlotMoved = async ({
     id,
     staffBuildingId,
@@ -1100,6 +1252,13 @@ const markWrongSlotMoved = async ({
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `restoreReservedSlotAfterOccupierCheckout` (restore reserved slot after occupier checkout). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function restoreReservedSlotAfterOccupierCheckout
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session }) => {
     if (!session?.id || session.vehicleType !== "CAR") {
         return [];
@@ -1450,6 +1609,13 @@ const restoreReservedSlotAfterOccupierCheckout = async ({ connection, session })
     return restored;
 };
 
+/**
+ * Thực hiện nghiệp vụ `restoreOriginalSlotAfterReservedVehicleCheckout` (restore original slot after reserved vehicle checkout). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function restoreOriginalSlotAfterReservedVehicleCheckout
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const restoreOriginalSlotAfterReservedVehicleCheckout = async ({
     connection,
     session,

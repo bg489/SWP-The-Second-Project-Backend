@@ -1,7 +1,25 @@
+/**
+ * @fileoverview Khởi tạo và xuất cấu hình dùng chung của backend trong swagger.
+ *
+ * Luồng chính: Dữ liệu đầu vào -> xử lý theo trách nhiệm của module -> xuất kết quả cho lớp gọi.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `swaggerJsdoc` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/config/swagger.js.
+ */
 const swaggerJsdoc = require("swagger-jsdoc");
 
+/**
+ * Khai báo `PORT` để đọc cấu hình môi trường và cung cấp giá trị mặc định an toàn.
+ * Phạm vi sử dụng: src/config/swagger.js.
+ */
 const PORT = process.env.PORT || 5000;
 
+/**
+ * Khai báo `SERVER_URL` để đọc cấu hình môi trường và cung cấp giá trị mặc định an toàn.
+ * Phạm vi sử dụng: src/config/swagger.js.
+ */
 const SERVER_URL =
     process.env.SERVER_URL || `http://localhost:${PORT}`;
 
@@ -732,6 +750,10 @@ const options = {
     apis: ["./src/routes/*.js"],
 };
 
+/**
+ * Khai báo `swaggerSpec` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/config/swagger.js.
+ */
 const swaggerSpec = swaggerJsdoc(options);
 
 module.exports = swaggerSpec;

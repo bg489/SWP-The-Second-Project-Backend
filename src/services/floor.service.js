@@ -1,6 +1,24 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền floor.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/floor.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeSlotRows` (normalize slot rows). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizeSlotRows
+ * @param {*} rows - Giá trị `rows` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeSlotRows = (rows) => {
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     return rows.map((slot) => ({
         id: slot.id,
         code: slot.code,
@@ -16,6 +34,14 @@ const normalizeSlotRows = (rows) => {
     }));
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `mapFloorRow` (map floor row). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function mapFloorRow
+ * @param {*} row - Giá trị `row` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} slots - Giá trị `slots` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const mapFloorRow = (row, slots = []) => {
     if (!row) {
         return null;
@@ -43,6 +69,13 @@ const mapFloorRow = (row, slots = []) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getBuildingById` (get building by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getBuildingById
+ * @param {*} buildingId - Giá trị `buildingId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBuildingById = async (buildingId) => {
     const [rows] = await db.query(
         `SELECT id, name, address
@@ -55,6 +88,13 @@ const getBuildingById = async (buildingId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findFloorByNameAndBuilding` (find floor by name and building). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findFloorByNameAndBuilding
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findFloorByNameAndBuilding = async ({ name, buildingId }) => {
     const [rows] = await db.query(
         `SELECT id, name, building_id AS buildingId
@@ -67,6 +107,13 @@ const findFloorByNameAndBuilding = async ({ name, buildingId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `findFloorByNameAndBuildingExceptId` (find floor by name and building except id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findFloorByNameAndBuildingExceptId
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findFloorByNameAndBuildingExceptId = async ({ name, buildingId, id }) => {
     const [rows] = await db.query(
         `SELECT id, name, building_id AS buildingId
@@ -79,6 +126,13 @@ const findFloorByNameAndBuildingExceptId = async ({ name, buildingId, id }) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotsByFloorId` (get slots by floor id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getSlotsByFloorId
+ * @param {*} floorId - Giá trị `floorId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotsByFloorId = async (floorId) => {
     const [rows] = await db.query(
         `SELECT
@@ -99,11 +153,19 @@ const getSlotsByFloorId = async (floorId) => {
     return normalizeSlotRows(rows);
 };
 
+/**
+ * Tạo nghiệp vụ `createSlotsForCarFloor` (create slots for car floor). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createSlotsForCarFloor
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createSlotsForCarFloor = async ({ connection, buildingId, floorId, slotCodes }) => {
     if (!slotCodes || slotCodes.length === 0) {
         return;
     }
 
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const values = slotCodes.map((slotCode) => [
         buildingId,
         floorId,
@@ -122,6 +184,13 @@ const createSlotsForCarFloor = async ({ connection, buildingId, floorId, slotCod
     );
 };
 
+/**
+ * Tạo nghiệp vụ `createFloor` (create floor). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createFloor
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createFloor = async ({
     buildingId,
     name,
@@ -174,6 +243,13 @@ const createFloor = async ({
     }
 };
 
+/**
+ * Tạo nghiệp vụ `buildFloorFilters` (build floor filters). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildFloorFilters
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildFloorFilters = ({ q, floorType, status, buildingId }) => {
     const conditions = [];
     const params = [];
@@ -204,6 +280,13 @@ const buildFloorFilters = ({ q, floorType, status, buildingId }) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getFloors` (get floors). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getFloors
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloors = async ({ q, floorType, status, buildingId, page = 1, limit = 20 }) => {
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
@@ -241,6 +324,7 @@ const getFloors = async ({ q, floorType, status, buildingId, page = 1, limit = 2
         params
     );
 
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const floorIds = rows.map((floor) => floor.id);
     let slotsByFloorId = {};
 
@@ -262,6 +346,7 @@ const getFloors = async ({ q, floorType, status, buildingId, page = 1, limit = 2
             [floorIds]
         );
 
+        /* Callback nội bộ của lời gọi `reduce`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         slotsByFloorId = slotRows.reduce((acc, slot) => {
             if (!acc[slot.floorId]) {
                 acc[slot.floorId] = [];
@@ -286,6 +371,7 @@ const getFloors = async ({ q, floorType, status, buildingId, page = 1, limit = 2
     }
 
     return {
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         floors: rows.map((row) => mapFloorRow(row, slotsByFloorId[row.id] || [])),
         pagination: {
             page: safePage,
@@ -296,11 +382,25 @@ const getFloors = async ({ q, floorType, status, buildingId, page = 1, limit = 2
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getFloorsByBuildingId` (get floors by building id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getFloorsByBuildingId
+ * @param {*} buildingId - Giá trị `buildingId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloorsByBuildingId = async (buildingId) => {
     const result = await getFloors({ buildingId, page: 1, limit: 100 });
     return result.floors;
 };
 
+/**
+ * Lấy nghiệp vụ `getFloorById` (get floor by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getFloorById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFloorById = async (id) => {
     const [rows] = await db.query(
         `SELECT
@@ -333,6 +433,14 @@ const getFloorById = async (id) => {
     return mapFloorRow(rows[0], slots);
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateFloor` (update floor). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateFloor
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @param {*} payload - Dữ liệu nghiệp vụ được truyền vào hàm.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateFloor = async (id, payload) => {
     const fields = [];
     const params = [];
@@ -394,6 +502,13 @@ const updateFloor = async (id, payload) => {
     return getFloorById(id);
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `deleteFloor` (delete floor). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function deleteFloor
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deleteFloor = async (id) => {
     const connection = await db.getConnection();
 
@@ -435,6 +550,13 @@ const deleteFloor = async (id) => {
     }
 };
 
+/**
+ * Tính toán nghiệp vụ `countSlotsByFloorId` (count slots by floor id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function countSlotsByFloorId
+ * @param {*} floorId - Giá trị `floorId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const countSlotsByFloorId = async (floorId) => {
     const [rows] = await db.query(
         `SELECT COUNT(*) AS slotCount

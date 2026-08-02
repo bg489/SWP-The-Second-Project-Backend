@@ -1,15 +1,54 @@
+/**
+ * @fileoverview Khai báo endpoint, middleware bảo vệ và tài liệu Swagger cho nhóm API parkingSession.routes.
+ *
+ * Luồng chính: HTTP request -> middleware xác thực/phân quyền -> controller phù hợp.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `express` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/parkingSession.routes.js.
+ */
 const express = require("express");
+/**
+ * Khai báo `multer` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/parkingSession.routes.js.
+ */
 const multer = require("multer");
+/**
+ * Khai báo `router` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/routes/parkingSession.routes.js.
+ */
 const router = express.Router();
 
+/**
+ * Khai báo `parkingSessionController` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/parkingSession.routes.js.
+ */
 const parkingSessionController = require("../controllers/parkingSession.controller");
+/**
+ * Khai báo `authMiddleware` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/routes/parkingSession.routes.js.
+ */
 const authMiddleware = require("../middlewares/auth.middleware");
 const { parkingStaffMiddleware } = require("../middlewares/role.middleware");
 const { errorResponse } = require("../utils/response");
 
+/**
+ * Khai báo `plateImageUpload` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/routes/parkingSession.routes.js.
+ */
 const plateImageUpload = multer({
     limits: { fileSize: 8 * 1024 * 1024, files: 1 },
     storage: multer.memoryStorage(),
+    /**
+     * Thực hiện nghiệp vụ `fileFilter` (file filter). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán.
+     *
+     * @function fileFilter
+     * @param {*} _req - Giá trị `_req` được hàm sử dụng trong quá trình xử lý.
+     * @param {*} file - Giá trị `file` được hàm sử dụng trong quá trình xử lý.
+     * @param {*} callback - Giá trị `callback` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     fileFilter: (_req, file, callback) => {
         if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
             return callback(new Error("Vui lòng dùng ảnh JPEG, PNG hoặc WebP."));
@@ -19,7 +58,17 @@ const plateImageUpload = multer({
     },
 });
 
+/**
+ * Thực hiện nghiệp vụ `plateImageUploadMiddleware` (plate image upload middleware). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function plateImageUploadMiddleware
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @param {*} next - Hàm chuyển quyền xử lý sang middleware kế tiếp.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const plateImageUploadMiddleware = (req, res, next) => {
+    /* Callback nội bộ của biểu thức hiện tại; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     plateImageUpload.single("image")(req, res, (error) => {
         if (error) {
             return errorResponse(

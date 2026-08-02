@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền slot.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/slot.service.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `slotSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/slot.service.js.
+ */
 const slotSelect = `
     SELECT
         s.id,
@@ -20,6 +34,13 @@ const slotSelect = `
     INNER JOIN parking_floors f ON s.floor_id = f.id
 `;
 
+/**
+ * Tạo nghiệp vụ `createSlot` (create slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createSlot = async ({
     buildingId,
     floorId,
@@ -68,6 +89,13 @@ const createSlot = async ({
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotsByFloorId` (get slots by floor id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getSlotsByFloorId
+ * @param {*} floorId - Giá trị `floorId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotsByFloorId = async (floorId) => {
     const [rows] = await db.query(
         `${slotSelect}
@@ -79,6 +107,13 @@ const getSlotsByFloorId = async (floorId) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getSlotById` (get slot by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getSlotById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSlotById = async (id) => {
     const [rows] = await db.query(
         `${slotSelect}
@@ -90,6 +125,13 @@ const getSlotById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Cập nhật nghiệp vụ `updateSlot` (update slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function updateSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updateSlot = async ({
     id,
     slotCode,
@@ -121,6 +163,13 @@ const updateSlot = async ({
     return getSlotById(id);
 };
 
+/**
+ * Xóa hoặc đặt lại nghiệp vụ `deleteSlot` (delete slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function deleteSlot
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deleteSlot = async (id) => {
     const connection = await db.getConnection();
 

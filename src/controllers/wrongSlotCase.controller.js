@@ -1,12 +1,41 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của wrongSlotCase.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `wrongSlotCaseService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/wrongSlotCase.controller.js.
+ */
 const wrongSlotCaseService = require("../services/wrongSlotCase.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/wrongSlotCase.controller.js.
+ */
 const userService = require("../services/user.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Thực hiện nghiệp vụ `reportWrongSlot` (report wrong slot). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function reportWrongSlot
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const reportWrongSlot = async (req, res) => {
     try {
         const { observedSlotId, parkingSessionId } = req.body;
@@ -42,6 +71,14 @@ const reportWrongSlot = async (req, res) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `confirmWrongSlot` (confirm wrong slot). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function confirmWrongSlot
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const confirmWrongSlot = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -67,6 +104,14 @@ const confirmWrongSlot = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getWrongSlotCases` (get wrong slot cases). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getWrongSlotCases
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getWrongSlotCases = async (req, res) => {
     try {
         const staffUser = await userService.getUserById(req.user.id);
@@ -86,6 +131,14 @@ const getWrongSlotCases = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyWrongSlotCases` (get my wrong slot cases). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyWrongSlotCases
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyWrongSlotCases = async (req, res) => {
     try {
         const cases = await wrongSlotCaseService.getCases({
@@ -108,6 +161,14 @@ const getMyWrongSlotCases = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `markMyWrongSlotMoved` (mark my wrong slot moved). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function markMyWrongSlotMoved
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markMyWrongSlotMoved = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -133,6 +194,14 @@ const markMyWrongSlotMoved = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `markWrongSlotMovedByStaff` (mark wrong slot moved by staff). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function markWrongSlotMovedByStaff
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markWrongSlotMovedByStaff = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

@@ -1,3 +1,7 @@
+-- Tổng quan tệp: Nâng cấp có kiểm soát dữ liệu hoặc cấu trúc đã tồn tại cho phiên bản ghi trong tên tệp.
+-- Luồng thực thi: chọn cơ sở dữ liệu -> kiểm tra trạng thái hiện tại -> áp dụng từng thay đổi theo thứ tự.
+
+-- Giải thích: Tạo bảng building_change_requests cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS building_change_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
 
@@ -32,6 +36,9 @@ CREATE TABLE IF NOT EXISTS building_change_requests (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Thực hiện một bước thay đổi dữ liệu hoặc cấu trúc của cơ sở dữ liệu.
 CREATE INDEX idx_bcr_user_id ON building_change_requests(user_id);
+-- Giải thích: Thực hiện một bước thay đổi dữ liệu hoặc cấu trúc của cơ sở dữ liệu.
 CREATE INDEX idx_bcr_status ON building_change_requests(status);
+-- Giải thích: Thực hiện một bước thay đổi dữ liệu hoặc cấu trúc của cơ sở dữ liệu.
 CREATE INDEX idx_bcr_requested_building_id ON building_change_requests(requested_building_id);

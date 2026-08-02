@@ -1,14 +1,40 @@
+/**
+ * @fileoverview Tạo dữ liệu khởi đầu phục vụ chạy thử hệ thống cho nhóm seedUsers.
+ *
+ * Luồng chính: Dữ liệu đầu vào -> xử lý theo trách nhiệm của module -> xuất kết quả cho lớp gọi.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `path` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/seed/seedUsers.js.
+ */
 const path = require("path");
 require("dotenv").config({
     path: path.resolve(__dirname, "../../.env"),
     override: true,
 });
 
+/**
+ * Khai báo `bcrypt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/seed/seedUsers.js.
+ */
 const bcrypt = require("bcryptjs");
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/seed/seedUsers.js.
+ */
 const db = require("../config/db");
 
+/**
+ * Khai báo `DEFAULT_PASSWORD` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/seed/seedUsers.js.
+ */
 const DEFAULT_PASSWORD = "123456";
 
+/**
+ * Khai báo `testUsers` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/seed/seedUsers.js.
+ */
 const testUsers = [
     {
         name: "Admin Test",
@@ -48,6 +74,12 @@ const testUsers = [
     },
 ];
 
+/**
+ * Thực hiện nghiệp vụ `ensureDefaultBuilding` (ensure default building). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function ensureDefaultBuilding
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const ensureDefaultBuilding = async () => {
     const [rows] = await db.query(
         `SELECT id
@@ -70,6 +102,13 @@ const ensureDefaultBuilding = async () => {
     return result.insertId;
 };
 
+/**
+ * Thực hiện nghiệp vụ `upsertUser` (upsert user). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function upsertUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const upsertUser = async ({ name, email, phone, role, buildingId }) => {
     const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
@@ -112,6 +151,12 @@ const upsertUser = async ({ name, email, phone, role, buildingId }) => {
     return result.insertId;
 };
 
+/**
+ * Thực hiện nghiệp vụ `seedUsers` (seed users). Hàm đóng gói một bước xử lý để các phần khác có thể tái sử dụng nhất quán. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function seedUsers
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const seedUsers = async () => {
     try {
         console.log("Seeding test users...");

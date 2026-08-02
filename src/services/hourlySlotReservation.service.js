@@ -1,18 +1,55 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền hourlySlotReservation.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
 const { randomUUID } = require("crypto");
 
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const db = require("../config/db");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const notificationService = require("./notification.service");
+/**
+ * Khai báo `pricingPolicyService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const pricingPolicyService = require("./pricingPolicy.service");
+/**
+ * Khai báo `smsService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const smsService = require("./sms.service");
 
+/**
+ * Khai báo `ACTIVE_RESERVATION_STATUSES` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const ACTIVE_RESERVATION_STATUSES = [
     "PENDING_PAYMENT",
     "BOOKED",
     "CHECKED_IN",
     "COMPLETED",
 ];
+/**
+ * Khai báo `VIETNAM_TIME_ZONE` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const VIETNAM_TIME_ZONE = "Asia/Ho_Chi_Minh";
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatSmsPaymentTime` (format sms payment time). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function formatSmsPaymentTime
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatSmsPaymentTime = (value) => {
     const parts = new Intl.DateTimeFormat("en-GB", {
         day: "2-digit",
@@ -23,7 +60,15 @@ const formatSmsPaymentTime = (value) => {
         timeZone: VIETNAM_TIME_ZONE,
         year: "numeric",
     }).formatToParts(new Date(value));
+    /**
+     * Lấy nghiệp vụ `getPart` (get part). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+     *
+     * @function getPart
+     * @param {*} type - Giá trị `type` được hàm sử dụng trong quá trình xử lý.
+     * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+     */
     const getPart = (type) =>
+        /* Callback nội bộ của lời gọi `find`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         parts.find((part) => part.type === type)?.value || "";
 
     return `${getPart("day")}/${getPart("month")}/${getPart(
@@ -31,6 +76,13 @@ const formatSmsPaymentTime = (value) => {
     )} ${getPart("hour")}:${getPart("minute")}`;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatSmsAmount` (format sms amount). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function formatSmsAmount
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatSmsAmount = (value) => {
     const amount = Number(value);
 
@@ -39,6 +91,13 @@ const formatSmsAmount = (value) => {
     ).slice(0, 20);
 };
 
+/**
+ * Tạo nghiệp vụ `buildSmsOrderReference` (build sms order reference). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildSmsOrderReference
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildSmsOrderReference = ({ reservationId, slotCode }) => {
     const normalizedSlot =
         String(slotCode || "SLOT")
@@ -68,6 +127,10 @@ const buildGuestReservationSms = ({
         }
     )}. Cam on quy khach!`;
 
+/**
+ * Khai báo `reservationSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/hourlySlotReservation.service.js.
+ */
 const reservationSelect = `
     SELECT
         r.id,
@@ -124,18 +187,46 @@ const reservationSelect = `
     INNER JOIN users creator ON r.created_by = creator.id
 `;
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizePlate` (normalize plate). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizePlate
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizePlate = (value) =>
     String(value || "")
         .trim()
         .toUpperCase()
         .replace(/\s+/g, " ");
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizePlateLookup` (normalize plate lookup). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizePlateLookup
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizePlateLookup = (value) =>
     normalizePlate(value).replace(/[\s.-]/g, "");
 
+/**
+ * Tạo nghiệp vụ `createReservationCode` (create reservation code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function createReservationCode
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createReservationCode = () =>
     `BOOK-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
+/**
+ * Lấy nghiệp vụ `getReservationById` (get reservation by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getReservationById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservationById = async (id, executor = db) => {
     const [rows] = await executor.query(
         `${reservationSelect}
@@ -147,6 +238,14 @@ const getReservationById = async (id, executor = db) => {
     return rows[0] || null;
 };
 
+/**
+ * Thực hiện nghiệp vụ `refreshSlotStatus` (refresh slot status). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function refreshSlotStatus
+ * @param {*} executor - Giá trị `executor` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const refreshSlotStatus = async (executor, slotId) => {
     const [slotRows] = await executor.query(
         `SELECT status
@@ -233,6 +332,13 @@ const refreshSlotStatus = async (executor, slotId) => {
     return nextStatus;
 };
 
+/**
+ * Xử lý nghiệp vụ `processReservationLifecycle` (process reservation lifecycle). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function processReservationLifecycle
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const processReservationLifecycle = async ({ buildingId } = {}) => {
     const connection = await db.getConnection();
 
@@ -271,8 +377,10 @@ const processReservationLifecycle = async ({ buildingId } = {}) => {
         );
 
         if (expiredPaymentRows.length) {
+            /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             const reservationIds = expiredPaymentRows.map((row) => row.id);
             const paymentIds = expiredPaymentRows
+                /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
                 .map((row) => row.paymentId)
                 .filter(Boolean);
 
@@ -303,6 +411,7 @@ const processReservationLifecycle = async ({ buildingId } = {}) => {
                      completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
                      updated_at = CURRENT_TIMESTAMP
                  WHERE id IN (?)`,
+                /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
                 [expiredBookingRows.map((row) => row.id)]
             );
         }
@@ -311,6 +420,7 @@ const processReservationLifecycle = async ({ buildingId } = {}) => {
             ...expiredPaymentRows,
             ...expiredBookingRows,
             ...completedHoldRows,
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         ].map((row) => row.slotId);
 
         for (const slotId of [...new Set(slotIds)]) {
@@ -332,6 +442,13 @@ const processReservationLifecycle = async ({ buildingId } = {}) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getReservationQuote` (get reservation quote). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getReservationQuote
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservationQuote = async ({ buildingId, endAt, startAt }) => {
     const pricingPolicy = await pricingPolicyService.getActivePricingPolicy({
         buildingId,
@@ -362,6 +479,13 @@ const getReservationQuote = async ({ buildingId, endAt, startAt }) => {
     };
 };
 
+/**
+ * Lấy nghiệp vụ `getAvailableSlots` (get available slots). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getAvailableSlots
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getAvailableSlots = async ({ buildingId, endAt, startAt }) => {
     await processReservationLifecycle({ buildingId });
 
@@ -400,6 +524,7 @@ const getAvailableSlots = async ({ buildingId, endAt, startAt }) => {
         [endAt, startAt, buildingId]
     );
 
+    /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     return rows.map((row) => {
         const canScheduleByStatus = ["AVAILABLE", "RESERVED"].includes(row.status);
         const isAvailable =
@@ -425,6 +550,14 @@ const getAvailableSlots = async ({ buildingId, endAt, startAt }) => {
     });
 };
 
+/**
+ * Thực hiện nghiệp vụ `ensureReservationSlotAvailable` (ensure reservation slot available). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function ensureReservationSlotAvailable
+ * @param {*} connection - Kết nối cơ sở dữ liệu đang được sử dụng, có thể thuộc một transaction.
+ * @param {*} options2 - Giá trị `options2` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const ensureReservationSlotAvailable = async (
     connection,
     { endAt, slotId, startAt }
@@ -506,6 +639,14 @@ const ensureReservationSlotAvailable = async (
     return slot;
 };
 
+/**
+ * Lấy nghiệp vụ `getRegisteredCarForReservation` (get registered car for reservation). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getRegisteredCarForReservation
+ * @param {*} connection - Kết nối cơ sở dữ liệu đang được sử dụng, có thể thuộc một transaction.
+ * @param {*} options2 - Giá trị `options2` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRegisteredCarForReservation = async (
     connection,
     { userId, vehicleId }
@@ -541,6 +682,13 @@ const getRegisteredCarForReservation = async (
     return vehicle;
 };
 
+/**
+ * Tạo nghiệp vụ `createReservationWithPayment` (create reservation with payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createReservationWithPayment
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createReservationWithPayment = async ({
     amount,
     buildingId,
@@ -747,6 +895,13 @@ const createReservationWithPayment = async ({
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getReservations` (get reservations). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getReservations
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservations = async ({ buildingId, status, userId } = {}) => {
     await processReservationLifecycle({ buildingId });
 
@@ -781,6 +936,13 @@ const getReservations = async ({ buildingId, status, userId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getReservationForCheckIn` (get reservation for check in). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getReservationForCheckIn
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getReservationForCheckIn = async ({
     buildingId,
     plateNumber,
@@ -820,6 +982,13 @@ const getReservationForCheckIn = async ({
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getBlockingReservationForSlot` (get blocking reservation for slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getBlockingReservationForSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getBlockingReservationForSlot = async ({
     plateNumber,
     slotId,
@@ -858,6 +1027,13 @@ const getBlockingReservationForSlot = async ({
     return sameVehicle || samePlate ? null : reservation;
 };
 
+/**
+ * Thực hiện nghiệp vụ `markReservationCheckedIn` (mark reservation checked in). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function markReservationCheckedIn
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markReservationCheckedIn = async ({
     connection,
     reservationId,
@@ -883,6 +1059,13 @@ const markReservationCheckedIn = async ({
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `completeReservationForSession` (complete reservation for session). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function completeReservationForSession
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const completeReservationForSession = async ({ connection, session }) => {
     if (!session?.hourlyReservationId) {
         return null;
@@ -900,6 +1083,13 @@ const completeReservationForSession = async ({ connection, session }) => {
     return refreshSlotStatus(connection, session.slotId);
 };
 
+/**
+ * Thực hiện nghiệp vụ `applyPaymentResult` (apply payment result). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function applyPaymentResult
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const applyPaymentResult = async ({
     connection,
     reservationId,

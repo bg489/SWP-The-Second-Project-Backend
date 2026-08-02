@@ -1,20 +1,59 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của monthlyPass.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `monthlyPassService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/monthlyPass.controller.js.
+ */
 const monthlyPassService = require("../services/monthlyPass.service");
+/**
+ * Khai báo `qrPassService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/monthlyPass.controller.js.
+ */
 const qrPassService = require("../services/qrPass.service");
+/**
+ * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/monthlyPass.controller.js.
+ */
 const userService = require("../services/user.service");
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
 const { successResponse, errorResponse } = require("../utils/response");
 const { ROLES, normalizeRole } = require("../utils/constants");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
 
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isValidDateString` (is valid date string). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidDateString
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidDateString = (date) => {
     return typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date);
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parseNonNegativeAmount` (parse non negative amount). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parseNonNegativeAmount
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parseNonNegativeAmount = (value) => {
     if (value === undefined || value === null || value === "") {
         return 0;
@@ -29,6 +68,14 @@ const parseNonNegativeAmount = (value) => {
     return parsed;
 };
 
+/**
+ * Tạo nghiệp vụ `createMonthlyPass` (create monthly pass). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createMonthlyPass
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createMonthlyPass = async (req, res) => {
     try {
         const { amount, endDate, note, startDate, vehicleId } = req.body;
@@ -95,6 +142,14 @@ const createMonthlyPass = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPasses` (get monthly passes). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMonthlyPasses
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPasses = async (req, res) => {
     try {
         const currentUser = await userService.getUserById(req.user.id);
@@ -114,6 +169,14 @@ const getMonthlyPasses = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMyMonthlyPasses` (get my monthly passes). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMyMonthlyPasses
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMyMonthlyPasses = async (req, res) => {
     try {
         const monthlyPasses = await monthlyPassService.getMyMonthlyPasses(
@@ -135,6 +198,14 @@ const getMyMonthlyPasses = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMonthlyPassById` (get monthly pass by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMonthlyPassById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMonthlyPassById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -155,6 +226,14 @@ const getMonthlyPassById = async (req, res) => {
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createMyMonthlyPassPaymentUrl` (create my monthly pass payment url). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createMyMonthlyPassPaymentUrl
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createMyMonthlyPassPaymentUrl = async (req, res) => {
     try {
         const { id } = req.params;

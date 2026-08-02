@@ -1,6 +1,24 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của report.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `reportService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/report.controller.js.
+ */
 const reportService = require("../services/report.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Lấy nghiệp vụ `getTrafficReport` (get traffic report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getTrafficReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getTrafficReport = async (req, res) => {
     try {
         const report = await reportService.getTrafficReport({
@@ -15,6 +33,14 @@ const getTrafficReport = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMotorbikeCapacityReport` (get motorbike capacity report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMotorbikeCapacityReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMotorbikeCapacityReport = async (req, res) => {
     try {
         const report = await reportService.getMotorbikeCapacityReport({
@@ -32,6 +58,14 @@ const getMotorbikeCapacityReport = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getCarSlotStatusReport` (get car slot status report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getCarSlotStatusReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCarSlotStatusReport = async (req, res) => {
     try {
         const report = await reportService.getCarSlotStatusReport({
@@ -44,6 +78,14 @@ const getCarSlotStatusReport = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getRevenueReport` (get revenue report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getRevenueReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getRevenueReport = async (req, res) => {
     try {
         const report = await reportService.getRevenueReport({
@@ -58,6 +100,14 @@ const getRevenueReport = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getQrPassReport` (get qr pass report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getQrPassReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getQrPassReport = async (req, res) => {
     try {
         const report = await reportService.getQrPassReport({
@@ -70,6 +120,14 @@ const getQrPassReport = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getViolationReport` (get violation report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getViolationReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getViolationReport = async (req, res) => {
     try {
         const report = await reportService.getViolationReport({
@@ -84,6 +142,14 @@ const getViolationReport = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getFullReport` (get full report). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getFullReport
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getFullReport = async (req, res) => {
     try {
         const report = await reportService.getFullReport({

@@ -1,10 +1,44 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền parkingSession.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const db = require("../config/db");
+/**
+ * Khai báo `tempQrCardService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const tempQrCardService = require("./tempQrCard.service");
+/**
+ * Khai báo `violationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const violationService = require("./violation.service");
+/**
+ * Khai báo `wrongSlotCaseService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const wrongSlotCaseService = require("./wrongSlotCase.service");
+/**
+ * Khai báo `floorMismatchCaseService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const floorMismatchCaseService = require("./floorMismatchCase.service");
+/**
+ * Khai báo `hourlySlotReservationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const hourlySlotReservationService = require("./hourlySlotReservation.service");
 
+/**
+ * Khai báo `sessionSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/parkingSession.service.js.
+ */
 const sessionSelect = `
     SELECT
         ps.id,
@@ -54,6 +88,13 @@ const sessionSelect = `
         ON hourlyReservation.parking_session_id = ps.id
 `;
 
+/**
+ * Lấy nghiệp vụ `getVehicleByPlateNumber` (get vehicle by plate number). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getVehicleByPlateNumber
+ * @param {*} plateNumber - Giá trị `plateNumber` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getVehicleByPlateNumber = async (plateNumber) => {
     const [rows] = await db.query(
         `SELECT
@@ -75,6 +116,13 @@ const getVehicleByPlateNumber = async (plateNumber) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getActiveMonthlyPassByVehicleId` (get active monthly pass by vehicle id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActiveMonthlyPassByVehicleId
+ * @param {*} vehicleId - Giá trị `vehicleId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveMonthlyPassByVehicleId = async (vehicleId) => {
     const [monthlyPassRows] = await db.query(
         `SELECT
@@ -119,6 +167,13 @@ const getActiveMonthlyPassByVehicleId = async (vehicleId) => {
     return slotRegistrationRows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getActiveSessionByPlateNumber` (get active session by plate number). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActiveSessionByPlateNumber
+ * @param {*} plateNumber - Giá trị `plateNumber` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveSessionByPlateNumber = async (plateNumber) => {
     const [rows] = await db.query(
         `${sessionSelect}
@@ -132,6 +187,13 @@ const getActiveSessionByPlateNumber = async (plateNumber) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getMotorbikeFloorForCheckIn` (get motorbike floor for check in). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getMotorbikeFloorForCheckIn
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMotorbikeFloorForCheckIn = async ({ buildingId, floorId }) => {
     const params = [buildingId];
     let floorFilter = "";
@@ -163,6 +225,13 @@ const getMotorbikeFloorForCheckIn = async ({ buildingId, floorId }) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getCarSlotForCheckIn` (get car slot for check in). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCarSlotForCheckIn
+ * @param {*} slotId - Giá trị `slotId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCarSlotForCheckIn = async (slotId) => {
     const [rows] = await db.query(
         `SELECT
@@ -183,6 +252,13 @@ const getCarSlotForCheckIn = async (slotId) => {
     return rows[0] || null;
 };
 
+/**
+ * Tạo nghiệp vụ `createSession` (create session). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createSession
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createSession = async ({
     buildingId,
     allowReservedSlot,
@@ -229,6 +305,7 @@ const createSession = async ({
             const allowedStatuses = allowReservedSlot
                 ? ["AVAILABLE", "RESERVED"]
                 : ["AVAILABLE"];
+            /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
             const placeholders = allowedStatuses.map(() => "?").join(", ");
             const [updateResult] = await connection.query(
                 `UPDATE parking_slots
@@ -310,6 +387,13 @@ const createSession = async ({
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getSessionById` (get session by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getSessionById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getSessionById = async (id) => {
     const [rows] = await db.query(
         `${sessionSelect}
@@ -321,6 +405,13 @@ const getSessionById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getActiveSessions` (get active sessions). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActiveSessions
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveSessions = async ({ buildingId } = {}) => {
     const conditions = ["ps.status IN ('ACTIVE', 'PENDING_PAYMENT')"];
     const params = [];
@@ -340,6 +431,13 @@ const getActiveSessions = async ({ buildingId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getActiveSessionsByUserId` (get active sessions by user id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActiveSessionsByUserId
+ * @param {*} userId - Giá trị `userId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveSessionsByUserId = async (userId) => {
     const [rows] = await db.query(
         `${sessionSelect}
@@ -352,12 +450,27 @@ const getActiveSessionsByUserId = async (userId) => {
     return rows;
 };
 
+/**
+ * Tạo nghiệp vụ `createDailySummary` (create daily summary). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function createDailySummary
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createDailySummary = () => ({
     currentlyParked: { total: 0, motorbike: 0, car: 0 },
     enteredToday: { total: 0, motorbike: 0, car: 0 },
     exitedToday: { total: 0, motorbike: 0, car: 0 },
 });
 
+/**
+ * Tạo nghiệp vụ `addDailySummaryValues` (add daily summary values). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function addDailySummaryValues
+ * @param {*} summary - Giá trị `summary` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} vehicleType - Giá trị `vehicleType` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} values - Giá trị `values` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const addDailySummaryValues = (summary, vehicleType, values) => {
     if (!["MOTORBIKE", "CAR"].includes(vehicleType)) {
         return;
@@ -365,6 +478,7 @@ const addDailySummaryValues = (summary, vehicleType, values) => {
 
     const key = vehicleType === "CAR" ? "car" : "motorbike";
 
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     Object.entries(values).forEach(([metric, rawValue]) => {
         const value = Number(rawValue || 0);
         summary[metric][key] += value;
@@ -372,6 +486,13 @@ const addDailySummaryValues = (summary, vehicleType, values) => {
     });
 };
 
+/**
+ * Lấy nghiệp vụ `getDailyActivity` (get daily activity). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getDailyActivity
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getDailyActivity = async ({
     activity = "ALL",
     buildingId,
@@ -412,6 +533,7 @@ const getDailyActivity = async ({
     const summary = createDailySummary();
     const summariesByBuilding = new Map();
 
+    /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     summaryRows.forEach((row) => {
         const buildingKey = String(row.buildingId);
 
@@ -549,6 +671,7 @@ const getDailyActivity = async ({
         },
         summary,
         buildingSummaries: [...summariesByBuilding.values()],
+        /* Callback nội bộ của lời gọi `map`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         sessions: sessions.map((session) => ({
             ...session,
             currentlyParked: Boolean(session.currentlyParked),
@@ -558,12 +681,26 @@ const getDailyActivity = async ({
     };
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `normalizeQrLookupCode` (normalize qr lookup code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function normalizeQrLookupCode
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const normalizeQrLookupCode = (value) =>
     String(value || "")
         .trim()
         .toUpperCase()
         .replace(/[\s.-]/g, "");
 
+/**
+ * Lấy nghiệp vụ `getActiveSessionByQrCode` (get active session by qr code). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActiveSessionByQrCode
+ * @param {*} qrCode - Giá trị `qrCode` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveSessionByQrCode = async (qrCode) => {
     const rawCode = String(qrCode || "").trim();
 
@@ -601,6 +738,14 @@ const getActiveSessionByQrCode = async (qrCode) => {
     return plateRows[0] || null;
 };
 
+/**
+ * Thực hiện nghiệp vụ `releaseSessionParkingResource` (release session parking resource). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function releaseSessionParkingResource
+ * @param {*} connection - Kết nối cơ sở dữ liệu đang được sử dụng, có thể thuộc một transaction.
+ * @param {*} session - Giá trị `session` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const releaseSessionParkingResource = async (connection, session) => {
     if (session.vehicleType === "MOTORBIKE") {
         await connection.query(
@@ -640,6 +785,13 @@ const releaseSessionParkingResource = async (connection, session) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `completeSessionWithManualPayment` (complete session with manual payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function completeSessionWithManualPayment
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const completeSessionWithManualPayment = async ({
     baseFee,
     paymentMethod,
@@ -724,6 +876,13 @@ const completeSessionWithManualPayment = async ({
     }
 };
 
+/**
+ * Tạo nghiệp vụ `createPendingVnpayPayment` (create pending vnpay payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function createPendingVnpayPayment
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createPendingVnpayPayment = async ({
     baseFee,
     paymentUrl,
@@ -779,6 +938,13 @@ const createPendingVnpayPayment = async ({
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `completeSessionFromPayment` (complete session from payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function completeSessionFromPayment
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const completeSessionFromPayment = async ({ session }) => {
     const connection = await db.getConnection();
 
@@ -817,6 +983,13 @@ const completeSessionFromPayment = async ({ session }) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `reopenSessionAfterFailedPayment` (reopen session after failed payment). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function reopenSessionAfterFailedPayment
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const reopenSessionAfterFailedPayment = async ({ session }) => {
     await db.query(
         `UPDATE parking_sessions

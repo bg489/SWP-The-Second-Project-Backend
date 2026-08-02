@@ -1,9 +1,31 @@
+/**
+ * @fileoverview Cung cấp middleware auth.middleware để kiểm tra hoặc bổ sung dữ liệu trước khi controller xử lý.
+ *
+ * Luồng chính: Dữ liệu đầu vào -> xử lý theo trách nhiệm của module -> xuất kết quả cho lớp gọi.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `jwt` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/middlewares/auth.middleware.js.
+ */
 const jwt = require("jsonwebtoken");
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/middlewares/auth.middleware.js.
+ */
 const db = require("../config/db");
 const { errorResponse } = require("../utils/response");
 const { USER_STATUSES, normalizeRole } = require("../utils/constants");
 
+/**
+ * Tạo nghiệp vụ `createAuthMiddleware` (create auth middleware). Hàm quyết định request có được đi tiếp đến bước xử lý kế tiếp hay không. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createAuthMiddleware
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createAuthMiddleware = ({ allowIncompleteOnboarding = false } = {}) =>
+    /* Callback nội bộ của biểu thức hiện tại; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     async (req, res, next) => {
         const authHeader = req.headers.authorization;
 
@@ -75,6 +97,10 @@ const createAuthMiddleware = ({ allowIncompleteOnboarding = false } = {}) =>
         }
     };
 
+/**
+ * Khai báo `authMiddleware` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/middlewares/auth.middleware.js.
+ */
 const authMiddleware = createAuthMiddleware();
 
 authMiddleware.allowIncompleteOnboarding = createAuthMiddleware({

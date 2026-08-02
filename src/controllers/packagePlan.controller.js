@@ -1,5 +1,19 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của packagePlan.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
+/**
+ * Khai báo `packagePlanService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/packagePlan.controller.js.
+ */
 const packagePlanService = require("../services/packagePlan.service");
+/**
+ * Khai báo `monthlyPassService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/packagePlan.controller.js.
+ */
 const monthlyPassService = require("../services/monthlyPass.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
@@ -9,22 +23,59 @@ const {
     normalizeEnum,
 } = require("../utils/constants");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parsePositiveInteger` (parse positive integer). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parsePositiveInteger
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parsePositiveInteger = (value) => {
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatSqlDate` (format sql date). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function formatSqlDate
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatSqlDate = (date) => date.toISOString().slice(0, 10);
 
+/**
+ * Tạo nghiệp vụ `addDays` (add days). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function addDays
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} days - Giá trị `days` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const addDays = (date, days) => {
     return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 };
 
+/**
+ * Kiểm tra nghiệp vụ `validatePayload` (validate payload). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function validatePayload
+ * @param {*} body - Giá trị `body` được hàm sử dụng trong quá trình xử lý.
+ * @param {*} existing - Giá trị `existing` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const validatePayload = (body, existing = {}) => {
     const buildingId =
         body.buildingId === undefined
@@ -80,6 +131,14 @@ const validatePayload = (body, existing = {}) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createPackagePlan` (create package plan). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createPackagePlan
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createPackagePlan = async (req, res) => {
     try {
         const validation = validatePayload(req.body);
@@ -98,6 +157,14 @@ const createPackagePlan = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getPackagePlans` (get package plans). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getPackagePlans
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPackagePlans = async (req, res) => {
     try {
         const vehicleType = req.query.vehicleType
@@ -118,6 +185,14 @@ const getPackagePlans = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getPackagePlanById` (get package plan by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getPackagePlanById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getPackagePlanById = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -136,6 +211,14 @@ const getPackagePlanById = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật nghiệp vụ `updatePackagePlan` (update package plan). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function updatePackagePlan
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const updatePackagePlan = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -165,6 +248,14 @@ const updatePackagePlan = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `deactivatePackagePlan` (deactivate package plan). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function deactivatePackagePlan
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const deactivatePackagePlan = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {
@@ -187,6 +278,14 @@ const deactivatePackagePlan = async (req, res) => {
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `buyPackagePlan` (buy package plan). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function buyPackagePlan
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const buyPackagePlan = async (req, res) => {
     try {
         if (!isValidId(req.params.id)) {

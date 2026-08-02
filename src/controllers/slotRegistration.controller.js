@@ -1,14 +1,42 @@
+/**
+ * @fileoverview Tiếp nhận yêu cầu HTTP của slotRegistration.controller, kiểm tra đầu vào, gọi lớp nghiệp vụ và tạo phản hồi API.
+ *
+ * Luồng chính: Route -> middleware -> controller -> service -> response chuẩn hóa trả về client.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
 const { createPaymentUrl, getClientIp } = require("../utils/vnpay");
+/**
+ * Khai báo `packagePlanService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/slotRegistration.controller.js.
+ */
 const packagePlanService = require("../services/packagePlan.service");
+/**
+ * Khai báo `slotRegistrationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/controllers/slotRegistration.controller.js.
+ */
 const slotRegistrationService = require("../services/slotRegistration.service");
 const { successResponse, errorResponse } = require("../utils/response");
 
+/**
+ * Kiểm tra nghiệp vụ `isValidId` (is valid id). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidId
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidId = (id) => {
     const numberId = Number(id);
 
     return Number.isInteger(numberId) && numberId > 0;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `parsePositiveAmount` (parse positive amount). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function parsePositiveAmount
+ * @param {*} amount - Giá trị `amount` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const parsePositiveAmount = (amount) => {
     const parsedAmount = Number(amount);
 
@@ -19,14 +47,35 @@ const parsePositiveAmount = (amount) => {
     return parsedAmount;
 };
 
+/**
+ * Chuẩn hóa hoặc chuyển đổi nghiệp vụ `formatSqlDate` (format sql date). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function formatSqlDate
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const formatSqlDate = (date) => {
     return date.toISOString().slice(0, 10);
 };
 
+/**
+ * Kiểm tra nghiệp vụ `isValidDateString` (is valid date string). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function isValidDateString
+ * @param {*} date - Giá trị `date` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const isValidDateString = (date) => {
     return typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date);
 };
 
+/**
+ * Tạo nghiệp vụ `buildRegistrationDates` (build registration dates). Hàm hỗ trợ controller chuẩn hóa, kiểm tra hoặc tính toán dữ liệu trước khi tạo response.
+ *
+ * @function buildRegistrationDates
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildRegistrationDates = ({ durationDays = 30, startDate, endDate }) => {
     const now = new Date();
     const defaultStartDate = formatSqlDate(now);
@@ -61,6 +110,14 @@ const buildRegistrationDates = ({ durationDays = 30, startDate, endDate }) => {
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createSlotRegistration` (create slot registration). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function createSlotRegistration
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createSlotRegistration = async (req, res) => {
     try {
         const {
@@ -246,6 +303,14 @@ const createSlotRegistration = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMySlotRegistrations` (get my slot registrations). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMySlotRegistrations
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMySlotRegistrations = async (req, res) => {
     try {
         const registrations =
@@ -266,6 +331,14 @@ const getMySlotRegistrations = async (req, res) => {
     }
 };
 
+/**
+ * Lấy nghiệp vụ `getMySlotRegistrationById` (get my slot registration by id). Hàm đọc request, kiểm tra dữ liệu và trả response HTTP theo cấu trúc chung. Kết quả được chuyển thành phản hồi thành công hoặc lỗi có mã trạng thái phù hợp.
+ *
+ * @function getMySlotRegistrationById
+ * @param {*} req - Đối tượng request HTTP chứa tham số, body và thông tin đăng nhập.
+ * @param {*} res - Đối tượng response HTTP dùng để trả kết quả cho client.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getMySlotRegistrationById = async (req, res) => {
     try {
         const { id } = req.params;

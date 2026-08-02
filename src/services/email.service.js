@@ -1,12 +1,34 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền email.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Lấy nghiệp vụ `getFrontendUrl` (get frontend url). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getFrontendUrl
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getFrontendUrl = () =>
     (process.env.FRONTEND_URL || process.env.APP_FRONTEND_URL || "http://localhost:5173")
         .replace(/\/$/, "");
 
+/**
+ * Khai báo `gmailTokenCache` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/email.service.js.
+ */
 let gmailTokenCache = {
     accessToken: null,
     expiresAt: 0,
 };
 
+/**
+ * Lấy nghiệp vụ `getGmailApiConfig` (get gmail api config). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getGmailApiConfig
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const getGmailApiConfig = () => {
     const config = {
         clientId: process.env.GMAIL_CLIENT_ID,
@@ -26,6 +48,13 @@ const getGmailApiConfig = () => {
         : null;
 };
 
+/**
+ * Lấy nghiệp vụ `getGmailAccessToken` (get gmail access token). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function getGmailAccessToken
+ * @param {*} config - Giá trị `config` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getGmailAccessToken = async (config) => {
     if (
         gmailTokenCache.accessToken &&
@@ -64,20 +93,55 @@ const getGmailAccessToken = async (config) => {
     return gmailTokenCache.accessToken;
 };
 
+/**
+ * Thực hiện nghiệp vụ `encodeMailHeader` (encode mail header). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function encodeMailHeader
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const encodeMailHeader = (value) =>
     `=?UTF-8?B?${Buffer.from(String(value || ""), "utf8").toString("base64")}?=`;
 
+/**
+ * Thực hiện nghiệp vụ `wrapBase64` (wrap base64). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function wrapBase64
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const wrapBase64 = (value) =>
     String(value || "").match(/.{1,76}/g)?.join("\r\n") || "";
 
+/**
+ * Thực hiện nghiệp vụ `encodeMailBody` (encode mail body). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function encodeMailBody
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const encodeMailBody = (value) =>
     wrapBase64(Buffer.from(String(value || ""), "utf8").toString("base64"));
 
+/**
+ * Thực hiện nghiệp vụ `encodeAttachmentContent` (encode attachment content). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function encodeAttachmentContent
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const encodeAttachmentContent = (value) =>
     wrapBase64(
         (Buffer.isBuffer(value) ? value : Buffer.from(value || "")).toString("base64")
     );
 
+/**
+ * Thực hiện nghiệp vụ `toBase64Url` (to base64 url). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function toBase64Url
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const toBase64Url = (value) =>
     Buffer.from(value, "utf8")
         .toString("base64")
@@ -85,14 +149,36 @@ const toBase64Url = (value) =>
         .replace(/\//g, "_")
         .replace(/=+$/g, "");
 
+/**
+ * Tạo nghiệp vụ `createMailBoundary` (create mail boundary). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function createMailBoundary
+ * @param {*} type - Giá trị `type` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createMailBoundary = (type) =>
     `sunrise-parking-${type}-${Date.now()}-${Math.random()
         .toString(16)
         .slice(2)}`;
 
+/**
+ * Thực hiện nghiệp vụ `sanitizeMimeValue` (sanitize mime value). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function sanitizeMimeValue
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @param {*} fallback - Giá trị `fallback` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const sanitizeMimeValue = (value, fallback = "") =>
     String(value || fallback).replace(/[\r\n"]/g, "");
 
+/**
+ * Tạo nghiệp vụ `buildRawGmailMessage` (build raw gmail message). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildRawGmailMessage
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildRawGmailMessage = ({
     attachments = [],
     config,
@@ -101,6 +187,7 @@ const buildRawGmailMessage = ({
     text,
     to,
 }) => {
+    /* Callback nội bộ của lời gọi `filter`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
     const inlineAttachments = attachments.filter((attachment) => attachment?.content);
     const alternativeBoundary = createMailBoundary("alternative");
     const relatedBoundary = inlineAttachments.length
@@ -142,6 +229,7 @@ const buildRawGmailMessage = ({
     );
 
     if (relatedBoundary) {
+        /* Callback nội bộ của lời gọi `forEach`; nhận dữ liệu từng bước và trả kết quả cho lời gọi bao ngoài. */
         inlineAttachments.forEach((attachment, index) => {
             const filename = sanitizeMimeValue(
                 attachment.filename,
@@ -178,6 +266,13 @@ const buildRawGmailMessage = ({
     return toBase64Url(lines.join("\r\n"));
 };
 
+/**
+ * Gửi nghiệp vụ `sendWithGmailApi` (send with gmail api). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function sendWithGmailApi
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const sendWithGmailApi = async ({
     attachments,
     config,
@@ -223,6 +318,12 @@ const sendWithGmailApi = async ({
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createTransport` (create transport). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function createTransport
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const createTransport = () => {
     const host = process.env.SMTP_HOST;
     const user = process.env.SMTP_USER || process.env.GMAIL_USER;
@@ -255,6 +356,13 @@ const createTransport = () => {
     });
 };
 
+/**
+ * Thực hiện nghiệp vụ `escapeHtml` (escape html). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function escapeHtml
+ * @param {*} value - Giá trị đầu vào cần xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const escapeHtml = (value) =>
     String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -263,6 +371,13 @@ const escapeHtml = (value) =>
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 
+/**
+ * Tạo nghiệp vụ `buildParkingMail` (build parking mail). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function buildParkingMail
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {*} Kết quả đã được xử lý để lớp gọi tiếp tục sử dụng.
+ */
 const buildParkingMail = ({
     actionLabel,
     body,
@@ -299,6 +414,13 @@ const buildParkingMail = ({
     `;
 };
 
+/**
+ * Gửi nghiệp vụ `sendMail` (send mail). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function sendMail
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const sendMail = async ({ attachments = [], html, subject, text, to }) => {
     const gmailApiConfig = getGmailApiConfig();
 

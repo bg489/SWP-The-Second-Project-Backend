@@ -1,8 +1,30 @@
+/**
+ * @fileoverview Thực hiện nghiệp vụ và truy cập dữ liệu cho miền floorMismatchCase.service.
+ *
+ * Luồng chính: Controller truyền dữ liệu đã kiểm tra -> service thực hiện nghiệp vụ/truy vấn -> trả kết quả.
+ * Các chú thích bên dưới mô tả trách nhiệm của từng hàm và khối cấu hình quan trọng.
+ */
+/**
+ * Khai báo `db` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/floorMismatchCase.service.js.
+ */
 const db = require("../config/db");
+/**
+ * Khai báo `notificationService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
+ * Phạm vi sử dụng: src/services/floorMismatchCase.service.js.
+ */
 const notificationService = require("./notification.service");
 
+/**
+ * Khai báo `WAIT_MINUTES` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
+ * Phạm vi sử dụng: src/services/floorMismatchCase.service.js.
+ */
 const WAIT_MINUTES = 15;
 
+/**
+ * Khai báo `caseSelect` để định nghĩa câu truy vấn SQL nền và ánh xạ các cột dữ liệu cho những thao tác bên dưới.
+ * Phạm vi sử dụng: src/services/floorMismatchCase.service.js.
+ */
 const caseSelect = `
     SELECT
         c.id,
@@ -45,6 +67,13 @@ const caseSelect = `
     LEFT JOIN parking_slots ts ON c.target_slot_id = ts.id
 `;
 
+/**
+ * Lấy nghiệp vụ `getCaseById` (get case by id). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCaseById
+ * @param {*} id - Mã định danh của bản ghi cần xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCaseById = async (id) => {
     const [rows] = await db.query(
         `${caseSelect}
@@ -56,6 +85,13 @@ const getCaseById = async (id) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getCases` (get cases). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getCases
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getCases = async ({ buildingId, status, userId } = {}) => {
     await processExpiredFloorMismatchCases({ buildingId });
 
@@ -90,6 +126,14 @@ const getCases = async ({ buildingId, status, userId } = {}) => {
     return rows;
 };
 
+/**
+ * Lấy nghiệp vụ `getActiveSessionForUpdate` (get active session for update). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getActiveSessionForUpdate
+ * @param {*} connection - Kết nối cơ sở dữ liệu đang được sử dụng, có thể thuộc một transaction.
+ * @param {*} parkingSessionId - Giá trị `parkingSessionId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getActiveSessionForUpdate = async (connection, parkingSessionId) => {
     const [rows] = await connection.query(
         `SELECT
@@ -115,6 +159,14 @@ const getActiveSessionForUpdate = async (connection, parkingSessionId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getObservedFloorForUpdate` (get observed floor for update). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getObservedFloorForUpdate
+ * @param {*} connection - Kết nối cơ sở dữ liệu đang được sử dụng, có thể thuộc một transaction.
+ * @param {*} floorId - Giá trị `floorId` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getObservedFloorForUpdate = async (connection, floorId) => {
     const [rows] = await connection.query(
         `SELECT
@@ -133,6 +185,13 @@ const getObservedFloorForUpdate = async (connection, floorId) => {
     return rows[0] || null;
 };
 
+/**
+ * Lấy nghiệp vụ `getOrCreateViolationType` (get or create violation type). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function getOrCreateViolationType
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const getOrCreateViolationType = async ({
     code,
     connection,
@@ -166,6 +225,13 @@ const getOrCreateViolationType = async ({
     };
 };
 
+/**
+ * Tạo nghiệp vụ `createViolationForSession` (create violation for session). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function createViolationForSession
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const createViolationForSession = async ({
     code,
     connection,
@@ -219,6 +285,13 @@ const createViolationForSession = async ({
     return result.insertId;
 };
 
+/**
+ * Thực hiện nghiệp vụ `appendSessionNote` (append session note). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function appendSessionNote
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const appendSessionNote = async ({ connection, message, sessionId }) => {
     await connection.query(
         `UPDATE parking_sessions
@@ -229,6 +302,13 @@ const appendSessionNote = async ({ connection, message, sessionId }) => {
     );
 };
 
+/**
+ * Lấy nghiệp vụ `findTargetCarSlot` (find target car slot). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function findTargetCarSlot
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const findTargetCarSlot = async ({
     assignedSlotId,
     buildingId,
@@ -317,6 +397,13 @@ const findTargetCarSlot = async ({
     return rows[0];
 };
 
+/**
+ * Gửi nghiệp vụ `notifyUser` (notify user). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
+ *
+ * @function notifyUser
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const notifyUser = async ({
     connection,
     evidenceUrl,
@@ -338,6 +425,13 @@ const notifyUser = async ({
     });
 };
 
+/**
+ * Thực hiện nghiệp vụ `reportFloorMismatch` (report floor mismatch). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function reportFloorMismatch
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const reportFloorMismatch = async ({
     evidenceUrl,
     note,
@@ -526,6 +620,13 @@ const reportFloorMismatch = async ({
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `confirmFloorMismatch` (confirm floor mismatch). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function confirmFloorMismatch
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const confirmFloorMismatch = async ({ id, staffId }) => {
     const connection = await db.getConnection();
 
@@ -691,6 +792,13 @@ const confirmFloorMismatch = async ({ id, staffId }) => {
     }
 };
 
+/**
+ * Xử lý nghiệp vụ `processExpiredFloorMismatchCases` (process expired floor mismatch cases). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function processExpiredFloorMismatchCases
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const processExpiredFloorMismatchCases = async ({ buildingId } = {}) => {
     const conditions = [
         "status = 'WAITING_USER'",
@@ -730,6 +838,13 @@ const processExpiredFloorMismatchCases = async ({ buildingId } = {}) => {
     return processed;
 };
 
+/**
+ * Thực hiện nghiệp vụ `markFloorMismatchMoved` (mark floor mismatch moved). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng. Các thay đổi liên quan được bọc trong giao dịch để giữ dữ liệu nhất quán.
+ *
+ * @function markFloorMismatchMoved
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const markFloorMismatchMoved = async ({
     id,
     staffBuildingId,
@@ -856,6 +971,13 @@ const markFloorMismatchMoved = async ({
     }
 };
 
+/**
+ * Thực hiện nghiệp vụ `restoreTemporarySlotAfterCheckout` (restore temporary slot after checkout). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan. Có đọc hoặc ghi cơ sở dữ liệu và trả kết quả đã ánh xạ về tên trường của ứng dụng.
+ *
+ * @function restoreTemporarySlotAfterCheckout
+ * @param {*} options - Giá trị `options` được hàm sử dụng trong quá trình xử lý.
+ * @returns {Promise<*>} Promise chứa kết quả khi toàn bộ thao tác bất đồng bộ hoàn tất.
+ */
 const restoreTemporarySlotAfterCheckout = async ({ connection, session }) => {
     if (!session?.id || session.vehicleType !== "CAR") {
         return [];

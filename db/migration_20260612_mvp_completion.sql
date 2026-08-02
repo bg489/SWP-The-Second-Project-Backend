@@ -1,8 +1,14 @@
+-- Tổng quan tệp: Nâng cấp có kiểm soát dữ liệu hoặc cấu trúc đã tồn tại cho phiên bản ghi trong tên tệp.
+-- Luồng thực thi: chọn cơ sở dữ liệu -> kiểm tra trạng thái hiện tại -> áp dụng từng thay đổi theo thứ tự.
+
+-- Giải thích: Chọn cơ sở dữ liệu đích trước khi tạo hoặc nâng cấp cấu trúc.
 USE apartment_parking_db;
 
+-- Giải thích: Nâng cấp cấu trúc hoặc ràng buộc của bảng users.
 ALTER TABLE users
     MODIFY status ENUM('PENDING', 'ACTIVE', 'LOCKED', 'INACTIVE') NOT NULL DEFAULT 'PENDING';
 
+-- Giải thích: Tạo bảng package_plans cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS package_plans (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -16,6 +22,7 @@ CREATE TABLE IF NOT EXISTS package_plans (
     INDEX idx_package_plans_vehicle_status (vehicle_type, status)
 );
 
+-- Giải thích: Tạo bảng pricing_policies cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS pricing_policies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     vehicle_type ENUM('MOTORBIKE', 'CAR') NOT NULL,
@@ -28,6 +35,7 @@ CREATE TABLE IF NOT EXISTS pricing_policies (
     INDEX idx_pricing_policies_lookup (vehicle_type, pricing_type, status)
 );
 
+-- Giải thích: Tạo bảng temporary_qr_cards cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS temporary_qr_cards (
     id INT AUTO_INCREMENT PRIMARY KEY,
     card_code VARCHAR(100) NOT NULL UNIQUE,
@@ -42,6 +50,7 @@ CREATE TABLE IF NOT EXISTS temporary_qr_cards (
     INDEX idx_temporary_qr_cards_session (current_session_id)
 );
 
+-- Giải thích: Nâng cấp cấu trúc hoặc ràng buộc của bảng monthly_passes.
 ALTER TABLE monthly_passes
     ADD COLUMN package_plan_id INT NULL AFTER slot_registration_id,
     MODIFY status ENUM('PENDING_PAYMENT', 'ACTIVE', 'EXPIRED', 'CANCELLED') NOT NULL DEFAULT 'ACTIVE',
@@ -49,6 +58,7 @@ ALTER TABLE monthly_passes
         FOREIGN KEY (package_plan_id) REFERENCES package_plans(id)
         ON DELETE SET NULL;
 
+-- Giải thích: Nâng cấp cấu trúc hoặc ràng buộc của bảng parking_sessions.
 ALTER TABLE parking_sessions
     ADD COLUMN temp_qr_card_id INT NULL AFTER monthly_pass_id,
     ADD COLUMN session_qr_code VARCHAR(100) NULL AFTER temp_qr_card_id,
@@ -57,6 +67,7 @@ ALTER TABLE parking_sessions
         FOREIGN KEY (temp_qr_card_id) REFERENCES temporary_qr_cards(id)
         ON DELETE SET NULL;
 
+-- Giải thích: Nâng cấp cấu trúc hoặc ràng buộc của bảng payments.
 ALTER TABLE payments
     ADD COLUMN monthly_pass_id INT NULL AFTER parking_session_id,
     ADD INDEX idx_payments_monthly_pass (monthly_pass_id),
@@ -64,6 +75,7 @@ ALTER TABLE payments
         FOREIGN KEY (monthly_pass_id) REFERENCES monthly_passes(id)
         ON DELETE CASCADE;
 
+-- Giải thích: Tạo bảng qr_passes cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS qr_passes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
@@ -100,6 +112,7 @@ CREATE TABLE IF NOT EXISTS qr_passes (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Tạo bảng violations cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS violations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parking_session_id INT NULL,

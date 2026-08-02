@@ -1,10 +1,16 @@
+-- Tổng quan tệp: Nâng cấp có kiểm soát dữ liệu hoặc cấu trúc đã tồn tại cho phiên bản ghi trong tên tệp.
+-- Luồng thực thi: chọn cơ sở dữ liệu -> kiểm tra trạng thái hiện tại -> áp dụng từng thay đổi theo thứ tự.
+
+-- Giải thích: Chọn cơ sở dữ liệu đích trước khi tạo hoặc nâng cấp cấu trúc.
 USE apartment_parking_db;
 
+-- Giải thích: Nâng cấp cấu trúc hoặc ràng buộc của bảng staff_role_requests.
 ALTER TABLE staff_role_requests
     ADD COLUMN request_type ENUM('PROMOTE', 'DEMOTE') NOT NULL DEFAULT 'PROMOTE'
         AFTER building_id,
     MODIFY COLUMN portrait_image_url MEDIUMTEXT NULL;
 
+-- Giải thích: Tạo bảng staff_profiles cùng cột, chỉ mục và khóa ngoại cần thiết.
 CREATE TABLE IF NOT EXISTS staff_profiles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -33,6 +39,7 @@ CREATE TABLE IF NOT EXISTS staff_profiles (
         ON DELETE SET NULL
 );
 
+-- Giải thích: Bổ sung dữ liệu khởi tạo hoặc dữ liệu bù vào bảng staff_profiles.
 INSERT INTO staff_profiles (
     user_id,
     building_id,
