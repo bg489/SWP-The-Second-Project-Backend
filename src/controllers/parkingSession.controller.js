@@ -54,9 +54,6 @@ const { ROLES } = require("../utils/constants");
  * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
  */
 const VALID_VEHICLE_TYPES = ["MOTORBIKE", "CAR"];
-<<<<<<< Updated upstream
-const VALID_MANUAL_PAYMENT_METHODS = ["CASH", "CARD"];
-=======
 /**
  * Khai báo `VALID_CHECKOUT_PAYMENT_METHODS` để định nghĩa tập lựa chọn, nhãn hoặc quy tắc hợp lệ dùng xuyên suốt module.
  * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
@@ -66,7 +63,6 @@ const VALID_CHECKOUT_PAYMENT_METHODS = ["CASH", "VNPAY"];
  * Khai báo `VALID_DAILY_ACTIVITY_FILTERS` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
  * Phạm vi sử dụng: src/controllers/parkingSession.controller.js.
  */
->>>>>>> Stashed changes
 const VALID_DAILY_ACTIVITY_FILTERS = ["ALL", "CURRENTLY_PARKED", "ENTERED", "EXITED"];
 
 /**
@@ -658,18 +654,15 @@ const checkOut = async (req, res) => {
             if (!paymentMethod) {
                 return errorResponse(
                     res,
-                    "Can paymentMethod khi totalAmount > 0",
+                    "Cần chọn phương thức thanh toán khi có phí cần thu",
                     400
                 );
             }
 
-            if (
-                paymentMethod !== "VNPAY" &&
-                !VALID_MANUAL_PAYMENT_METHODS.includes(paymentMethod)
-            ) {
+            if (!VALID_CHECKOUT_PAYMENT_METHODS.includes(paymentMethod)) {
                 return errorResponse(
                     res,
-                    "paymentMethod chi nhan CASH, CARD hoac VNPAY khi co phi",
+                    "Phương thức thanh toán chỉ chấp nhận tiền mặt hoặc VNPay khi có phí",
                     400
                 );
             }
@@ -692,7 +685,7 @@ const checkOut = async (req, res) => {
                 });
             const completedSession = await parkingSessionService.getSessionById(id);
 
-            return successResponse(res, "Check-out thanh cong, khong phat sinh phi", {
+            return successResponse(res, "Xe ra thành công, không phát sinh phí", {
                 session: completedSession,
                 payment: {
                     transactionRef,

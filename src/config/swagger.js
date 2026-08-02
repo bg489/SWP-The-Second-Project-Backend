@@ -498,7 +498,7 @@ const options = {
                         paymentMethod: {
                             type: "string",
                             nullable: true,
-                            enum: ["CASH", "CARD", "VNPAY"],
+                            enum: ["CASH", "VNPAY"],
                             example: "CASH",
                             description: "Required when totalAmount > 0. Omit when monthly pass has no violation fee.",
                         },
