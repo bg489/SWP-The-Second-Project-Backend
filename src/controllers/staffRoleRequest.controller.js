@@ -1,11 +1,15 @@
+const bcrypt = require("bcryptjs");
+
 const staffRoleRequestService = require("../services/staffRoleRequest.service");
 const { successResponse, errorResponse } = require("../utils/response");
 const {
     STAFF_ROLE_REQUEST_STATUSES,
-    STAFF_ROLE_REQUEST_TYPES,
     isValidEnumValue,
     normalizeEnum,
 } = require("../utils/constants");
+const { isValidVietnamPhone, normalizeOptionalPhone } = require("../utils/phone");
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const isValidId = (value) => {
     const id = Number(value);
@@ -21,65 +25,25 @@ const isValidPortrait = (value) => {
         || /^https:\/\//i.test(value);
 };
 
-const getCandidates = async (req, res) => {
-    try {
-        const buildingId = Number(req.query.buildingId);
-        const requestType = normalizeEnum(
-            req.query.requestType || STAFF_ROLE_REQUEST_TYPES.PROMOTE
-        );
-
-        if (!isValidId(buildingId)) {
-            return errorResponse(res, "Vui lòng chọn một tòa nhà hợp lệ", 400);
-        }
-
-        if (!isValidEnumValue(STAFF_ROLE_REQUEST_TYPES, requestType)) {
-            return errorResponse(res, "Loại đề nghị không hợp lệ", 400);
-        }
-
-        const result = await staffRoleRequestService.getManagerCandidates({
-            buildingId,
-            managerId: req.user.id,
-            q: String(req.query.q || "").trim().slice(0, 120),
-            requestType,
-        });
-
-        return successResponse(res, "Lấy danh sách tài khoản theo tòa thành công", result);
-    } catch (error) {
-        return errorResponse(
-            res,
-            error.message || "Không lấy được danh sách tài khoản trong tòa",
-            error.statusCode || 500
-        );
-    }
-};
-
 const getMyRequests = async (req, res) => {
     try {
         const buildingId = req.query.buildingId
             ? Number(req.query.buildingId)
-            : undefined;
-        const requestType = req.query.requestType
-            ? normalizeEnum(req.query.requestType)
             : undefined;
 
         if (buildingId && !isValidId(buildingId)) {
             return errorResponse(res, "Tòa nhà lọc không hợp lệ", 400);
         }
 
-        if (requestType && !isValidEnumValue(STAFF_ROLE_REQUEST_TYPES, requestType)) {
-            return errorResponse(res, "Loại đề nghị lọc không hợp lệ", 400);
-        }
-
         const requests = await staffRoleRequestService.getManagerRequests({
             buildingId,
             managerId: req.user.id,
-            requestType,
         });
-        return successResponse(res, "Lấy lịch sử đề nghị nhân viên thành công", requests);
+        return successResponse(res, "Lấy lịch sử đề nghị tạo tài khoản Staff thành công", requests);
     } catch (error) {
         return errorResponse(
             res,
-            error.message || "Không lấy được lịch sử đề nghị nhân viên",
+            error.message || "Không lấy được lịch sử đề nghị tạo tài khoản Staff",
             error.statusCode || 500
         );
     }
@@ -89,31 +53,39 @@ const createRequest = async (req, res) => {
     try {
         const {
             buildingId,
+            email,
             managerNote,
+            name,
+            password,
+            phone,
             portraitImageUrl,
-            requestType: rawRequestType,
-            userId,
         } = req.body || {};
-        const requestType = normalizeEnum(
-            rawRequestType || STAFF_ROLE_REQUEST_TYPES.PROMOTE
-        );
-
-        if (!isValidId(userId)) {
-            return errorResponse(res, "Vui lòng chọn một tài khoản hợp lệ", 400);
-        }
+        const candidateName = String(name || "").trim();
+        const candidateEmail = String(email || "").trim().toLowerCase();
+        const candidatePhone = normalizeOptionalPhone(phone);
+        const temporaryPassword = String(password || "");
 
         if (!isValidId(buildingId)) {
             return errorResponse(res, "Vui lòng chọn một tòa nhà hợp lệ", 400);
         }
 
-        if (!isValidEnumValue(STAFF_ROLE_REQUEST_TYPES, requestType)) {
-            return errorResponse(res, "Loại đề nghị không hợp lệ", 400);
+        if (candidateName.length < 2 || candidateName.length > 100) {
+            return errorResponse(res, "Họ tên nhân viên phải có từ 2 đến 100 ký tự", 400);
         }
 
-        if (
-            requestType === STAFF_ROLE_REQUEST_TYPES.PROMOTE
-            && !isValidPortrait(portraitImageUrl)
-        ) {
+        if (!EMAIL_REGEX.test(candidateEmail) || candidateEmail.length > 150) {
+            return errorResponse(res, "Email nhân viên không hợp lệ", 400);
+        }
+
+        if (!isValidVietnamPhone(candidatePhone)) {
+            return errorResponse(res, "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0", 400);
+        }
+
+        if (temporaryPassword.length < 6 || temporaryPassword.length > 72) {
+            return errorResponse(res, "Mật khẩu tạm thời phải có từ 6 đến 72 ký tự", 400);
+        }
+
+        if (!isValidPortrait(portraitImageUrl)) {
             return errorResponse(res, "Ảnh chân dung không hợp lệ hoặc có dung lượng quá lớn", 400);
         }
 
@@ -121,29 +93,28 @@ const createRequest = async (req, res) => {
             return errorResponse(res, "Ghi chú không được dài quá 1000 ký tự", 400);
         }
 
+        const passwordHash = await bcrypt.hash(temporaryPassword, 10);
         const request = await staffRoleRequestService.createRequest({
             buildingId: Number(buildingId),
+            candidateEmail,
+            candidateName,
+            candidatePhone,
             managerId: req.user.id,
-            userId: Number(userId),
-            portraitImageUrl: requestType === STAFF_ROLE_REQUEST_TYPES.PROMOTE
-                ? portraitImageUrl
-                : null,
             managerNote: String(managerNote || "").trim(),
-            requestType,
+            passwordHash,
+            portraitImageUrl,
         });
 
         return successResponse(
             res,
-            requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE
-                ? "Đã gửi đề nghị hủy quyền nhân viên"
-                : "Đã gửi hồ sơ đề nghị cấp quyền nhân viên",
+            "Đã gửi hồ sơ đề nghị tạo tài khoản Staff độc lập",
             request,
             201
         );
     } catch (error) {
         return errorResponse(
             res,
-            error.message || "Gửi hồ sơ đề nghị nhân viên thất bại",
+            error.message || "Gửi hồ sơ đề nghị tạo tài khoản Staff thất bại",
             error.statusCode || 500
         );
     }
@@ -154,27 +125,17 @@ const getRequests = async (req, res) => {
         const status = req.query.status
             ? normalizeEnum(req.query.status)
             : undefined;
-        const requestType = req.query.requestType
-            ? normalizeEnum(req.query.requestType)
-            : undefined;
 
         if (status && !isValidEnumValue(STAFF_ROLE_REQUEST_STATUSES, status)) {
             return errorResponse(res, "Trạng thái lọc không hợp lệ", 400);
         }
 
-        if (requestType && !isValidEnumValue(STAFF_ROLE_REQUEST_TYPES, requestType)) {
-            return errorResponse(res, "Loại đề nghị lọc không hợp lệ", 400);
-        }
-
-        const requests = await staffRoleRequestService.getAdminRequests({
-            requestType,
-            status,
-        });
-        return successResponse(res, "Lấy danh sách hồ sơ đề nghị nhân viên thành công", requests);
+        const requests = await staffRoleRequestService.getAdminRequests({ status });
+        return successResponse(res, "Lấy danh sách hồ sơ tạo tài khoản Staff thành công", requests);
     } catch (error) {
         return errorResponse(
             res,
-            error.message || "Không lấy được hồ sơ đề nghị nhân viên",
+            error.message || "Không lấy được hồ sơ tạo tài khoản Staff",
             error.statusCode || 500
         );
     }
@@ -192,17 +153,11 @@ const approveRequest = async (req, res) => {
             adminNote: String(req.body?.adminNote || "").trim().slice(0, 1000),
         });
 
-        return successResponse(
-            res,
-            request.requestType === STAFF_ROLE_REQUEST_TYPES.DEMOTE
-                ? "Đã chuyển nhân viên về quyền cư dân"
-                : "Đã duyệt tài khoản thành nhân viên",
-            request
-        );
+        return successResponse(res, "Đã duyệt và tạo tài khoản Staff độc lập", request);
     } catch (error) {
         return errorResponse(
             res,
-            error.message || "Duyệt hồ sơ đề nghị nhân viên thất bại",
+            error.message || "Duyệt hồ sơ tạo tài khoản Staff thất bại",
             error.statusCode || 500
         );
     }
@@ -294,11 +249,11 @@ const rejectRequest = async (req, res) => {
             adminNote: adminNote.slice(0, 1000),
         });
 
-        return successResponse(res, "Đã từ chối hồ sơ đề nghị nhân viên", request);
+        return successResponse(res, "Đã từ chối hồ sơ tạo tài khoản Staff", request);
     } catch (error) {
         return errorResponse(
             res,
-            error.message || "Từ chối hồ sơ đề nghị nhân viên thất bại",
+            error.message || "Từ chối hồ sơ tạo tài khoản Staff thất bại",
             error.statusCode || 500
         );
     }
@@ -307,7 +262,6 @@ const rejectRequest = async (req, res) => {
 module.exports = {
     approveRequest,
     createRequest,
-    getCandidates,
     getMyStaffProfile,
     getMyRequests,
     getRequests,

@@ -200,7 +200,7 @@ const updateUserRole = async (req, res) => {
         if (!canAdminChangeRoleDirectly(user.role, role)) {
             return errorResponse(
                 res,
-                "Moi thay doi quyen lien quan toi nhan vien phai qua de nghi cua quan ly",
+                "Tài khoản Staff được quản lý độc lập và không thể chuyển đổi với tài khoản User",
                 409
             );
         }

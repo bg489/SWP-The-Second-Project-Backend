@@ -1,5 +1,10 @@
 const db = require("../config/db");
-const { ROLES, USER_STATUSES, normalizeRole } = require("../utils/constants");
+const {
+    ROLES,
+    STAFF_PROFILE_STATUSES,
+    USER_STATUSES,
+    normalizeRole,
+} = require("../utils/constants");
 
 const findUserByEmailOrPhone = async (emailOrPhone) => {
     const [rows] = await db.query(
@@ -100,6 +105,104 @@ const createUser = async ({ name, email, phone, passwordHash, buildingId }) => {
         onboardingCompleted: true,
         requiresBuildingSelection: false,
     };
+};
+
+const createAdminManagedUser = async ({
+    adminId,
+    buildingId,
+    email,
+    name,
+    passwordHash,
+    phone,
+    portraitImageUrl,
+    role,
+}) => {
+    const connection = await db.getConnection();
+    let userId;
+
+    try {
+        await connection.beginTransaction();
+
+        const duplicateParams = [email];
+        let phoneCondition = "";
+        if (phone) {
+            phoneCondition = " OR phone = ?";
+            duplicateParams.push(phone);
+        }
+
+        const [duplicates] = await connection.query(
+            `SELECT id
+             FROM users
+             WHERE email = ?${phoneCondition}
+             LIMIT 1
+             FOR UPDATE`,
+            duplicateParams
+        );
+
+        if (duplicates.length) {
+            const error = new Error("Email hoặc số điện thoại đã được sử dụng");
+            error.statusCode = 409;
+            throw error;
+        }
+
+        if (buildingId) {
+            const [buildings] = await connection.query(
+                `SELECT id
+                 FROM buildings
+                 WHERE id = ?
+                 LIMIT 1`,
+                [buildingId]
+            );
+
+            if (!buildings.length) {
+                const error = new Error("Không tìm thấy tòa nhà đã chọn");
+                error.statusCode = 404;
+                throw error;
+            }
+        }
+
+        const [result] = await connection.query(
+            `INSERT INTO users
+                (name, email, phone, password_hash, role, status, building_id,
+                 email_verified_at, auth_provider, onboarding_completed)
+             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'LOCAL', 1)`,
+            [
+                name,
+                email,
+                phone || null,
+                passwordHash,
+                normalizeRole(role),
+                USER_STATUSES.ACTIVE,
+                buildingId || null,
+            ]
+        );
+        userId = result.insertId;
+
+        if (normalizeRole(role) === ROLES.STAFF) {
+            await connection.query(
+                `INSERT INTO staff_profiles
+                    (user_id, building_id, portrait_image_url, status,
+                     approved_request_id, approved_by, started_at, ended_at)
+                 VALUES (?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, NULL)`,
+                [
+                    userId,
+                    buildingId,
+                    portraitImageUrl,
+                    STAFF_PROFILE_STATUSES.ACTIVE,
+                    adminId,
+                ]
+            );
+        }
+
+        await connection.commit();
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+
+    return getUserById(userId);
 };
 
 const createGoogleUser = async ({
@@ -611,6 +714,7 @@ module.exports = {
     findUserByGoogleSubject,
     findExistingUserForRegister,
     createUser,
+    createAdminManagedUser,
     createGoogleUser,
     getUserById,
     getVehiclesByUserId,
