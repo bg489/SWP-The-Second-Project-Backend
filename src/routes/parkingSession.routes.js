@@ -238,7 +238,7 @@ router.get(
  * @swagger
  * /api/parking-sessions/{id}/check-out:
  *   post:
- *     summary: Staff checks a vehicle out and handles cash/card/VNPay/monthly pass payment
+ *     summary: Staff checks a vehicle out and handles cash, VNPay, or a zero-fee checkout
  *     tags: [Parking Sessions]
  *     security:
  *       - bearerAuth: []
