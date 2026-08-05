@@ -9,6 +9,7 @@
  * Phạm vi sử dụng: src/routes/user.routes.js.
  */
 const express = require("express");
+const multer = require("multer");
 /**
  * Khai báo `router` để giữ dữ liệu hoặc cấu hình mà các hàm trong module cùng sử dụng.
  * Phạm vi sử dụng: src/routes/user.routes.js.
@@ -29,6 +30,31 @@ const {
     adminMiddleware,
     parkingManagerMiddleware,
 } = require("../middlewares/role.middleware");
+const { errorResponse } = require("../utils/response");
+
+const avatarImageUpload = multer({
+    limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+    storage: multer.memoryStorage(),
+    fileFilter: (_req, file, callback) => {
+        if (!["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.mimetype)) {
+            return callback(new Error("Vui lòng dùng ảnh JPEG, PNG, WebP hoặc HEIC."));
+        }
+
+        return callback(null, true);
+    },
+});
+
+const avatarImageUploadMiddleware = (req, res, next) => {
+    avatarImageUpload.single("avatar")(req, res, (error) => {
+        if (!error) return next();
+
+        const message = error.code === "LIMIT_FILE_SIZE"
+            ? "Ảnh đại diện không được lớn hơn 8 MB."
+            : error.message || "Không đọc được ảnh đại diện.";
+
+        return errorResponse(res, message, 400);
+    });
+};
 
 /**
  * @swagger
@@ -58,6 +84,38 @@ router.patch("/me", authMiddleware, userController.updateMyProfile);
 router.post("/me/update-request", authMiddleware, userController.requestMyProfileUpdate);
 
 router.patch("/me/confirm-update", authMiddleware, userController.confirmMyProfileUpdate);
+
+/**
+ * @swagger
+ * /api/users/me/avatar-upload:
+ *   post:
+ *     summary: Upload an avatar image and receive its public URL
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [avatar]
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Avatar uploaded successfully
+ *       400:
+ *         description: Invalid image file
+ */
+router.post(
+    "/me/avatar-upload",
+    authMiddleware,
+    avatarImageUploadMiddleware,
+    userController.uploadMyAvatarImage
+);
 
 router.patch("/me/avatar", authMiddleware, userController.updateMyAvatar);
 

@@ -29,6 +29,7 @@ const emailService = require("../services/email.service");
  * Phạm vi sử dụng: src/controllers/user.controller.js.
  */
 const profileUpdateService = require("../services/profileUpdate.service");
+const imageStorageService = require("../services/imageStorage.service");
 const { ROLES, AUTHENTICATED_ROLES } = require("../constants/roles");
 const { USER_STATUSES } = require("../utils/constants");
 const {
@@ -254,6 +255,32 @@ const getUserById = async (req, res) => {
         return successResponse(res, "Lay chi tiet user thanh cong", user);
     } catch (error) {
         return errorResponse(res, "Loi lay chi tiet user", 500, error.message);
+    }
+};
+
+/**
+ * Uploads an avatar file and returns its short public URL. The profile is not
+ * changed here; the URL still goes through the existing email confirmation.
+ */
+const uploadMyAvatarImage = async (req, res) => {
+    try {
+        if (!req.file) {
+            return errorResponse(res, "Vui lòng chọn ảnh đại diện", 400);
+        }
+
+        const image = await imageStorageService.uploadAvatarImage({
+            buffer: req.file.buffer,
+            fileName: req.file.originalname,
+            mimeType: req.file.mimetype,
+        });
+
+        return successResponse(res, "Tải ảnh đại diện lên thành công", image, 201);
+    } catch (error) {
+        return errorResponse(
+            res,
+            error.message || "Không tải được ảnh đại diện",
+            error.statusCode || 500
+        );
     }
 };
 
@@ -514,6 +541,7 @@ module.exports = {
     getUserById,
     updateMyProfile,
     updateMyAvatar,
+    uploadMyAvatarImage,
     requestMyProfileUpdate,
     confirmMyProfileUpdate,
     getStaffCandidatesForMyBuilding,
