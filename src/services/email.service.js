@@ -415,6 +415,37 @@ const buildParkingMail = ({
 };
 
 /**
+ * Tạo nội dung email thông báo thông tin đăng nhập cho tài khoản do Admin tạo.
+ * Mật khẩu chỉ được đưa vào email tại thời điểm tạo và không được ghi vào log.
+ *
+ * @param {object} options - Thông tin tài khoản vừa được tạo.
+ * @returns {{subject: string, text: string, html: string}} Nội dung email hoàn chỉnh.
+ */
+const buildAdminAccountMail = ({ email, name, password, role }) => {
+    const text = [
+        `Xin chào ${name},`,
+        "",
+        "Quản trị viên Sunrise Parking đã tạo tài khoản cho bạn.",
+        `Email đăng nhập: ${email}`,
+        `Mật khẩu: ${password}`,
+        `Vai trò: ${role}`,
+        "",
+        "Vui lòng đăng nhập và bảo mật thông tin tài khoản của bạn.",
+    ].join("\n");
+
+    return {
+        subject: "Sunrise Parking - Thông tin tài khoản của bạn",
+        text,
+        html: buildParkingMail({
+            title: "Tài khoản Sunrise Parking đã được tạo",
+            body: text,
+            buttonLabel: "Đăng nhập Sunrise Parking",
+            buttonUrl: `${getFrontendUrl()}/login`,
+        }),
+    };
+};
+
+/**
  * Gửi nghiệp vụ `sendMail` (send mail). Hàm thực thi quy tắc nghiệp vụ và phối hợp truy vấn dữ liệu liên quan.
  *
  * @function sendMail
@@ -461,6 +492,7 @@ const sendMail = async ({ attachments = [], html, subject, text, to }) => {
 };
 
 module.exports = {
+    buildAdminAccountMail,
     buildParkingMail,
     getFrontendUrl,
     sendMail,

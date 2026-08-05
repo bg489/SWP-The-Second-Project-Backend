@@ -10,6 +10,7 @@
  */
 const bcrypt = require("bcryptjs");
 
+const emailService = require("../services/email.service");
 /**
  * Khai báo `userService` để nạp module phụ thuộc để sử dụng dịch vụ, hằng số hoặc hàm hỗ trợ mà tệp này cần.
  * Phạm vi sử dụng: src/controllers/adminUser.controller.js.
@@ -114,10 +115,48 @@ const createUser = async (req, res) => {
             role: normalizedRole,
         });
 
+        let accountEmailNotification;
+
+        try {
+            const mail = emailService.buildAdminAccountMail({
+                email: normalizedEmail,
+                name: normalizedName,
+                password: normalizedPassword,
+                role: normalizedRole,
+            });
+            const delivery = await emailService.sendMail({
+                to: normalizedEmail,
+                ...mail,
+            });
+
+            accountEmailNotification = {
+                provider: delivery.provider,
+                sent: !delivery.previewOnly,
+            };
+        } catch (emailError) {
+            console.error("[admin-account-email] Không gửi được email tài khoản", {
+                email: normalizedEmail,
+                error: emailError.message,
+                userId: user.id,
+            });
+            accountEmailNotification = {
+                error: emailError.message,
+                provider: null,
+                sent: false,
+            };
+        }
+
+        const responseMessage = accountEmailNotification.sent
+            ? `Đã tạo tài khoản ${normalizedRole}, kích hoạt và gửi thông tin đăng nhập qua email`
+            : `Đã tạo tài khoản ${normalizedRole} và kích hoạt, nhưng email thông tin đăng nhập chưa được gửi`;
+
         return successResponse(
             res,
-            `Đã tạo tài khoản ${normalizedRole} và kích hoạt ngay`,
-            user,
+            responseMessage,
+            {
+                ...user,
+                accountEmailNotification,
+            },
             201
         );
     } catch (error) {
