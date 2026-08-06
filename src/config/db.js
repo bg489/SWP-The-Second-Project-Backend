@@ -18,8 +18,8 @@ require("dotenv").config({ override: true });
 const sslConfig =
     process.env.DB_SSL === "true"
         ? {
-              rejectUnauthorized: false,
-          }
+            rejectUnauthorized: false,
+        }
         : undefined;
 
 /**
@@ -32,6 +32,7 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
+    timezone: "Z",
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
